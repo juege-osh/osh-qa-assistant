@@ -154,7 +154,7 @@ jobs:
           rsync -az \
             -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
             deploy/server/nginx.ai-assistant.conf \
-            "$DEPLOY_USER@$DEPLOY_HOST:/opt/docker-apps/nginx/conf.d/nginx.ai-assistant.conf"
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/docker-apps/nginx/conf.d/default.conf"
           ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
             "docker exec nginx nginx -t && docker exec nginx nginx -s reload"
 
@@ -195,7 +195,7 @@ jobs:
 
       # ── 邮件通知 ──────────────────────────────────────────
       - name: Notify on success
-        if: success()
+        if: success() && secrets.MAIL_USERNAME != ''
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -221,7 +221,7 @@ jobs:
             - 后端接口：http://43.242.200.25/consumer/
 
       - name: Notify on failure
-        if: failure()
+        if: failure() && secrets.MAIL_USERNAME != ''
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
