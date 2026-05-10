@@ -1,0 +1,81 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: ai-assistant-backend
+  main:
+    allow-circular-references: true
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${AI_ASSISTANT_DB_HOST:43.242.200.25}:${AI_ASSISTANT_DB_PORT:3306}/${AI_ASSISTANT_DB_NAME:ai_assistant}?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+    username: ${AI_ASSISTANT_DB_USERNAME:root}
+    password: ${AI_ASSISTANT_DB_PASSWORD:321qwerty}
+    type: com.alibaba.druid.pool.DruidDataSource
+    druid:
+      initial-size: 5
+      max-active: 20
+      max-wait: 60000
+      min-idle: 1
+      validation-query: select 1
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 200MB
+      max-request-size: 200MB
+      file-size-threshold: 0
+  data:
+    redis:
+      host: ${AI_ASSISTANT_REDIS_HOST:43.242.200.25}
+      port: ${AI_ASSISTANT_REDIS_PORT:6379}
+      timeout: 60000
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 3
+          min-idle: 1
+  ai:
+    vectorstore:
+      qdrant:
+        collection-name: assistant_knowledge_lib
+        host: ${AI_ASSISTANT_QDRANT_HOST:43.242.200.25}
+        port: ${AI_ASSISTANT_QDRANT_PORT:6334}
+        initialize-schema: true
+    dashscope:
+      api-key: ${AI_ASSISTANT_DASHSCOPE_API_KEY:sk-24d8f24379034b35ba0233b801d9efca}
+      chat:
+        options:
+          model: qwen-plus
+      embedding:
+        options:
+          model: text-embedding-v4
+          dimensions: 1536
+      rerank:
+        options:
+          model: gte-rerank
+
+mybatis-plus:
+  mapper-locations: classpath*:/mybatis/mapper/*Mapper.xml
+  configuration:
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+    call-setters-on-nulls: true
+
+auth:
+  whiteList:
+    - /
+    - /error
+    - /favicon.ico
+    - /manager/manager/getCode
+    - /manager/manager/login
+    - /consumer/user/getCode
+    - /consumer/user/login
+    - /consumer/user/register
+    - /consumer/api/chat
+    - /consumer/chat/connect
+    - /consumer/sse/**
+    - /manager/resources/**
+    - /consumer/resources/**
+    - /resources/**
+
+upload:
+  static-dir: ${AI_ASSISTANT_UPLOAD_DIR:/Users/rengang/chuangye/osh-projects/ai-assistant/文档/upload}

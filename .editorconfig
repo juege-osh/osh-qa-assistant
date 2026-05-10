@@ -1,0 +1,33 @@
+# .editorconfig文件(命名是固定的)功能:
+# 跨编辑器统一代码风格:
+# 通过定义缩进、换行符等规则,可以减少团队成员之间的代码格式冲突。
+# 让代码即便在不同的ide中格式也能保持统一
+# idea使用步骤:
+# 1.需要安装EditorConfig插件(默认已安装)
+# 2.File | Settings | Editor | Code Style确保.editorconfig优先级最高,默认即如此
+# 标记是否为顶层配置,true则停止递归查找其他 .editorconfig 文件
+root = true
+
+# 匹配所有文件
+[*]
+# 使用空格缩进
+indent_style = space
+# tab为4个空格的长度
+tab_width = 4
+# 文件换行符格式
+end_of_line = lf
+charset = utf-8
+# 自动去除行尾的多余空格
+trim_trailing_whitespace = true
+# 文件末尾插入空行
+insert_final_newline = true
+# 缩进2个空格
+indent_size = 2
+
+[*.java]
+# 缩进4个空格
+indent_size = 4
+max_line_length = 120
+
+[*.md]
+trim_trailing_whitespace = false

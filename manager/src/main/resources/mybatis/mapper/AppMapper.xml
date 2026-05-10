@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.osh.ai.assistant.manager.mapper.AppMapper">
+  <resultMap id="appMap" type="com.osh.ai.assistant.manager.bean.vo.AppVO" autoMapping="true">
+    <id column="id" property="id"/>
+  </resultMap>
+  <sql id="pageColumn">
+    select
+    app.*,
+    <!--一对一的字段-->
+    user.username,
+    knowledgeLib.lib_name libName
+  </sql>
+  <sql id="pageAdditionalTable">
+    join user user on app.user_id = user.id
+    left join knowledge_lib knowledgeLib on app.lib_id = knowledgeLib.id
+  </sql>
+  <sql id="pageWhere">
+    <where>
+      <if test="appName != null and appName != ''">
+        and app.app_name like concat('%',#{appName},'%')
+      </if>
+    </where>
+  </sql>
+
+  <select id="queryCount" resultType="java.lang.Long">
+    select count(*)
+    from app app
+    <include refid="pageWhere"/>
+  </select>
+  <select id="queryList" resultMap="appMap">
+    <include refid="pageColumn"/>
+    from (
+      select app.* from app app
+      <include refid="pageWhere"></include>
+      order by app.id desc
+      limit #{start},#{pageSize}
+    ) app
+    <include refid="pageAdditionalTable"/>
+    order by app.id desc
+  </select>
+</mapper>

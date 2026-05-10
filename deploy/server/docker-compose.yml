@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  qa-assistant-backend:
+    image: eclipse-temurin:17-jre
+    container_name: qa-assistant-backend
+    restart: always
+    working_dir: /app
+    command:
+      - java
+      - -jar
+      - /app/backend.jar
+      - --spring.config.additional-location=file:/app/config/backend-prod.yml
+    volumes:
+      - ./backend.jar:/app/backend.jar:ro
+      - ./config:/app/config:ro
+      - ./upload:/opt/qa-assistant/upload
+      - ./logs/backend:/logs
+    ports:
+      - "19000:9000"
+    networks:
+      - docker-apps_app-network
+
+networks:
+  docker-apps_app-network:
+    external: true

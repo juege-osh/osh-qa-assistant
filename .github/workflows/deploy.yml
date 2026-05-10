@@ -1,0 +1,244 @@
+name: Deploy QA Assistant
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-qa-assistant
+  cancel-in-progress: false
+
+env:
+  JAVA_VERSION: '17'
+  NODE_VERSION: '18'
+  DEPLOY_HOST: '43.242.200.25'
+  DEPLOY_USER: 'root'
+  DEPLOY_PORT: '58753'
+  DEPLOY_DIR: '/opt/qa-assistant'
+  MANAGER_STATIC_DIR: '/www/nginx/html/ai-manager'
+  CONSUMER_STATIC_DIR: '/www/nginx/html/ai-consumer'
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy QA Assistant
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # ── 后端构建 ──────────────────────────────────────────
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Build backend jar
+        run: mvn -f pom.xml -pl backend -am package -DskipTests
+
+      - name: Validate backend jar
+        run: |
+          test -f backend/target/backend.jar
+          unzip -t backend/target/backend.jar > /dev/null
+          sha256sum backend/target/backend.jar | tee /tmp/backend.sha256
+
+      # ── 管理端前端构建 ────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build manager frontend
+        run: |
+          cd frontend/ai-assistant-manager
+          npm ci --legacy-peer-deps
+          npm run build
+
+      - name: Validate manager build
+        run: test -d frontend/ai-assistant-manager/dist
+
+      # ── 用户端前端构建 ────────────────────────────────────
+      - name: Build consumer frontend
+        run: |
+          cd frontend/ai-assistant-consumer
+          npm ci --legacy-peer-deps
+          npm run build
+
+      - name: Validate consumer build
+        run: test -d frontend/ai-assistant-consumer/dist
+
+      # ── SSH 配置 ──────────────────────────────────────────
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          for i in 1 2 3; do
+            ssh-keyscan -p "$DEPLOY_PORT" -T 15 "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && break
+            echo "Attempt $i failed, retrying..."
+            sleep 3
+          done
+          test -s ~/.ssh/known_hosts || { echo "ERROR: known_hosts empty"; exit 1; }
+
+      # ── 停止旧服务 ────────────────────────────────────────
+      - name: Stop old services
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
+            mkdir -p '$DEPLOY_DIR/config' '$DEPLOY_DIR/logs/backend' '$DEPLOY_DIR/upload'
+            cd '$DEPLOY_DIR'
+            # 停止旧双服务（如果存在）
+            docker stop ai-assistant-manager ai-assistant-consumer 2>/dev/null || true
+            docker rm ai-assistant-manager ai-assistant-consumer 2>/dev/null || true
+            # 停止新单服务（如果存在）
+            docker stop qa-assistant-backend 2>/dev/null || true
+          "
+
+      # ── 上传后端 jar ──────────────────────────────────────
+      - name: Upload backend jar
+        run: |
+          rsync -az --inplace --progress \
+            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
+            backend/target/backend.jar \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/backend.jar"
+
+      - name: Verify backend jar integrity
+        run: |
+          local_sha="$(sha256sum backend/target/backend.jar | cut -d' ' -f1)"
+          remote_sha="$(ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "sha256sum '$DEPLOY_DIR/backend.jar' | cut -d' ' -f1")"
+          echo "local : $local_sha"
+          echo "remote: $remote_sha"
+          test "$local_sha" = "$remote_sha"
+
+      # ── 上传 docker-compose 和生产配置 ───────────────────
+      - name: Upload deploy configs
+        run: |
+          rsync -az \
+            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
+            deploy/server/docker-compose.yml \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/docker-compose.yml"
+          rsync -az \
+            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
+            deploy/server/config/ \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/config/"
+
+      # ── 上传前端静态资源 ──────────────────────────────────
+      - name: Upload manager frontend
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mkdir -p '$MANAGER_STATIC_DIR'"
+          rsync -az --delete \
+            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
+            frontend/ai-assistant-manager/dist/ \
+            "$DEPLOY_USER@$DEPLOY_HOST:$MANAGER_STATIC_DIR/"
+
+      - name: Upload consumer frontend
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mkdir -p '$CONSUMER_STATIC_DIR'"
+          rsync -az --delete \
+            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
+            frontend/ai-assistant-consumer/dist/ \
+            "$DEPLOY_USER@$DEPLOY_HOST:$CONSUMER_STATIC_DIR/"
+
+      # ── 更新 Nginx 配置 ───────────────────────────────────
+      - name: Update nginx config
+        run: |
+          rsync -az \
+            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
+            deploy/server/nginx.ai-assistant.conf \
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/docker-apps/nginx/conf.d/nginx.ai-assistant.conf"
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "docker exec nginx nginx -t && docker exec nginx nginx -s reload"
+
+      # ── 启动后端服务 ──────────────────────────────────────
+      - name: Start backend service
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
+            cd '$DEPLOY_DIR'
+            docker compose up -d
+            sleep 25
+            docker compose ps
+          "
+
+      # ── 验证部署 ──────────────────────────────────────────
+      - name: Verify deployment
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
+            for i in 1 2 3 4 5; do
+              code=\$(curl -s -o /dev/null -w '%{http_code}' http://localhost:19000/)
+              echo \"Health check attempt \$i: HTTP \$code\"
+              if [ \"\$code\" = '200' ]; then
+                echo 'Backend is healthy!'
+                exit 0
+              fi
+              sleep 5
+            done
+            echo 'ERROR: Backend health check failed'
+            docker logs --tail 50 qa-assistant-backend
+            exit 1
+          "
+
+      # ── 显示日志 ──────────────────────────────────────────
+      - name: Show backend logs
+        if: always()
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "docker logs --tail 80 qa-assistant-backend 2>&1 || true" || true
+
+      # ── 邮件通知 ──────────────────────────────────────────
+      - name: Notify on success
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "✅ QA Assistant 部署成功"
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: GitHub Actions <${{ secrets.MAIL_USERNAME }}>
+          body: |
+            QA Assistant 部署成功！
+
+            仓库：${{ github.repository }}
+            分支：${{ github.ref_name }}
+            提交：${{ github.sha }}
+            提交信息：${{ github.event.head_commit.message }}
+            触发人：${{ github.actor }}
+
+            访问地址：
+            - 管理端：http://43.242.200.25/ai-manager/
+            - 用户端：http://43.242.200.25/ai-consumer/
+            - 后端接口：http://43.242.200.25/consumer/
+
+      - name: Notify on failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "❌ QA Assistant 部署失败"
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: GitHub Actions <${{ secrets.MAIL_USERNAME }}>
+          body: |
+            QA Assistant 部署失败！请检查 Actions 日志。
+
+            仓库：${{ github.repository }}
+            分支：${{ github.ref_name }}
+            提交：${{ github.sha }}
+            提交信息：${{ github.event.head_commit.message }}
+            触发人：${{ github.actor }}
+
+            查看详情：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

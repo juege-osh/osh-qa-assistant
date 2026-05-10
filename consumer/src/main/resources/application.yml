@@ -1,0 +1,89 @@
+server:
+  port: 9000
+  servlet:
+    context-path: /consumer
+# 数据库连接池配置
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://43.242.200.25:3306/ai_assistant?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+    username: root
+    password: 321qwerty
+    type: com.alibaba.druid.pool.DruidDataSource
+    druid:
+      initial-size: 5
+      max-active: 20
+      max-wait: 60000
+      min-idle: 1
+      validation-query: select 1
+  application:
+    name: consumer
+  servlet:
+    # 上传文件配置
+    multipart:
+      enabled: true
+      max-file-size: 15MB
+      max-request-size: 15MB
+      file-size-threshold: 0
+  data:
+    redis:
+      host: 43.242.200.25
+      port: 6379
+      # 连接超时时间,单位ms
+      timeout: 60000
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 3
+          min-idle: 1
+  main:
+    allow-circular-references: true
+  ai:
+    # 配置向量db
+    vectorstore:
+      qdrant:
+        collection-name: assistant_knowledge_lib
+        host: 127.0.0.1
+        port: 6334
+        initialize-schema: true
+    # 阿里百炼的配置
+    dashscope:
+      api-key: sk-24d8f24379034b35ba0233b801d9efca
+      chat:
+        options:
+          # 默认即是qwen-plus,见DashScopeChatProperties.DEFAULT_DEPLOYMENT_NAME
+          model: qwen-plus
+      embedding:
+        options:
+          model: text-embedding-v4
+          dimensions: 1536
+      rerank:
+        options:
+          model: gte-rerank
+# mp配置
+mybatis-plus:
+  config-location: classpath:mybatis/mybatis-config.xml
+  mapper-locations: classpath:mybatis/mapper/*Mapper.xml
+
+# 配置拦截器URL白名单
+auth:
+  whiteList:
+    - /
+    - /error
+    - /favicon.ico
+    # 静态资源
+    - /resources/**
+    - /user/getCode
+    - /user/login
+    - /user/register
+    - /api/chat
+    - /chat/connect
+    # 测试sse
+    - /sse/**
+
+# 上传目录配置
+upload:
+  static-dir: /Users/rengang/Documents/私人/code/ai-assistant/文档/upload
+# 资源环境配置
+env:
+  base-resource-url: http://localhost:9000/consumer/

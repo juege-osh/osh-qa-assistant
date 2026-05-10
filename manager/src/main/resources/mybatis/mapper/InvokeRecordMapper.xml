@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.osh.ai.assistant.manager.mapper.InvokeRecordMapper">
+  <resultMap id="invokeRecordMap" type="com.osh.ai.assistant.manager.bean.vo.InvokeRecordVO" autoMapping="true">
+    <id column="id" property="id"/>
+    <collection property="detailList" resultMap="detailMap" ofType="com.osh.ai.assistant.manager.bean.vo.InvokeRecordDetailVO"/>
+  </resultMap>
+  <resultMap id="detailMap" type="com.osh.ai.assistant.manager.bean.vo.InvokeRecordDetailVO" autoMapping="true">
+    <id column="detailId" property="id"/>
+    <result column="invoke_record_id" property="invokeRecordId" />
+    <result column="cost_token" property="costToken" />
+    <result column="detail_status" property="status" />
+    <result column="detail_cost_time" property="costTime" />
+    <result column="detail_fail_reason" property="failReason" />
+    <result column="detail_start_time" property="startTime" />
+    <result column="detail_end_time" property="endTime" />
+    <result column="user_input" property="userInput" />
+    <result column="assistant_message" property="assistantMessage" />
+  </resultMap>
+  <sql id="pageColumn">
+    select
+    invokeRecord.*,
+    <!--一对多的字段-->
+    detail.id detailId,
+    detail.invoke_record_id,
+    detail.model_name,
+    detail.cost_token,
+    detail.status detail_status,
+    detail.cost_time detail_cost_time,
+    detail.fail_reason detail_fail_reason,
+    detail.start_time detail_start_time,
+    detail.end_time detail_end_time,
+    detail.user_input,
+    detail.assistant_message,
+    <!--一对一的字段-->
+    lib.lib_name,
+    app.app_name
+  </sql>
+  <sql id="pageAdditionalTable">
+    join invoke_record_detail detail on invokeRecord.id = detail.invoke_record_id
+    join knowledge_lib lib on invokeRecord.lib_id = lib.id
+    join app app on invokeRecord.app_id = app.id
+  </sql>
+  <sql id="pageWhere">
+    <where>
+      <if test="username != null and username != ''">
+        and invokeRecord.username like concat('%',#{username},'%')
+      </if>
+      <if test="status != null">
+        and invokeRecord.status = #{status}
+      </if>
+      <if test="startTime != null and startTime != ''">
+        <![CDATA[
+            and invokeRecord.start_time >= #{startTime}
+        ]]>
+      </if>
+      <if test="endTime != null and endTime != ''">
+        <![CDATA[
+            and invokeRecord.end_time <= #{endTime}
+        ]]>
+      </if>
+    </where>
+  </sql>
+
+  <select id="queryCount" resultType="java.lang.Long">
+    select count(*)
+    from invoke_record invokeRecord
+    <include refid="pageWhere"/>
+  </select>
+  <select id="queryList" resultMap="invokeRecordMap">
+    <include refid="pageColumn"/>
+    from (
+        select invokeRecord.* from invoke_record invokeRecord
+        <include refid="pageWhere"></include>
+        order by invokeRecord.id desc
+        limit #{start},#{pageSize}
+    ) invokeRecord
+    <include refid="pageAdditionalTable"/>
+    order by invokeRecord.id desc
+  </select>
+
+  <select id="queryOverview" resultType="com.osh.ai.assistant.manager.bean.vo.InvokeRecordOverviewVO">
+    select
+      count(*) total_count,
+      sum(case when status = 1 then 1 else 0 end) success_count,
+      sum(case when status = 0 then 1 else 0 end) fail_count,
+      ifnull((
+        select sum(ifnull(detail.cost_token, 0))
+        from invoke_record_detail detail
+      ), 0) total_cost_token,
+      ifnull(avg(cost_time), 0) avg_cost_time
+    from invoke_record
+  </select>
+</mapper>

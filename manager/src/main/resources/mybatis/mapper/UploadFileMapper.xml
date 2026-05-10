@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.osh.ai.assistant.manager.mapper.UploadFileMapper">
+  <resultMap id="uploadFileMap" type="com.osh.ai.assistant.manager.bean.vo.UploadFileVO" autoMapping="true">
+    <id column="id" property="id"/>
+  </resultMap>
+  <sql id="pageColumn">
+    select
+    uploadFile.*,
+    <!--一对一的字段-->
+    user.username,
+    app.app_name,
+    knowledgeLib.lib_name
+  </sql>
+  <sql id="pageAdditionalTable">
+    join knowledge_lib knowledgeLib on knowledgeLib.id = uploadFile.lib_id
+    join user user on knowledgeLib.user_id = user.id
+    left join app app on knowledgeLib.id = app.lib_id
+  </sql>
+  <sql id="pageWhere">
+    <where>
+      <if test="username != null and username != ''">
+        and user.username like concat('%',#{username},'%')
+      </if>
+      <if test="appName != null and appName != ''">
+        and app.app_name like concat('%',#{appName},'%')
+      </if>
+      <if test="libName != null and libName != ''">
+        and knowledgeLib.lib_name like concat('%',#{libName},'%')
+      </if>
+    </where>
+  </sql>
+
+  <select id="queryCount" resultType="java.lang.Long">
+    select count(*)
+    from upload_file uploadFile
+    <include refid="pageAdditionalTable"/>
+    <include refid="pageWhere"/>
+  </select>
+  <select id="queryList" resultMap="uploadFileMap">
+    <include refid="pageColumn"/>
+    from upload_file uploadFile
+    <include refid="pageAdditionalTable"/>
+    <include refid="pageWhere"></include>
+    order by uploadFile.id desc
+    limit #{start},#{pageSize}
+  </select>
+</mapper>

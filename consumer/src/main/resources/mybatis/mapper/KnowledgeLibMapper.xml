@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.osh.ai.assistant.consumer.mapper.KnowledgeLibMapper">
+  <resultMap id="knowledgeLibMap" type="com.osh.ai.assistant.consumer.bean.vo.KnowledgeLibVO" autoMapping="true">
+    <id column="id" property="id"/>
+  </resultMap>
+  <sql id="pageColumn">
+    select
+    knowledgeLib.*,
+    (select count(*) from upload_file where lib_id = knowledgeLib.id) docCount,
+    (select ifnull(sum(char_count),0) from upload_file where lib_id = knowledgeLib.id) charCount,
+    <!--一对一的字段-->
+    app.id as app_id,
+    app.app_name
+  </sql>
+  <sql id="pageAdditionalTable">
+    left join app app on knowledgeLib.id = app.lib_id
+  </sql>
+  <sql id="pageWhere">
+    <where>
+      knowledgeLib.user_id = #{userId}
+      <if test="libName != null and libName != ''">
+        and knowledgeLib.lib_name like concat('%',#{libName},'%')
+      </if>
+    </where>
+  </sql>
+
+  <select id="queryCount" resultType="java.lang.Long">
+    select count(*)
+    from knowledge_lib knowledgeLib
+    <include refid="pageAdditionalTable"/>
+    <include refid="pageWhere"/>
+  </select>
+  <select id="queryList" resultMap="knowledgeLibMap">
+    <include refid="pageColumn"/>
+    from knowledge_lib knowledgeLib
+    <include refid="pageAdditionalTable"/>
+    <include refid="pageWhere"></include>
+    order by knowledgeLib.id desc
+    limit #{start},#{pageSize}
+  </select>
+    <select id="listUnUsed" resultType="com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO">
+      select knowledgeLib.* from knowledge_lib knowledgeLib
+      where not exists (
+        select app.id from app app where app.user_id = #{userId} and app.lib_id = knowledgeLib.id
+      )
+      and knowledgeLib.user_id = #{userId}
+      order by knowledgeLib.id desc
+    </select>
+</mapper>

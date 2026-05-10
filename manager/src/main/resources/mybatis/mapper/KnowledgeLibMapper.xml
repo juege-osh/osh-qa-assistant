@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.osh.ai.assistant.manager.mapper.KnowledgeLibMapper">
+  <resultMap id="knowledgeLibMap" type="com.osh.ai.assistant.manager.bean.vo.KnowledgeLibVO" autoMapping="true">
+    <id column="id" property="id"/>
+  </resultMap>
+  <sql id="pageColumn">
+    select
+    knowledgeLib.*,
+    <!--一对一的字段-->
+    user.username
+  </sql>
+  <sql id="pageAdditionalTable">
+    join user user on knowledgeLib.user_id = user.id
+  </sql>
+  <sql id="pageWhere">
+    <where>
+      <if test="username != null and username != ''">
+        and user.username like concat('%',#{username},'%')
+      </if>
+      <if test="libName != null and libName != ''">
+        and knowledgeLib.lib_name like concat('%',#{libName},'%')
+      </if>
+    </where>
+  </sql>
+
+  <select id="queryCount" resultType="java.lang.Long">
+    select count(*)
+    from knowledge_lib knowledgeLib
+    <include refid="pageAdditionalTable"/>
+    <include refid="pageWhere"/>
+  </select>
+  <select id="queryList" resultMap="knowledgeLibMap">
+    <include refid="pageColumn"/>
+    from knowledge_lib knowledgeLib
+    <include refid="pageAdditionalTable"/>
+    <include refid="pageWhere"></include>
+    order by knowledgeLib.id desc
+    limit #{start},#{pageSize}
+  </select>
+</mapper>
