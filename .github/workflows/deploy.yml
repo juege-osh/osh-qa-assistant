@@ -197,9 +197,9 @@ jobs:
           ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
             "docker logs --tail 80 qa-assistant-backend 2>&1 || true" || true
 
-      # ── 邮件通知 ──────────────────────────────────────────
+      # ── 邮件通知（需配置 MAIL_USERNAME/MAIL_PASSWORD/NOTIFY_EMAIL secrets）──
       - name: Notify on success
-        if: success() && secrets.MAIL_USERNAME != ''
+        if: success() && secrets.MAIL_USERNAME
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -225,7 +225,7 @@ jobs:
             - 后端接口：http://43.242.200.25/consumer/
 
       - name: Notify on failure
-        if: failure() && secrets.MAIL_USERNAME != ''
+        if: failure() && secrets.MAIL_USERNAME
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
