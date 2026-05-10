@@ -155,8 +155,6 @@ jobs:
             -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
             deploy/server/nginx.ai-assistant.conf \
             "$DEPLOY_USER@$DEPLOY_HOST:/opt/docker-apps/nginx/conf.d/default.conf"
-          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "docker exec nginx nginx -t && docker exec nginx nginx -s reload"
 
       # ── 启动后端服务 ──────────────────────────────────────
       - name: Start backend service
@@ -167,6 +165,12 @@ jobs:
             sleep 25
             docker compose ps
           "
+
+      # ── Reload Nginx（后端启动后再 reload）────────────────
+      - name: Reload nginx
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "docker exec nginx nginx -t && docker exec nginx nginx -s reload"
 
       # ── 验证部署 ──────────────────────────────────────────
       - name: Verify deployment
