@@ -4,11 +4,37 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$ROOT_DIR/.local-runlogs"
 BACKEND_JAR="$ROOT_DIR/backend/target/backend.jar"
+ENV_FILE="$ROOT_DIR/.env.local"
+
+load_local_env() {
+  if [ -f "$ENV_FILE" ]; then
+    echo "loading env from $ENV_FILE"
+    set -a
+    # shellcheck disable=SC1090
+    . "$ENV_FILE"
+    set +a
+  fi
+}
 
 detect_java_home() {
   if [ -n "${JAVA_HOME:-}" ] && [ -x "${JAVA_HOME}/bin/java" ]; then
-    echo "$JAVA_HOME"
-    return
+    local current_major
+    current_major="$("${JAVA_HOME}/bin/java" -version 2>&1 | awk -F[\\\".] '/version/ {print $2}')"
+    if [ "${current_major:-0}" -ge 17 ]; then
+      echo "$JAVA_HOME"
+      return
+    fi
+  fi
+
+  if command -v java >/dev/null 2>&1; then
+    local java_bin detected_home current_major
+    java_bin="$(command -v java)"
+    detected_home="$("$java_bin" -XshowSettings:properties -version 2>&1 | awk -F'= ' '/^[[:space:]]*java.home = /{print $2; exit}')"
+    current_major="$("$java_bin" -version 2>&1 | awk -F[\\\".] '/version/ {print $2}')"
+    if [ -n "${detected_home:-}" ] && [ -x "$detected_home/bin/java" ] && [ "${current_major:-0}" -ge 17 ]; then
+      echo "$detected_home"
+      return
+    fi
   fi
 
   if [ -x "/Users/rengang/Library/Java/JavaVirtualMachines/ms-17.0.17/Contents/Home/bin/java" ]; then
@@ -34,8 +60,18 @@ detect_maven_bin() {
     return
   fi
 
+  if [ -x "$ROOT_DIR/.tools/apache-maven-3.9.9/bin/mvn" ]; then
+    echo "$ROOT_DIR/.tools/apache-maven-3.9.9/bin/mvn"
+    return
+  fi
+
   if [ -x "/Users/rengang/chuangye/osh-projects/.tools/apache-maven-3.9.9/bin/mvn" ]; then
     echo "/Users/rengang/chuangye/osh-projects/.tools/apache-maven-3.9.9/bin/mvn"
+    return
+  fi
+
+  if [ -x "/Users/rengang/Downloads/apache-maven-3.8.8-bin/apache-maven-3.8.8/bin/mvn" ]; then
+    echo "/Users/rengang/Downloads/apache-maven-3.8.8-bin/apache-maven-3.8.8/bin/mvn"
     return
   fi
 
@@ -50,12 +86,31 @@ ensure_port_free() {
   fi
 }
 
+wait_http_up() {
+  local url="$1"
+  local label="$2"
+  local max_retry="${3:-30}"
+  local i
+  for i in $(seq 1 "$max_retry"); do
+    if curl -fsS "$url" >/dev/null 2>&1; then
+      echo "$label 已就绪: $url"
+      return 0
+    fi
+    sleep 1
+  done
+  echo "$label 启动超时: $url"
+  return 1
+}
+
 JAVA_HOME_USE="$(detect_java_home)"
 if [ -z "$JAVA_HOME_USE" ]; then
   echo "未找到 JDK 17。请先安装 Java 17，或先执行："
   echo "export JAVA_HOME=\$(/usr/libexec/java_home -v 17)"
   exit 1
 fi
+
+export JAVA_HOME="$JAVA_HOME_USE"
+export PATH="$JAVA_HOME/bin:$PATH"
 
 JAVA_BIN="$JAVA_HOME_USE/bin/java"
 JAVA_MAJOR="$("$JAVA_BIN" -version 2>&1 | awk -F[\\\".] '/version/ {print $2}')"
@@ -66,6 +121,8 @@ if [ "${JAVA_MAJOR:-0}" -lt 17 ]; then
 fi
 
 mkdir -p "$LOG_DIR"
+
+load_local_env
 
 echo "using JAVA_HOME=$JAVA_HOME_USE"
 
@@ -102,7 +159,9 @@ echo "[3/4] starting consumer frontend on 9001"
   nohup npm run dev -- --host 0.0.0.0 --port 9001 --strictPort > "$LOG_DIR/consumer-ui.log" 2>&1 < /dev/null &
 )
 
-sleep 4
+wait_http_up "http://127.0.0.1:9000/" "backend"
+wait_http_up "http://127.0.0.1:8001/" "manager ui"
+wait_http_up "http://127.0.0.1:9001/" "consumer ui"
 
 echo
 echo "Started. Visit:"

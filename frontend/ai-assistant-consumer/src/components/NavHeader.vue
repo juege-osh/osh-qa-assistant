@@ -8,9 +8,9 @@
               <div class="brand-shell">
                 <div class="brand-mark" aria-hidden="true"></div>
                 <div class="brand-copy">
-                  <div class="brand-title">AI Assistant</div>
+                  <div class="brand-title">OSH Wisdom</div>
                   <div class="brand-divider"></div>
-                  <div class="brand-subtitle">Knowledge Workspace</div>
+                  <div class="brand-subtitle">智能知识平台</div>
                 </div>
               </div>
             </el-menu-item>
@@ -20,7 +20,7 @@
             <el-menu-item v-if="hasLogin" index="/personal/knowledgeLib/manage"><el-icon>
                 <Document />
               </el-icon>知识库</el-menu-item>
-            <el-menu-item index="/doc"><el-icon>
+            <el-menu-item v-if="hasLogin" index="/doc"><el-icon>
                 <Memo />
               </el-icon>接口文档</el-menu-item>
           </div>
@@ -244,7 +244,7 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
   align-items: center;
   gap: 14px;
   padding: 10px 16px 10px 10px;
-  border: 1px solid rgba(130, 210, 255, 0.22);
+  border: 1px solid rgba(52, 211, 153, 0.22);
   border-radius: 18px;
   background: linear-gradient(135deg, rgba(11, 22, 52, 0.92), rgba(18, 32, 72, 0.7));
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 14px 32px rgba(0, 0, 0, 0.28);
@@ -259,7 +259,7 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
   height: 42px;
   border-radius: 14px;
   background:
-    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.98), rgba(100, 232, 255, 0.95) 14%, rgba(124, 92, 255, 0.85) 48%, rgba(13, 23, 52, 0.92) 76%);
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.98), rgba(52, 211, 153, 0.95) 14%, rgba(124, 92, 255, 0.85) 48%, rgba(13, 23, 52, 0.92) 76%);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.12),
     0 10px 26px rgba(72, 214, 255, 0.22);
@@ -304,7 +304,7 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
 .brand-divider {
   width: 1px;
   height: 18px;
-  background: rgba(130, 210, 255, 0.26);
+  background: rgba(52, 211, 153, 0.26);
 }
 
 .brand-subtitle {

@@ -49,6 +49,11 @@ public interface AppService extends IService<AppDO> {
     void bindLib(BindLibReq req);
 
     /**
+     * 校验当前登录用户是否拥有该应用
+     */
+    AppDO requireOwnedEntity(Long id);
+
+    /**
      * 判断知识库是否已被绑定
      * @param libId 知识库id
      */

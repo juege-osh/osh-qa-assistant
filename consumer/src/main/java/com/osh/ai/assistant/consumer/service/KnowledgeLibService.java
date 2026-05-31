@@ -34,6 +34,11 @@ public interface KnowledgeLibService extends IService<KnowledgeLibDO> {
     KnowledgeLibVO queryById(Long id);
 
     /**
+     * 校验当前登录用户是否拥有该知识库
+     */
+    KnowledgeLibDO requireOwnedEntity(Long id);
+
+    /**
     * 按id更新
     */
     void modifyById(KnowledgeLibUpdateReq updateReq);

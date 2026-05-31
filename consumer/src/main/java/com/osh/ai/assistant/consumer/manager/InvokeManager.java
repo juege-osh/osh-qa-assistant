@@ -18,7 +18,7 @@ public class InvokeManager {
         InvokeRecordBuilder builder = InvokeRecordBuilder.builder()
             .setId(IdWorker.getId())
             .setAppId(app.getId())
-            .setLibId(app.getLibId())
+            .setLibId(app.getLibId() == null ? 0L : app.getLibId())
             .setStartTime(new Date())
             .setChatDto(chatDTO)
             .setEndUser(crtUser);

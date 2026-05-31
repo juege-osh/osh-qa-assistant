@@ -98,6 +98,22 @@
                   </div>
                 </div>
                 <div class="content" v-html="msg.html"></div>
+                <!-- 回答评价 -->
+                <div v-if="msg.typeDesc !== 'user'" class="feedback-bar">
+                  <button
+                    :class="['fb-btn', msg.feedback === 'up' ? 'active-up' : '']"
+                    @click="setFeedback(idx, 'up')"
+                    title="回答有帮助"
+                  >👍</button>
+                  <button
+                    :class="['fb-btn', msg.feedback === 'down' ? 'active-down' : '']"
+                    @click="setFeedback(idx, 'down')"
+                    title="回答需改进"
+                  >👎</button>
+                  <span v-if="msg.feedback" class="fb-text">
+                    {{ msg.feedback === 'up' ? '感谢反馈' : '已记录，将持续优化' }}
+                  </span>
+                </div>
               </div>
             </div>
           </template>
@@ -159,12 +175,37 @@ import { useRoute } from 'vue-router';
 import { ref, reactive, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import MarkdownIt from 'markdown-it'
-import hljs from 'highlight.js'
+import hljs from 'highlight.js/lib/core'
+import bash from 'highlight.js/lib/languages/bash'
+import java from 'highlight.js/lib/languages/java'
+import javascript from 'highlight.js/lib/languages/javascript'
+import json from 'highlight.js/lib/languages/json'
+import markdown from 'highlight.js/lib/languages/markdown'
+import plaintext from 'highlight.js/lib/languages/plaintext'
+import sql from 'highlight.js/lib/languages/sql'
+import typescript from 'highlight.js/lib/languages/typescript'
+import xml from 'highlight.js/lib/languages/xml'
 import 'highlight.js/styles/github.css'
 import { BASE_URL } from '@/config/constants';
 import { addChatApi, chatApi, deleteChatByIdApi, listRecentChatApi, renameChatApi } from '@/api/chatApi';
 import type { AnyObjDefine, AnyObjsDefine } from '@/types/common';
 import { listHistoryMessageApi } from '@/api/chatMessageApi';
+
+hljs.registerLanguage('bash', bash)
+hljs.registerLanguage('sh', bash)
+hljs.registerLanguage('java', java)
+hljs.registerLanguage('javascript', javascript)
+hljs.registerLanguage('js', javascript)
+hljs.registerLanguage('json', json)
+hljs.registerLanguage('markdown', markdown)
+hljs.registerLanguage('md', markdown)
+hljs.registerLanguage('plaintext', plaintext)
+hljs.registerLanguage('text', plaintext)
+hljs.registerLanguage('sql', sql)
+hljs.registerLanguage('typescript', typescript)
+hljs.registerLanguage('ts', typescript)
+hljs.registerLanguage('xml', xml)
+hljs.registerLanguage('html', xml)
 
 const md = new MarkdownIt({
   html: true,
@@ -200,7 +241,10 @@ const renameForm = reactive({
 const quickPrompts = [
   '请先概括这个知识库最核心的主题范围。',
   '请根据当前知识库回答一个最常见的业务问题。',
-  '如果上下文中找不到答案，你会怎么处理？'
+  '如果上下文中找不到答案，你会怎么处理？',
+  '请列出知识库中涉及的关键概念。',
+  '帮我总结一下最近的更新内容。',
+  '请用通俗易懂的方式解释核心流程。'
 ]
 
 let evtSource: EventSource | undefined
@@ -399,24 +443,48 @@ function retryMessage(message: string) {
   pageData.crtUserInput = message
 }
 
+function setFeedback(idx: number, type: 'up' | 'down') {
+  const msg = pageData.messages[idx]
+  if (msg.feedback === type) {
+    msg.feedback = ''
+  } else {
+    msg.feedback = type
+  }
+}
+
 function exportCurrentChat() {
   if (!pageData.messages.length) {
     ElMessage.warning('当前会话暂无内容可导出')
     return
   }
-  const text = pageData.messages.map((msg: AnyObjDefine) => {
-    const role = msg.typeDesc === 'user' ? '你' : '问答助手'
-    return `${role}:\n${msg.message}\n`
-  }).join('\n')
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+  const lines = [
+    `# ${currentChatName.value || '对话记录'}`,
+    `> 导出时间：${new Date().toLocaleString()}`,
+    `> 消息数：${pageData.messages.length}`,
+    '',
+    '---',
+    ''
+  ]
+  pageData.messages.forEach((msg: AnyObjDefine) => {
+    const role = msg.typeDesc === 'user' ? '🧑 **你**' : '🤖 **问答助手**'
+    lines.push(role)
+    lines.push('')
+    lines.push(msg.message)
+    lines.push('')
+    lines.push('---')
+    lines.push('')
+  })
+  const text = lines.join('\n')
+  const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `${currentChatName.value || 'chat-session'}.txt`
+  link.download = `${currentChatName.value || 'chat-session'}.md`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
+  ElMessage.success('已导出为 Markdown 文件')
 }
 
 onMounted(() => {
@@ -436,7 +504,7 @@ onUnmounted(() => evtSource?.close())
   overflow: hidden;
   border: 1px solid var(--space-border);
   border-radius: 28px;
-  background: rgba(7, 14, 36, 0.68);
+  background: rgba(7, 16, 12, 0.68);
   box-shadow: var(--space-shadow);
   backdrop-filter: blur(18px);
 }
@@ -445,7 +513,7 @@ onUnmounted(() => evtSource?.close())
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--space-border);
-  background: linear-gradient(180deg, rgba(8, 18, 48, 0.96), rgba(12, 10, 36, 0.84));
+  background: linear-gradient(180deg, rgba(8, 20, 16, 0.96), rgba(10, 18, 14, 0.84));
 }
 
 .aside-header {
@@ -488,7 +556,7 @@ onUnmounted(() => evtSource?.close())
 .session-card {
   padding: 14px;
   margin-bottom: 10px;
-  border: 1px solid rgba(130, 210, 255, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.1);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.03);
   cursor: pointer;
@@ -498,8 +566,8 @@ onUnmounted(() => evtSource?.close())
 .session-card:hover,
 .session-card.is-active {
   transform: translateY(-2px);
-  border-color: rgba(100, 232, 255, 0.36);
-  background: linear-gradient(135deg, rgba(100, 232, 255, 0.14), rgba(139, 92, 246, 0.16));
+  border-color: rgba(52, 211, 153, 0.36);
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.14), rgba(245, 158, 11, 0.16));
 }
 
 .session-main {
@@ -545,8 +613,8 @@ onUnmounted(() => evtSource?.close())
   flex-direction: column;
   padding: 0;
   background:
-    radial-gradient(circle at 82% 16%, rgba(100, 232, 255, 0.12), transparent 28%),
-    radial-gradient(circle at 35% 90%, rgba(139, 92, 246, 0.16), transparent 32%);
+    radial-gradient(circle at 82% 16%, rgba(52, 211, 153, 0.12), transparent 28%),
+    radial-gradient(circle at 35% 90%, rgba(245, 158, 11, 0.16), transparent 32%);
 }
 
 .chat-head {
@@ -555,7 +623,7 @@ onUnmounted(() => evtSource?.close())
   justify-content: space-between;
   gap: 16px;
   padding: 20px 24px 16px;
-  border-bottom: 1px solid rgba(130, 210, 255, 0.12);
+  border-bottom: 1px solid rgba(52, 211, 153, 0.12);
 }
 
 .chat-head-title {
@@ -621,8 +689,8 @@ onUnmounted(() => evtSource?.close())
   justify-content: center;
   font-size: 13px;
   font-weight: 800;
-  background: rgba(100, 232, 255, 0.12);
-  border: 1px solid rgba(100, 232, 255, 0.26);
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.26);
   color: var(--space-primary);
 }
 
@@ -662,10 +730,10 @@ onUnmounted(() => evtSource?.close())
 
 .content {
   padding: 15px 18px;
-  border: 1px solid rgba(130, 210, 255, 0.18);
+  border: 1px solid rgba(52, 211, 153, 0.18);
   border-radius: 18px 18px 18px 8px;
   color: var(--space-text);
-  background: rgba(13, 23, 54, 0.82);
+  background: rgba(10, 22, 18, 0.82);
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.24);
   word-break: break-word;
   line-height: 1.75;
@@ -676,7 +744,7 @@ onUnmounted(() => evtSource?.close())
   border: 0;
   border-radius: 18px 18px 8px 18px;
   background: linear-gradient(135deg, var(--space-primary), #9c7cff);
-  box-shadow: 0 16px 42px rgba(100, 232, 255, 0.24);
+  box-shadow: 0 16px 42px rgba(52, 211, 153, 0.24);
 }
 
 .bubble :deep(pre) {
@@ -718,7 +786,7 @@ onUnmounted(() => evtSource?.close())
 
 .prompt-chip {
   padding: 10px 16px;
-  border: 1px solid rgba(130, 210, 255, 0.22);
+  border: 1px solid rgba(52, 211, 153, 0.22);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--space-text);
@@ -728,7 +796,7 @@ onUnmounted(() => evtSource?.close())
 
 .prompt-chip:hover {
   transform: translateY(-2px);
-  border-color: rgba(100, 232, 255, 0.4);
+  border-color: rgba(52, 211, 153, 0.4);
 }
 
 .input-bar {
@@ -737,7 +805,7 @@ onUnmounted(() => evtSource?.close())
   gap: 12px;
   padding: 18px 20px;
   border-top: 1px solid var(--space-border);
-  background: rgba(5, 12, 32, 0.82);
+  background: rgba(5, 14, 10, 0.82);
   backdrop-filter: blur(18px);
 }
 
@@ -785,5 +853,44 @@ onUnmounted(() => evtSource?.close())
   .session-scroll {
     max-height: 260px;
   }
+}
+
+/* 回答评价 */
+.feedback-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 4px;
+}
+
+.fb-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(52, 211, 153, 0.15);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.fb-btn:hover {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.fb-btn.active-up {
+  border-color: var(--space-success);
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.fb-btn.active-down {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.fb-text {
+  color: var(--space-muted);
+  font-size: 12px;
 }
 </style>

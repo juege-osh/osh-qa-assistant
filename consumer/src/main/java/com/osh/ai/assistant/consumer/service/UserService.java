@@ -38,6 +38,11 @@ public interface UserService extends IService<UserDO> {
      */
     UserDO selectByAppKey(String appKey);
 
+    /**
+     * 校验当前登录用户
+     */
+    UserDO requireCurrentUser(Long id);
+
     CodeVO getCode();
 
     void modifyById(UserUpdateReq updateReq);

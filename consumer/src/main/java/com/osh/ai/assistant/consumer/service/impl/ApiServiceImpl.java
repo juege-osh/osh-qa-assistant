@@ -3,6 +3,7 @@ package com.osh.ai.assistant.consumer.service.impl;
 import com.osh.ai.assistant.common.bean.entity.AppDO;
 import com.osh.ai.assistant.common.bean.entity.UserDO;
 import com.osh.ai.assistant.common.constants.CommonConstants;
+import com.osh.ai.assistant.common.ex.BizEx;
 import com.osh.ai.assistant.common.util.ConvertUtil;
 import com.osh.ai.assistant.consumer.bean.dto.ChatDTO;
 import com.osh.ai.assistant.consumer.bean.req.api.ApiChatReq;
@@ -42,10 +43,19 @@ public class ApiServiceImpl implements ApiService {
     public SseEmitter chat(ApiChatReq chatReq) {
         SseEmitter emitter = new SseEmitter(0L);
         AppDO app = appService.getById(chatReq.getAppId());
+        if (app == null) {
+            throw new BizEx("应用不存在");
+        }
         ChatDTO chatDTO = ConvertUtil.convert(chatReq, ChatDTO.class);
         // 设置会话id
         chatDTO.setConversationId(chatReq.getAppId() + CommonConstants.UNDER_LINE + chatReq.getChatId());
         UserDO crtUser = userService.selectByAppKey(chatReq.getAppKey());
+        if (crtUser == null) {
+            throw new BizEx("appKey无效");
+        }
+        if (!crtUser.getId().equals(app.getUserId())) {
+            throw new BizEx("appKey与应用不匹配");
+        }
         InvokeRecordBuilder builder = invokeManager.initInvokeRecordBuild(chatDTO,crtUser,app);
         executorService.execute(() -> {
             aiChatService.doChat(emitter,app,builder);

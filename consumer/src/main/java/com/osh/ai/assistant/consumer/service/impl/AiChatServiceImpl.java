@@ -33,6 +33,7 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -54,7 +55,7 @@ import java.util.stream.Collectors;
 public class AiChatServiceImpl implements AiChatService {
     @Resource
     private VectorStore vectorStore;
-    @Resource
+    @Autowired(required = false)
     private RerankModel rerankModel;
     @Resource
     private ChatClient chatClient;
@@ -67,8 +68,11 @@ public class AiChatServiceImpl implements AiChatService {
     @Resource
     private InvokeRecordService invokeRecordService;
 
-    @Value("${spring.ai.dashscope.chat.options.model}")
+    @Value("${ai-assistant.chat.model:${spring.ai.dashscope.chat.options.model}}")
     private String chatModelName;
+
+    @Value("${ai-assistant.rerank.enabled:true}")
+    private boolean rerankEnabled;
     // 系统提示词模板
     private static final PromptTemplate SYSTEM_PROMPT_TEMPLATE = new PromptTemplate("""
 			遵循下面的要求:
@@ -170,6 +174,9 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     private void processNext(SseEmitter sseEmitter, ChatResponse response, StringBuilder retSb, AtomicReference<ChatResponse> lastResponseRef) {
+        if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
+            return;
+        }
         // 记录每个响应,最后一个响应会被保留
         lastResponseRef.set(response);
         // 服务端的响应内容
@@ -192,7 +199,7 @@ public class AiChatServiceImpl implements AiChatService {
             .system(getSystemPrompt(app))
             // 用户提示词
             .user(chatDTO.getUserInput());
-        List<Document> documents = obtainDocuments(chatDTO.getUserInput(), app.getLibId(),builder);
+        List<Document> documents = obtainDocuments(chatDTO.getUserInput(), app,builder);
         if (CollUtil.isEmpty(documents)) {
             // 超出知识库范围了
             if (YesNoEnum.Y.getCode().equals(app.getOutLibEnable())) {
@@ -232,7 +239,10 @@ public class AiChatServiceImpl implements AiChatService {
         return SYSTEM_PROMPT_TEMPLATE.render(promptParam);
     }
 
-    private List<Document> obtainDocuments(String userInput, Long libId, InvokeRecordBuilder invokeRecordBuilder) {
+    private List<Document> obtainDocuments(String userInput, AppDO app, InvokeRecordBuilder invokeRecordBuilder) {
+        if (app.getLibId() == null) {
+            return List.of();
+        }
         InvokeRecordContext.set(invokeRecordBuilder);
         try {
             SearchRequest searchRequest = SearchRequest.builder()
@@ -240,11 +250,17 @@ public class AiChatServiceImpl implements AiChatService {
                 // 默认只查4条
                 .topK(CommonConstants.TOP_K)
                 // 只查当前应用绑定的知识库的文档
-                .filterExpression(CommonConstants.LIB_ID_STR_KEY + " == '" + libId +"'")
+                .filterExpression(CommonConstants.LIB_ID_STR_KEY + " == '" + app.getLibId() +"'")
                 .build();
             List<Document> documents = vectorStore.similaritySearch(searchRequest);
             documents = doRerank(userInput,documents);
             return documents;
+        } catch (Exception e) {
+            if (YesNoEnum.Y.getCode().equals(app.getOutLibEnable())) {
+                log.warn("knowledge retrieval failed, fallback to direct chat, appId={}", app.getId(), e);
+                return List.of();
+            }
+            throw e;
         }finally {
             InvokeRecordContext.remove();
         }
@@ -256,23 +272,28 @@ public class AiChatServiceImpl implements AiChatService {
      * copied from {@link com.alibaba.cloud.ai.advisor.RetrievalRerankAdvisor}
      */
     protected List<Document> doRerank(String userInput, List<Document> documents) {
-        if (CollectionUtils.isEmpty(documents)) {
+        if (!rerankEnabled || rerankModel == null || CollectionUtils.isEmpty(documents)) {
             return documents;
         }
 
-        var rerankRequest = new RerankRequest(userInput, documents);
-        // 执行重排序
-        RerankResponse response = rerankModel.call(rerankRequest);
-        if (response == null || response.getResults() == null) {
+        try {
+            var rerankRequest = new RerankRequest(userInput, documents);
+            // 执行重排序
+            RerankResponse response = rerankModel.call(rerankRequest);
+            if (response == null || response.getResults() == null) {
+                return documents;
+            }
+
+            return response.getResults()
+                .stream()
+                .filter(doc -> doc != null && doc.getScore() >= ConsumerConstants.MIN_SCORE)
+                .sorted(Comparator.comparingDouble(DocumentWithScore::getScore).reversed())
+                .map(DocumentWithScore::getOutput)
+                .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("rerank failed, fallback to vector search results", e);
             return documents;
         }
-
-        return response.getResults()
-            .stream()
-            .filter(doc -> doc != null && doc.getScore() >= ConsumerConstants.MIN_SCORE)
-            .sorted(Comparator.comparingDouble(DocumentWithScore::getScore).reversed())
-            .map(DocumentWithScore::getOutput)
-            .collect(Collectors.toList());
     }
 
 }

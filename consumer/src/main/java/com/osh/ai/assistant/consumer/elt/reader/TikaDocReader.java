@@ -10,6 +10,7 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -21,8 +22,7 @@ public class TikaDocReader implements DocReader {
     private UploadProperties uploadProperties;
     @Override
     public List<Document> read(String storePath) {
-        String absPath = uploadProperties.getStaticDir() + storePath;
-        File file = new File(absPath);
+        File file = resolveFile(storePath);
         if (!file.isFile() || !file.exists()) {
             throw new BizEx("文件不存在");
         }
@@ -33,5 +33,9 @@ public class TikaDocReader implements DocReader {
             throw new BizEx("无法读取文件");
         }
         return documents;
+    }
+
+    public File resolveFile(String storePath) {
+        return Path.of(uploadProperties.getStaticDir(), storePath).normalize().toFile();
     }
 }

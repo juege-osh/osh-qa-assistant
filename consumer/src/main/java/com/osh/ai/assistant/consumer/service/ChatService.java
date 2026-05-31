@@ -2,6 +2,7 @@ package com.osh.ai.assistant.consumer.service;
 
 
 import com.osh.ai.assistant.common.bean.entity.ChatDO;
+import com.osh.ai.assistant.common.bean.entity.AppDO;
 import com.osh.ai.assistant.consumer.bean.req.chat.ChatReq;
 import com.osh.ai.assistant.consumer.bean.req.chat.ChatAddReq;
 import com.osh.ai.assistant.consumer.bean.req.chat.ChatRenameReq;
@@ -29,4 +30,8 @@ public interface ChatService extends IService<ChatDO> {
     void rename(ChatRenameReq req);
 
     void deleteById(Long id);
+
+    AppDO requireOwnedApp(Long appId);
+
+    ChatDO requireOwnedChat(Long chatId);
 }

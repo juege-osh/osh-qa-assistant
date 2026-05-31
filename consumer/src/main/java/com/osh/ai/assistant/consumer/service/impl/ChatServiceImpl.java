@@ -56,6 +56,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
 
     @Override
     public List<ChatVO> listRecent(Long appId) {
+        requireOwnedApp(appId);
         LambdaQueryWrapper<ChatDO> lq = Wrappers.<ChatDO>lambdaQuery()
             .eq(ChatDO::getAppId, appId)
             .orderByDesc(ChatDO::getModifiedTime)
@@ -66,6 +67,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SseEmitter connect(Long chatId) {
+        requireOwnedChat(chatId);
         // 0L 表示永不超时
         SseEmitter emitter = new SseEmitter(0L);
         emitters.put(chatId, emitter);
@@ -78,6 +80,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
 
     @Override
     public void chat(ChatReq chatReq) {
+        requireOwnedChat(chatReq.getChatId());
         SseEmitter sseEmitter = emitters.get(chatReq.getChatId());
         if (sseEmitter == null) {
             throw new BizEx("无效会话");
@@ -101,20 +104,14 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
      * 获取应用信息
      */
     private AppDO obtainApp(Long chatId) {
-        ChatDO chatDO = getById(chatId);
-        if (chatDO == null) {
-            throw new BizEx("会话不存在");
-        }
-        AppDO appDO = appService.getById(chatDO.getAppId());
-        if (appDO == null) {
-            throw new BizEx("应用信息不存在");
-        }
-        return appDO;
+        ChatDO chatDO = requireOwnedChat(chatId);
+        return requireOwnedApp(chatDO.getAppId());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ChatVO add(ChatAddReq addReq) {
+        requireOwnedApp(addReq.getAppId());
         ChatDO chatDO = new ChatDO();
         chatDO.setAppId(addReq.getAppId());
         chatDO.setChatName(addReq.getChatName());
@@ -125,10 +122,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void rename(ChatRenameReq req) {
-        ChatDO chatDO = getById(req.getId());
-        if (chatDO == null) {
-            throw new BizEx("会话不存在");
-        }
+        requireOwnedChat(req.getId());
         LambdaUpdateWrapper<ChatDO> luw = new LambdaUpdateWrapper<>();
         luw.eq(ChatDO::getId, req.getId())
             .set(ChatDO::getChatName, req.getChatName());
@@ -138,7 +132,27 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteById(Long id) {
+        requireOwnedChat(id);
         removeById(id);
         chatMessageService.deleteByChatId(id);
+    }
+
+    @Override
+    public AppDO requireOwnedApp(Long appId) {
+        AppDO app = appService.getById(appId);
+        if (app == null || !UserContext.getUserId().equals(app.getUserId())) {
+            throw new BizEx("应用不存在或无权限访问");
+        }
+        return app;
+    }
+
+    @Override
+    public ChatDO requireOwnedChat(Long chatId) {
+        ChatDO chat = getById(chatId);
+        if (chat == null) {
+            throw new BizEx("会话不存在");
+        }
+        requireOwnedApp(chat.getAppId());
+        return chat;
     }
 }

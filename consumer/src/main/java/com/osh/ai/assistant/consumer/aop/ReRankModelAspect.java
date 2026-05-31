@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.Optional;
 
 /**
  * 重排序模型切面,统计token用量
@@ -29,8 +30,11 @@ public class ReRankModelAspect {
     @Resource
     private InvokeRecordDetailService invokeRecordDetailService;
 
-    @Value("${spring.ai.dashscope.rerank.options.model}")
+    @Value("${spring.ai.dashscope.rerank.options.model:gte-rerank}")
     private String modelName;
+
+    @Value("${ai-assistant.rerank.model:${spring.ai.dashscope.rerank.options.model:gte-rerank}}")
+    private String configuredModelName;
 
     @Pointcut("execution(* com.alibaba.cloud.ai.model.RerankModel.call(com.alibaba.cloud.ai.model.RerankRequest))")
     public void pc() {}
@@ -41,13 +45,17 @@ public class ReRankModelAspect {
         InvokeRecordDetailBuilder detailBuilder = InvokeRecordDetailBuilder.builder()
             .setInvokeRecordId(invokeRecordBuilder.getId())
             .setUserInput(invokeRecordBuilder.getChatDto().getUserInput())
-            .setModelName(modelName)
+            .setModelName(Optional.ofNullable(configuredModelName).filter(s -> !s.isBlank()).orElse(modelName))
             .setStartTime(new Date());
         try {
             RerankResponse rerankResponse = (RerankResponse) pjp.proceed();
             // 获取token统计
             Usage usage = rerankResponse.getMetadata().getUsage();
-            detailBuilder.setCostToken(Long.valueOf(usage.getTotalTokens()));
+            if (usage != null && usage.getTotalTokens() != null) {
+                detailBuilder.setCostToken(Long.valueOf(usage.getTotalTokens()));
+            } else {
+                detailBuilder.setCostToken(0L);
+            }
             detailBuilder.setStatus(InvokeStatusEnum.SUCCESS.getCode());
             detailBuilder.setAssistantMessage("重排后(未过滤)结果数:" + rerankResponse.getResults().size());
             return rerankResponse;

@@ -4,8 +4,9 @@ set -euo pipefail
 BASE_URL="${1:-http://127.0.0.1:9000}"
 MANAGER_USER="${MANAGER_USER:-admin}"
 MANAGER_PWD="${MANAGER_PWD:-123456}"
-REDIS_HOST="${REDIS_HOST:-43.242.200.25}"
+REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
 REDIS_PORT="${REDIS_PORT:-6379}"
+REDIS_PASSWORD="${REDIS_PASSWORD:-}"
 CONSUMER_USER="${CONSUMER_USER:-codex_smoke_$(date +%s)}"
 CONSUMER_PWD="${CONSUMER_PWD:-123456}"
 
@@ -42,12 +43,14 @@ PY
 read_captcha_code() {
   local captcha_id="$1"
   local raw
-  raw="$(redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" --raw GET "$captcha_id" | tr -d '\r\n')"
+  raw="$(REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" --raw GET "$captcha_id" | tr -d '\r\n')"
   python3 - "$raw" <<'PY'
 import json, sys
 raw = sys.argv[1]
 if raw == "":
     print("")
+elif raw.startswith("NOAUTH ") or raw.startswith("WRONGPASS "):
+    raise SystemExit(raw)
 elif len(raw) >= 2 and raw[0] == '"' and raw[-1] == '"':
     print(json.loads(raw))
 else:

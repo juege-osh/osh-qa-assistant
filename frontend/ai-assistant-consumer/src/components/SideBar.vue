@@ -97,7 +97,7 @@ onMounted(() => {
   border: 1px solid var(--space-border);
   border-radius: 24px;
   background:
-    radial-gradient(circle at 12% 12%, rgba(100, 232, 255, 0.16), transparent 28%),
+    radial-gradient(circle at 12% 12%, rgba(52, 211, 153, 0.16), transparent 28%),
     linear-gradient(180deg, rgba(7, 14, 36, 0.88), rgba(10, 13, 32, 0.78));
   box-shadow: var(--space-card-shadow);
   backdrop-filter: blur(18px);
@@ -134,7 +134,7 @@ onMounted(() => {
 
 .el-menu div,
 :deep(.el-sub-menu ul.el-menu div) {
-  border-bottom: 1px solid rgba(130, 210, 255, 0.1);
+  border-bottom: 1px solid rgba(52, 211, 153, 0.1);
 }
 
 .el-menu div:last-child,
@@ -152,7 +152,7 @@ onMounted(() => {
 :deep(.el-menu-item:focus),
 :deep(.el-menu-item:hover),
 :deep(.el-menu-item.is-active) {
-  background: linear-gradient(135deg, rgba(100, 232, 255, 0.2), rgba(139, 92, 246, 0.24)) !important;
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(245, 158, 11, 0.24)) !important;
   color: #fff !important;
 }
 </style>

@@ -34,7 +34,6 @@ instance.interceptors.request.use(config => {
   }
   return config;
 }, error => {
-  console.log("请求发送失败", error)
   ElMessage({ message: "请求发送失败", type: "error" })
   return Promise.reject("请求发送失败")
 });
@@ -71,7 +70,6 @@ instance.interceptors.response.use((resultWrapper: AxiosResponse<any, any>) => {
   error => {
     Nprogress.done()
     // 如连接超时Network Error等
-    console.log("服务器响应失败", error)
     // 对错误进行统一的提示
     ElMessage({ message: "服务器响应失败", type: "error" })
     return Promise.reject("服务器响应失败")

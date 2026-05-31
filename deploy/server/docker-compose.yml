@@ -1,16 +1,144 @@
-version: "3.9"
-
 services:
+  mysql8:
+    image: mysql:8.0
+    container_name: qa-assistant-mysql8
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${AI_ASSISTANT_DB_PASSWORD:-OshQaMysql@2026}
+      MYSQL_DATABASE: ${AI_ASSISTANT_DB_NAME:-ai_assistant}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --default-authentication-plugin=mysql_native_password
+    volumes:
+      - ./mysql:/var/lib/mysql
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - qa-assistant-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: qa-assistant-redis
+    restart: always
+    command:
+      - redis-server
+      - --requirepass
+      - ${AI_ASSISTANT_REDIS_PASSWORD:-OshQaRedis@2026}
+      - --appendonly
+      - "yes"
+    volumes:
+      - ./redis:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD:-${AI_ASSISTANT_REDIS_PASSWORD:-OshQaRedis@2026}}\" PING | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    environment:
+      REDIS_PASSWORD: ${AI_ASSISTANT_REDIS_PASSWORD:-OshQaRedis@2026}
+    networks:
+      - qa-assistant-network
+
+  qdrant:
+    image: qdrant/qdrant:v1.16.0
+    container_name: qa-assistant-qdrant
+    restart: always
+    volumes:
+      - ./qdrant:/qdrant/storage
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc ': > /dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - qa-assistant-network
+
+  embedding-api:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
+    container_name: qa-assistant-embedding-api
+    restart: always
+    command:
+      - --model-id
+      - ${AI_ASSISTANT_EMBEDDING_MODEL:-BAAI/bge-small-zh-v1.5}
+    volumes:
+      - ./tei-data:/data
+    ports:
+      - "18080:80"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc ': > /dev/tcp/127.0.0.1/80'"]
+      interval: 10s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+    networks:
+      - qa-assistant-network
+
+  rerank-api:
+    image: michaelf34/infinity:0.0.71-cpu
+    container_name: qa-assistant-rerank-api
+    restart: always
+    command:
+      - v2
+      - --model-id
+      - ${AI_ASSISTANT_RERANK_MODEL:-BAAI/bge-reranker-base}
+      - --port
+      - "7997"
+      - --batch-size
+      - "8"
+      - --engine
+      - torch
+      - --device
+      - cpu
+    volumes:
+      - ./infinity-data:/app/.cache
+    ports:
+      - "17997:7997"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc ': > /dev/tcp/127.0.0.1/7997'"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 420s
+    networks:
+      - qa-assistant-network
+
   qa-assistant-backend:
     image: eclipse-temurin:17-jre
     container_name: qa-assistant-backend
     restart: always
+    env_file:
+      - ./.env
+    depends_on:
+      mysql8:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      embedding-api:
+        condition: service_healthy
+      rerank-api:
+        condition: service_healthy
     working_dir: /app
     command:
       - java
       - -jar
       - /app/backend.jar
-      - --spring.config.additional-location=file:/app/config/backend-prod.yml
+      - --spring.config.additional-location=file:/app/config/backend-prod-149.88.92.159.yml
     volumes:
       - ./backend.jar:/app/backend.jar:ro
       - ./config:/app/config:ro
@@ -19,8 +147,22 @@ services:
     ports:
       - "19000:9000"
     networks:
-      - docker-apps_app-network
+      - qa-assistant-network
+
+  qa-assistant-nginx:
+    image: nginx:1.27-alpine
+    container_name: qa-assistant-nginx
+    restart: always
+    depends_on:
+      - qa-assistant-backend
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./html:/usr/share/nginx/html:ro
+    networks:
+      - qa-assistant-network
 
 networks:
-  docker-apps_app-network:
-    external: true
+  qa-assistant-network:
+    driver: bridge

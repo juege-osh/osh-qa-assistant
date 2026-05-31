@@ -112,7 +112,7 @@ onMounted(() => {
 
 .summary-item {
   padding: 16px 18px;
-  border: 1px solid rgba(130, 210, 255, 0.14);
+  border: 1px solid rgba(52, 211, 153, 0.14);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
   color: rgba(234, 246, 255, 0.84);

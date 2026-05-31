@@ -63,6 +63,15 @@ const userRoutes: UserRoutesDefine = [
             }
           }
         ]
+      },
+      {
+        path: "statistics",
+        componentPath: "personal/statistics/StatisticsHome",
+        meta: {
+          authorityName: "使用统计",
+          showInMenu: true,
+          icon: ""
+        }
       }
     ]
   }

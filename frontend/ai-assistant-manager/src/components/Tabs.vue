@@ -224,6 +224,6 @@ function closeAll(){
 }
 
 .context-menu li:hover {
-  background: rgba(100, 232, 255, 0.16);
+  background: rgba(52, 211, 153, 0.16);
 }
 </style>

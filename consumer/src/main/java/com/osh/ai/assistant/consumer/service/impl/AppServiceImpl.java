@@ -4,6 +4,7 @@ import com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO;
 import com.osh.ai.assistant.common.bean.res.Result;
 import com.osh.ai.assistant.common.constants.CommonConstants;
 import com.osh.ai.assistant.common.context.UserContext;
+import com.osh.ai.assistant.common.enums.YesNoEnum;
 import com.osh.ai.assistant.common.ex.BizEx;
 import com.osh.ai.assistant.common.util.ConvertUtil;
 import com.osh.ai.assistant.consumer.bean.req.app.AppAddReq;
@@ -59,14 +60,15 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, AppDO> implements App
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteById(Long id) {
+        requireOwnedEntity(id);
         removeById(id);
     }
 
     @Override
     public AppVO queryById(Long id) {
-        AppDO entity = getById(id);
+        AppDO entity = requireOwnedEntity(id);
         AppVO vo = ConvertUtil.convert(entity, AppVO.class);
-        KnowledgeLibDO related = knowledgeLibService.getById(entity.getLibId());
+        KnowledgeLibDO related = entity.getLibId() == null ? null : knowledgeLibService.requireOwnedEntity(entity.getLibId());
         if (related != null) {
             vo.setLibId(related.getId());
             vo.setLibName(related.getLibName());
@@ -77,6 +79,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, AppDO> implements App
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void modifyById(AppUpdateReq updateReq) {
+        requireOwnedEntity(updateReq.getId());
         LambdaUpdateWrapper<AppDO> luw = new LambdaUpdateWrapper<>();
         luw.set(AppDO::getAppName,updateReq.getAppName())
             .set(AppDO::getAppDesc,updateReq.getAppDesc())
@@ -89,11 +92,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, AppDO> implements App
 
     @Override
     public void checkChatCondition(Long id) {
-        AppDO app = getById(id);
-        if (app == null) {
-            throw new BizEx("应用信息不存在");
-        }
-        if (app.getLibId() == null) {
+        AppDO app = requireOwnedEntity(id);
+        if (app.getLibId() == null && !YesNoEnum.Y.getCode().equals(app.getOutLibEnable())) {
             throw new BizEx("请先关联知识库");
         }
     }
@@ -101,6 +101,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, AppDO> implements App
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void unBindLib(Long id) {
+        requireOwnedEntity(id);
         LambdaUpdateWrapper<AppDO> luw = new LambdaUpdateWrapper<>();
         luw.set(AppDO::getLibId,null)
             .eq(AppDO::getId,id);
@@ -110,10 +111,24 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, AppDO> implements App
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void bindLib(BindLibReq req) {
+        requireOwnedEntity(req.getId());
+        knowledgeLibService.requireOwnedEntity(req.getLibId());
         LambdaUpdateWrapper<AppDO> luw = new LambdaUpdateWrapper<>();
         luw.set(AppDO::getLibId,req.getLibId())
             .eq(AppDO::getId,req.getId());
         update(new AppDO(),luw);
+    }
+
+    @Override
+    public AppDO requireOwnedEntity(Long id) {
+        LambdaQueryWrapper<AppDO> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(AppDO::getId, id)
+            .eq(AppDO::getUserId, UserContext.getUserId());
+        AppDO entity = getOne(queryWrapper, false);
+        if (entity == null) {
+            throw new BizEx("应用不存在或无权限访问");
+        }
+        return entity;
     }
 
     @Override

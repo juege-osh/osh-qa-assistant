@@ -36,6 +36,11 @@ public interface UploadFileService extends IService<UploadFileDO> {
     */
     UploadFileVO queryById(Long id);
 
+    /**
+     * 校验当前登录用户是否拥有该文件
+     */
+    UploadFileDO requireOwnedEntity(Long id);
+
     List<UploadFileDO> selectByLibId(Long libId);
 
     /**
@@ -48,4 +53,3 @@ public interface UploadFileService extends IService<UploadFileDO> {
 
     void deleteByLibId(Long libId);
 }
-

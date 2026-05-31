@@ -152,8 +152,8 @@ onMounted(() => {
 </script>
 <style scoped>
 .left {
-  background: rgba(100, 232, 255, 0.08);
-  border: 1px solid rgba(100, 232, 255, 0.32);
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.32);
   padding: 3px;
   margin-right: 10px;
   border-radius: 8px;

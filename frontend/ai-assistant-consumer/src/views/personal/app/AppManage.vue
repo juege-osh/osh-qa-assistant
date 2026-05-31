@@ -3,7 +3,7 @@
     <section class="hero-panel">
       <div class="hero-title">应用工作区</div>
       <div class="hero-subtitle">
-        为每个业务场景创建独立应用，绑定知识库，管理图标、描述与问答入口。应用是对外提供聊天能力的最小交付单元。
+        为每个业务场景创建独立应用，按需绑定知识库，管理图标、描述与问答入口。应用是对外提供聊天能力的最小交付单元。
       </div>
       <div class="hero-meta">
         <span class="hero-badge">应用总数：{{ tableData.total || 0 }}</span>
@@ -16,7 +16,7 @@
       <div class="toolbar-copy">
         <div class="toolbar-title">应用列表</div>
         <div class="toolbar-desc">
-          先创建应用，再绑定知识库，然后就可以进入聊天界面做真实问答验证。这里保留了所有原有能力，并补强了状态展示与操作引导。
+          先创建应用即可进入聊天调试；如果绑定知识库，回答会优先参考知识库内容。这里保留了所有原有能力，并补强了状态展示与操作引导。
         </div>
       </div>
       <div class="toolbar-actions">
@@ -218,14 +218,14 @@ onMounted(() => {
   min-height: 250px;
   border: 1px solid var(--space-border) !important;
   background:
-    radial-gradient(circle at 90% 8%, rgba(100, 232, 255, 0.16), transparent 28%),
+    radial-gradient(circle at 90% 8%, rgba(52, 211, 153, 0.16), transparent 28%),
     linear-gradient(145deg, rgba(13, 23, 54, 0.88), rgba(18, 13, 49, 0.78)) !important;
   transition: transform .2s ease, box-shadow .2s ease;
 }
 
 .app-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.5), 0 0 36px rgba(100, 232, 255, 0.18) !important;
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.5), 0 0 36px rgba(52, 211, 153, 0.18) !important;
 }
 
 .card-wrapper {

@@ -11,7 +11,7 @@
         label-width="70px"
         ref="loginForm"
       >
-        <el-form-item label="账号" prop="accountNo">
+        <el-form-item label="账号" prop="username">
           <el-input
             v-model="formData.username"
             placeholder="请输入用户名"
@@ -192,7 +192,7 @@ onMounted(() => {
   left: 8%;
   top: 10%;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff, #9ff3ff 10%, rgba(100, 232, 255, 0.24) 28%, rgba(139, 92, 246, 0.16) 54%, transparent 70%);
+  background: radial-gradient(circle at 35% 30%, #fff, #9ff3ff 10%, rgba(52, 211, 153, 0.24) 28%, rgba(245, 158, 11, 0.16) 54%, transparent 70%);
   filter: blur(.4px);
   opacity: .42;
 }
@@ -206,9 +206,9 @@ onMounted(() => {
   right: -120px;
   bottom: 12%;
   border-radius: 50%;
-  border: 1px solid rgba(100, 232, 255, 0.24);
+  border: 1px solid rgba(52, 211, 153, 0.24);
   transform: rotate(-18deg);
-  box-shadow: 0 0 42px rgba(100, 232, 255, 0.16);
+  box-shadow: 0 0 42px rgba(52, 211, 153, 0.16);
 }
 
 .card {
@@ -218,13 +218,13 @@ onMounted(() => {
   padding: 38px 42px;
   border: 1px solid var(--space-border);
   border-radius: 28px;
-  background: linear-gradient(145deg, rgba(12, 20, 48, 0.88), rgba(19, 14, 52, 0.76));
-  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.5), 0 0 60px rgba(100, 232, 255, 0.12);
+  background: linear-gradient(145deg, rgba(10, 22, 18, 0.92), rgba(14, 30, 24, 0.88));
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.5), 0 0 60px rgba(52, 211, 153, 0.12);
   backdrop-filter: blur(22px);
 }
 
 .card::before {
-  content: "AI ASSISTANT · SPACE CONSOLE";
+  content: "OSH WISDOM · 智能知识平台";
   display: block;
   margin-bottom: 10px;
   color: var(--space-primary);
@@ -242,7 +242,7 @@ onMounted(() => {
   font-weight: 900;
   color: #fff;
   letter-spacing: .08em;
-  text-shadow: 0 0 24px rgba(100, 232, 255, 0.45);
+  text-shadow: 0 0 24px rgba(52, 211, 153, 0.45);
 }
 
 .title::after {

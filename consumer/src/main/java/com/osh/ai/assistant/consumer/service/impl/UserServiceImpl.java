@@ -12,6 +12,7 @@ import com.osh.ai.assistant.common.bean.entity.UserDO;
 import com.osh.ai.assistant.common.bean.vo.CodeVO;
 import com.osh.ai.assistant.common.bean.vo.LoginResultVO;
 import com.osh.ai.assistant.common.constants.CommonConstants;
+import com.osh.ai.assistant.common.context.UserContext;
 import com.osh.ai.assistant.common.ex.BizEx;
 import com.osh.ai.assistant.common.manager.CacheWrapper;
 import com.osh.ai.assistant.common.util.ConvertUtil;
@@ -73,7 +74,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
 
     @Override
     public UserVO queryById(Long id) {
-        UserDO entity = getById(id);
+        UserDO entity = requireCurrentUser(id);
         UserVO vo = ConvertUtil.convert(entity,UserVO.class);
         return vo;
     }
@@ -100,10 +101,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updatePwd(UpdatePwdReq updatePwdReq) {
-        UserDO existedEntity = getById(updatePwdReq.getId());
-        if (existedEntity == null) {
-            throw new BizEx("用户不存在");
-        }
+        UserDO existedEntity = requireCurrentUser(updatePwdReq.getId());
         if (!BCrypt.checkpw(updatePwdReq.getOriginalPwd(),existedEntity.getPwd())) {
             throw new BizEx("原始密码不正确");
         }
@@ -115,6 +113,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
     public UserDO selectByAppKey(String appKey) {
         LambdaQueryWrapper<UserDO> lqw = Wrappers.<UserDO>lambdaQuery().eq(UserDO::getAppKey, appKey);
         return getOne(lqw);
+    }
+
+    @Override
+    public UserDO requireCurrentUser(Long id) {
+        UserDO entity = getById(id);
+        if (entity == null || !id.equals(UserContext.getUserId())) {
+            throw new BizEx("用户不存在或无权限访问");
+        }
+        return entity;
     }
 
     @Override
@@ -138,6 +145,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
 
     @Override
     public void modifyById(UserUpdateReq updateReq) {
+        requireCurrentUser(updateReq.getId());
         // 更新字段为null的问题
         LambdaUpdateWrapper<UserDO> luw = new LambdaUpdateWrapper<>();
         luw

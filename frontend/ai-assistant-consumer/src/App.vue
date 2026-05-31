@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts" name="App">
-import { onMounted,onUnmounted,watch } from 'vue';
+import { watch } from 'vue';
 import { saveItem } from '@/util/storageUtil';
 import { STORAGE_USER_INFO_KEY,STORAGE_USER_ROUTES_ATTACHED_KEY,STORAGE_USER_TOKEN_KEY } from '@/config/constants';
 import { useUserStore } from '@/store/useUserStore';
@@ -18,8 +18,7 @@ function toStorage(){
 }
 
 // 监听userStore的变化
-watch(userStore, newValue => {
-  console.log("newValue",newValue)
+watch(userStore, () => {
   toStorage()
 })
 </script>

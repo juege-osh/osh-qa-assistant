@@ -15,6 +15,7 @@ import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibUpdateReq
 import com.osh.ai.assistant.consumer.bean.vo.KnowledgeLibVO;
 import com.osh.ai.assistant.consumer.mapper.KnowledgeLibMapper;
 import com.osh.ai.assistant.consumer.service.KnowledgeLibService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
@@ -62,7 +63,7 @@ public class KnowledgeLibServiceImpl extends ServiceImpl<KnowledgeLibMapper, Kno
         if (hasBound) {
             throw new BizEx("请先解除当前知识库的绑定");
         }
-        KnowledgeLibDO knowledgeLib = getById(id);
+        KnowledgeLibDO knowledgeLib = requireOwnedEntity(id);
         if (knowledgeLib == null) {
             return;
         }
@@ -72,8 +73,20 @@ public class KnowledgeLibServiceImpl extends ServiceImpl<KnowledgeLibMapper, Kno
 
     @Override
     public KnowledgeLibVO queryById(Long id) {
-        KnowledgeLibDO entity = getById(id);
+        KnowledgeLibDO entity = requireOwnedEntity(id);
         return ConvertUtil.convert(entity,KnowledgeLibVO.class);
+    }
+
+    @Override
+    public KnowledgeLibDO requireOwnedEntity(Long id) {
+        LambdaQueryWrapper<KnowledgeLibDO> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(KnowledgeLibDO::getId, id)
+            .eq(KnowledgeLibDO::getUserId, UserContext.getUserId());
+        KnowledgeLibDO entity = getOne(queryWrapper, false);
+        if (entity == null) {
+            throw new BizEx("知识库不存在或无权限访问");
+        }
+        return entity;
     }
 
     @Override

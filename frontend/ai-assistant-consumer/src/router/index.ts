@@ -85,6 +85,13 @@ const staticRoutes = [
             ]
           },
           {
+            path: "statistics",
+            component: () => import("@/views/personal/statistics/StatisticsHome.vue"),
+            meta: {
+              authorityName: "使用统计",
+            }
+          },
+          {
             path: "uploadFile",
             component: () => import("@/views/personal/uploadfile/UploadFileHome.vue"),
             children: [

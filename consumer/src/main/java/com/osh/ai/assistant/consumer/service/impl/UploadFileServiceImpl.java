@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.osh.ai.assistant.common.bean.entity.UploadFileDO;
+import com.osh.ai.assistant.common.context.UserContext;
 import com.osh.ai.assistant.common.bean.res.Result;
 import com.osh.ai.assistant.common.enums.UploadFileStatusEnum;
 import com.osh.ai.assistant.common.ex.BizEx;
@@ -16,6 +17,7 @@ import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFilePageReq;
 import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFileUpdateStatusReq;
 import com.osh.ai.assistant.consumer.bean.vo.UploadFileVO;
 import com.osh.ai.assistant.consumer.elt.Storage;
+import com.osh.ai.assistant.consumer.mapper.KnowledgeLibMapper;
 import com.osh.ai.assistant.consumer.mapper.UploadFileMapper;
 import com.osh.ai.assistant.consumer.service.UploadFileService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -43,6 +45,8 @@ import java.util.Set;
 public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadFileDO> implements UploadFileService {
     @Resource
     private Storage storage;
+    @Resource
+    private KnowledgeLibMapper knowledgeLibMapper;
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void add(UploadFileAddReq addReq) {
@@ -58,6 +62,7 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
 
     @Override
     public Result<List<UploadFileVO>> queryPage(UploadFilePageReq pageReq) {
+        assertLibOwned(pageReq.getLibId());
         IPage<UploadFileDO> iPage = PageUtil.buildPage(pageReq);
         LambdaQueryWrapper<UploadFileDO> lqw = new LambdaQueryWrapper<>();
         // 拼接查询条件
@@ -71,10 +76,7 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteById(Long id) {
-        UploadFileDO uploadFileDO = getById(id);
-        if (uploadFileDO == null) {
-            throw new BizEx("文件不存在");
-        }
+        UploadFileDO uploadFileDO = requireOwnedEntity(id);
         // 从向量数据库中删除
         storage.deleteByIds(uploadFileDO.getDocIds());
         removeById(id);
@@ -82,8 +84,18 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
 
     @Override
     public UploadFileVO queryById(Long id) {
-        UploadFileDO entity = getById(id);
+        UploadFileDO entity = requireOwnedEntity(id);
         return ConvertUtil.convert(entity,UploadFileVO.class);
+    }
+
+    @Override
+    public UploadFileDO requireOwnedEntity(Long id) {
+        UploadFileDO entity = getById(id);
+        if (entity == null) {
+            throw new BizEx("文件不存在");
+        }
+        assertLibOwned(entity.getLibId());
+        return entity;
     }
 
     @Override
@@ -117,10 +129,7 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(UploadFileUpdateStatusReq req) {
-        UploadFileDO uploadFileDO = getById(req.getId());
-        if (uploadFileDO == null) {
-            throw new BizEx("文件不存在");
-        }
+        UploadFileDO uploadFileDO = requireOwnedEntity(req.getId());
         if (uploadFileDO.getStatus().equals(req.getStatus())) {
             // 一致则无需更新
             return;
@@ -150,6 +159,7 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteByLibId(Long libId) {
+        assertLibOwned(libId);
         LambdaQueryWrapper<UploadFileDO> lqw = Wrappers.<UploadFileDO>lambdaQuery()
             .eq(UploadFileDO::getLibId, libId);
         List<UploadFileDO> list = list(lqw);
@@ -161,5 +171,14 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
             storage.deleteByIds(uploadFileDO.getDocIds());
         }
         remove(lqw);
+    }
+
+    private void assertLibOwned(Long libId) {
+        LambdaQueryWrapper<com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO> queryWrapper = Wrappers.<com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO>lambdaQuery()
+            .eq(com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO::getId, libId)
+            .eq(com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO::getUserId, UserContext.getUserId());
+        if (knowledgeLibMapper.selectCount(queryWrapper) == 0) {
+            throw new BizEx("知识库不存在或无权限访问");
+        }
     }
 }

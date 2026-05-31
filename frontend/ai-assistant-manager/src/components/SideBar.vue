@@ -125,7 +125,7 @@ onMounted(() => {
   line-height: 1.5;
   border: 1px solid var(--space-border);
   border-radius: 14px;
-  background: linear-gradient(135deg, rgba(100, 232, 255, 0.18), rgba(139, 92, 246, 0.18));
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.18), rgba(245, 158, 11, 0.18));
   box-shadow: var(--space-glow);
 }
 
@@ -175,6 +175,6 @@ onMounted(() => {
 :deep(.el-menu-item:focus),
 :deep(.el-menu-item:hover),
 :deep(.el-menu-item.is-active) {
-  background: linear-gradient(135deg, rgba(100, 232, 255, 0.2), rgba(139, 92, 246, 0.24)) !important;
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(245, 158, 11, 0.24)) !important;
 }
 </style>

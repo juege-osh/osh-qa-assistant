@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 
 /**
@@ -96,14 +97,12 @@ public class StorageServiceImpl implements StorageService {
      *                      分片: temp/requestId/0_xxx.mp4
      */
     private void doStoreFile(String relativePath, byte[] bytes) {
-        // d:/a/ + relativePath
-        String localAbsPath = uploadProperties.getStaticDir() + relativePath;
-        File destFile = new File(localAbsPath);
+        File destFile = Path.of(uploadProperties.getStaticDir(), relativePath).normalize().toFile();
         PathUtil.createDir(destFile.getParentFile());
         try {
             FileUtil.writeBytes(bytes,destFile);
         } catch (Exception e) {
-            log.error("store image or file error,filePath:{}", localAbsPath, e);
+            log.error("store image or file error,filePath:{}", destFile.getAbsolutePath(), e);
             throw new BizEx("存储文件出错");
         }
     }

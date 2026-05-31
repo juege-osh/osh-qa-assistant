@@ -65,7 +65,7 @@
   right: -120px;
   top: 72px;
   border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95), rgba(100, 232, 255, 0.34) 20%, rgba(139, 92, 246, 0.16) 48%, transparent 70%);
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95), rgba(52, 211, 153, 0.34) 20%, rgba(245, 158, 11, 0.16) 48%, transparent 70%);
   filter: blur(1px);
   opacity: 0.36;
   pointer-events: none;

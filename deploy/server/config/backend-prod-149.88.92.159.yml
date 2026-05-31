@@ -33,25 +33,25 @@ spring:
 
 ai-assistant:
   chat:
-    provider: openai
+    provider: ${AI_ASSISTANT_CHAT_PROVIDER:openai}
     model: ${AI_ASSISTANT_CHAT_MODEL:MiniMax-M2.7-highspeed}
     temperature: ${AI_ASSISTANT_CHAT_TEMPERATURE:0.7}
   embedding:
-    provider: openai
+    provider: ${AI_ASSISTANT_EMBEDDING_PROVIDER:openai}
     model: ${AI_ASSISTANT_EMBEDDING_MODEL:BAAI/bge-small-zh-v1.5}
     base-url: http://embedding-api:80
-    api-key: ${AI_ASSISTANT_EMBEDDING_API_KEY:local-embedding}
+    api-key: ${AI_ASSISTANT_EMBEDDING_API_KEY:tei}
     dimensions: ${AI_ASSISTANT_EMBEDDING_DIMENSIONS:512}
-    embeddings-path: /v1/embeddings
+    embeddings-path: ${AI_ASSISTANT_EMBEDDING_PATH:/v1/embeddings}
   rerank:
-    enabled: ${AI_ASSISTANT_RERANK_ENABLED:true}
+    enabled: ${AI_ASSISTANT_RERANK_ENABLED:false}
     provider: ${AI_ASSISTANT_RERANK_PROVIDER:local}
     model: ${AI_ASSISTANT_RERANK_MODEL:BAAI/bge-reranker-base}
     base-url: http://rerank-api:7997
     api-key: ${AI_ASSISTANT_RERANK_API_KEY:local-rerank}
     path: ${AI_ASSISTANT_RERANK_PATH:/rerank}
   openai:
-    enabled: true
+    enabled: ${AI_ASSISTANT_OPENAI_ENABLED:true}
     base-url: ${AI_ASSISTANT_OPENAI_BASE_URL:https://v2.aicodee.com}
     api-key: ${AI_ASSISTANT_OPENAI_API_KEY:}
     completions-path: ${AI_ASSISTANT_OPENAI_COMPLETIONS_PATH:/v1/chat/completions}

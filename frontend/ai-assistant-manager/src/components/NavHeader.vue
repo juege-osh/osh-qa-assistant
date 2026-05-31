@@ -5,9 +5,9 @@
         <div class="nav-brand">
           <div class="nav-brand-mark" aria-hidden="true"></div>
           <div class="nav-brand-copy">
-            <div class="nav-title">AI Assistant</div>
+            <div class="nav-title">OSH Wisdom</div>
             <div class="nav-divider"></div>
-            <div class="nav-subtitle">Console</div>
+            <div class="nav-subtitle">管理控制台</div>
           </div>
         </div>
       </el-col>
@@ -232,7 +232,7 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
   align-items: center;
   gap: 14px;
   padding: 10px 16px 10px 10px;
-  border: 1px solid rgba(130, 210, 255, 0.22);
+  border: 1px solid rgba(52, 211, 153, 0.22);
   border-radius: 18px;
   background: linear-gradient(135deg, rgba(11, 22, 52, 0.92), rgba(18, 32, 72, 0.7));
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 14px 32px rgba(0, 0, 0, 0.28);
@@ -244,7 +244,7 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
   height: 42px;
   border-radius: 14px;
   background:
-    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.98), rgba(100, 232, 255, 0.95) 14%, rgba(124, 92, 255, 0.85) 48%, rgba(13, 23, 52, 0.92) 76%);
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.98), rgba(52, 211, 153, 0.95) 14%, rgba(124, 92, 255, 0.85) 48%, rgba(13, 23, 52, 0.92) 76%);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.12),
     0 10px 26px rgba(72, 214, 255, 0.22);
@@ -293,7 +293,7 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
 .nav-divider {
   width: 1px;
   height: 18px;
-  background: rgba(130, 210, 255, 0.26);
+  background: rgba(52, 211, 153, 0.26);
 }
 
 .nav-subtitle {
@@ -316,7 +316,7 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
   padding: 6px 12px;
   border: 1px solid var(--space-border);
   border-radius: 999px;
-  background: rgba(100, 232, 255, 0.08);
+  background: rgba(52, 211, 153, 0.08);
   box-shadow: var(--space-glow);
 }
 
@@ -327,8 +327,8 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
 }
 
 .avatar {
-  border: 2px solid rgba(100, 232, 255, 0.5);
-  box-shadow: 0 0 20px rgba(100, 232, 255, 0.32);
+  border: 2px solid rgba(52, 211, 153, 0.5);
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.32);
 }
 
 .arrow {
