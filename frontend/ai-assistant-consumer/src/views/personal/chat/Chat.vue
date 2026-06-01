@@ -334,9 +334,7 @@ async function send() {
     return
   }
   if (!sseConnected.value) {
-    ElMessage.warning('会话连接中，请稍后重试')
     connectSse()
-    return
   }
   pageData.crtUserInput = ''
   pushMessage('user', txt)
@@ -372,6 +370,9 @@ function connectSse() {
   evtSource.onopen = () => {
     sseConnected.value = true
   }
+  evtSource.addEventListener('connected', () => {
+    sseConnected.value = true
+  })
   evtSource.onmessage = e => {
     if (e.data === '[DONE]') {
       streamingMsgIndex = -1

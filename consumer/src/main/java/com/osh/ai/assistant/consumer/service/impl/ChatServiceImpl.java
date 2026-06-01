@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,6 +72,12 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
         // 0L 表示永不超时
         SseEmitter emitter = new SseEmitter(0L);
         emitters.put(chatId, emitter);
+        try {
+            emitter.send(SseEmitter.event().name("connected").data("ok"));
+        } catch (IOException e) {
+            emitters.remove(chatId);
+            throw new BizEx("会话连接失败");
+        }
         // 连接完成或出错时清理
         emitter.onCompletion(() -> emitters.remove(chatId));
         emitter.onTimeout(() -> emitters.remove(chatId));
