@@ -41,6 +41,9 @@ public class AuthorizationInterceptor implements HandlerInterceptor {
         // 获取token
         String tokenToVerify = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (StrUtil.isBlank(tokenToVerify)) {
+            tokenToVerify = request.getParameter("token");
+        }
+        if (StrUtil.isBlank(tokenToVerify)) {
             throw new BizEx(CodeEnum.AUTH_ERR);
         }
         // 校验token

@@ -190,6 +190,7 @@ import { BASE_URL } from '@/config/constants';
 import { addChatApi, chatApi, deleteChatByIdApi, listRecentChatApi, renameChatApi } from '@/api/chatApi';
 import type { AnyObjDefine, AnyObjsDefine } from '@/types/common';
 import { listHistoryMessageApi } from '@/api/chatMessageApi';
+import { useUserStore } from '@/store/useUserStore';
 
 hljs.registerLanguage('bash', bash)
 hljs.registerLanguage('sh', bash)
@@ -222,6 +223,7 @@ const md = new MarkdownIt({
 })
 
 const route = useRoute()
+const userStore = useUserStore()
 const pageData = reactive({
   chats: [] as AnyObjsDefine,
   appId: '',
@@ -291,6 +293,7 @@ function delChat(id: string) {
 
 function switchChat(id: string) {
   activeChatId.value = id
+  streamingMsgIndex = -1
   connectSse()
   pageData.messages = []
   loadMessages(id)
@@ -330,6 +333,11 @@ async function send() {
     ElMessage.error({ message: '请输入聊天内容' })
     return
   }
+  if (!sseConnected.value) {
+    ElMessage.warning('会话连接中，请稍后重试')
+    connectSse()
+    return
+  }
   pageData.crtUserInput = ''
   pushMessage('user', txt)
   pageData.sending = true
@@ -353,7 +361,14 @@ function handleEditorKeydown(event: KeyboardEvent) {
 function connectSse() {
   evtSource?.close()
   sseConnected.value = false
-  evtSource = new EventSource(`${BASE_URL}/chat/connect?chatId=${activeChatId.value}`)
+  const token = userStore.token
+  const params = new URLSearchParams({
+    chatId: activeChatId.value
+  })
+  if (token) {
+    params.set('token', token)
+  }
+  evtSource = new EventSource(`${BASE_URL}/chat/connect?${params.toString()}`)
   evtSource.onopen = () => {
     sseConnected.value = true
   }

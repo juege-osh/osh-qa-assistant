@@ -97,7 +97,6 @@ auth:
     - /consumer/user/login
     - /consumer/user/register
     - /consumer/api/chat
-    - /consumer/chat/connect
     - /consumer/sse/**
     - /manager/resources/**
     - /consumer/resources/**
