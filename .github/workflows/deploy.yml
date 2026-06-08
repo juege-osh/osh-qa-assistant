@@ -72,11 +72,16 @@ jobs:
 
       - name: Write runtime env file
         run: |
+          DB_PASSWORD="${{ secrets.AI_ASSISTANT_DB_PASSWORD }}"
+          REDIS_PASSWORD="${{ secrets.AI_ASSISTANT_REDIS_PASSWORD }}"
+          OPENAI_API_KEY="${{ secrets.AI_ASSISTANT_OPENAI_API_KEY }}"
+          DB_PASSWORD="${DB_PASSWORD:-OshQaMysql@2026}"
+          REDIS_PASSWORD="${REDIS_PASSWORD:-OshQaRedis@2026}"
           cat > /tmp/qa-assistant.env <<EOF
-          AI_ASSISTANT_DB_PASSWORD=${{ secrets.AI_ASSISTANT_DB_PASSWORD }}
+          AI_ASSISTANT_DB_PASSWORD=$DB_PASSWORD
           AI_ASSISTANT_DB_NAME=ai_assistant
-          AI_ASSISTANT_REDIS_PASSWORD=${{ secrets.AI_ASSISTANT_REDIS_PASSWORD }}
-          AI_ASSISTANT_OPENAI_API_KEY=${{ secrets.AI_ASSISTANT_OPENAI_API_KEY }}
+          AI_ASSISTANT_REDIS_PASSWORD=$REDIS_PASSWORD
+          AI_ASSISTANT_OPENAI_API_KEY=$OPENAI_API_KEY
           AI_ASSISTANT_OPENAI_BASE_URL=https://v2.aicodee.com
           AI_ASSISTANT_CHAT_MODEL=MiniMax-M2.7-highspeed
           AI_ASSISTANT_EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
@@ -134,7 +139,8 @@ jobs:
         run: |
           ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
             for i in 1 2 3 4 5 6 7 8 9 10; do
-              backend_code=\$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:19000/auth/getCode)
+              backend_body=\$(curl -s http://127.0.0.1:19000/auth/getCode || true)
+              backend_code=\$(printf '%s' \"\$backend_body\" | grep -q '\"success\":true' && echo 200 || echo 000)
               web_code=\$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/ai/)
               echo \"Health check attempt \$i: backend HTTP \$backend_code, web HTTP \$web_code\"
               if [ \"\$backend_code\" = '200' ] && [ \"\$web_code\" = '200' ]; then
