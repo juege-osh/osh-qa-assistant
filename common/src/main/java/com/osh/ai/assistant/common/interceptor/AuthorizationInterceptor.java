@@ -3,6 +3,7 @@ package com.osh.ai.assistant.common.interceptor;
 import cn.hutool.core.util.StrUtil;
 import com.osh.ai.assistant.common.bean.dto.TokenDTO;
 import com.osh.ai.assistant.common.context.UserContext;
+import com.osh.ai.assistant.common.enums.AccountRoleEnum;
 import com.osh.ai.assistant.common.enums.CodeEnum;
 import com.osh.ai.assistant.common.ex.BizEx;
 import com.osh.ai.assistant.common.util.JwtUtil;
@@ -53,9 +54,21 @@ public class AuthorizationInterceptor implements HandlerInterceptor {
         if (tokenDTO == null) {
             throw new BizEx(CodeEnum.AUTH_ERR);
         }
+        checkRole(request.getServletPath(), tokenDTO);
         // 把token信息放到请求上下文中
         UserContext.set(tokenDTO);
         return true;
+    }
+
+    private void checkRole(String servletPath, TokenDTO tokenDTO) {
+        String role = tokenDTO.getRole();
+        if (servletPath.startsWith("/manager/") && !AccountRoleEnum.ADMIN.getCode().equals(role)) {
+            throw new BizEx(CodeEnum.AUTH_ERR);
+        }
+        if (servletPath.startsWith("/consumer/") && StrUtil.isNotBlank(role)
+            && !AccountRoleEnum.USER.getCode().equals(role)) {
+            throw new BizEx(CodeEnum.AUTH_ERR);
+        }
     }
 
     @Override

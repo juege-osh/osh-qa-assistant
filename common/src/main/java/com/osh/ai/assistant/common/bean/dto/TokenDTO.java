@@ -20,4 +20,9 @@ public class TokenDTO {
      * 头像存放路径,格式如:resources/type/20230523/123.jpg
      */
     private String avatarPath;
+
+    /**
+     * 账号角色: ADMIN / USER
+     */
+    private String role;
 }

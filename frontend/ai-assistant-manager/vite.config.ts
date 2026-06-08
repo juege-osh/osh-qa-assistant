@@ -17,7 +17,7 @@ export default defineConfig({
   },
   server:{
     // 指定项目端口
-    port: 8001,
+    port: 8101,
     host: '0.0.0.0', // 关键配置，允许局域网访问
   },
   build: {

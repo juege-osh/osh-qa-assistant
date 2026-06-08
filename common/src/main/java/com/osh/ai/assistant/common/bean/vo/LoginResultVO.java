@@ -20,6 +20,10 @@ public class LoginResultVO {
      */
     private String avatarPath;
     /**
+     * 账号角色: ADMIN / USER
+     */
+    private String role;
+    /**
      * 生成的token
      */
     private String token;

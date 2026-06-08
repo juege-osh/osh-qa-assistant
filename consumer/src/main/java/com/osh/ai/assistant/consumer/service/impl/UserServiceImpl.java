@@ -13,6 +13,7 @@ import com.osh.ai.assistant.common.bean.vo.CodeVO;
 import com.osh.ai.assistant.common.bean.vo.LoginResultVO;
 import com.osh.ai.assistant.common.constants.CommonConstants;
 import com.osh.ai.assistant.common.context.UserContext;
+import com.osh.ai.assistant.common.enums.AccountRoleEnum;
 import com.osh.ai.assistant.common.ex.BizEx;
 import com.osh.ai.assistant.common.manager.CacheWrapper;
 import com.osh.ai.assistant.common.util.ConvertUtil;
@@ -92,6 +93,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
             throw new BizEx("密码不正确");
         }
         TokenDTO tokenDTO = ConvertUtil.convert(one,TokenDTO.class);
+        tokenDTO.setRole(AccountRoleEnum.USER.getCode());
         String token = JwtUtil.getToken(tokenDTO);
         LoginResultVO vo = ConvertUtil.convert(tokenDTO, LoginResultVO.class);
         vo.setToken(token);

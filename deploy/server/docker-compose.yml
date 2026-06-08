@@ -138,7 +138,7 @@ services:
       - java
       - -jar
       - /app/backend.jar
-      - --spring.config.additional-location=file:/app/config/backend-prod-149.88.92.159.yml
+      - --spring.config.additional-location=file:/app/config/backend-prod.yml
     volumes:
       - ./backend.jar:/app/backend.jar:ro
       - ./config:/app/config:ro

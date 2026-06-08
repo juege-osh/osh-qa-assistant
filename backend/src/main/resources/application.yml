@@ -91,6 +91,8 @@ auth:
     - /
     - /error
     - /favicon.ico
+    - /auth/getCode
+    - /auth/login
     - /manager/manager/getCode
     - /manager/manager/login
     - /consumer/user/getCode

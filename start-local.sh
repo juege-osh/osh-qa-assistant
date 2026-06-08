@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$ROOT_DIR/.local-runlogs"
 BACKEND_JAR="$ROOT_DIR/backend/target/backend.jar"
 ENV_FILE="$ROOT_DIR/.env.local"
+BACKEND_PORT="${BACKEND_PORT:-9010}"
+WEB_PORT="${WEB_PORT:-9100}"
 
 load_local_env() {
   if [ -f "$ENV_FILE" ]; then
@@ -126,7 +128,7 @@ load_local_env
 
 echo "using JAVA_HOME=$JAVA_HOME_USE"
 
-for port in 9000 8001 9001; do
+for port in "$BACKEND_PORT" "$WEB_PORT"; do
   ensure_port_free "$port"
 done
 
@@ -141,36 +143,28 @@ if [ ! -f "$BACKEND_JAR" ]; then
     "$MVN_BIN" -f "$ROOT_DIR/pom.xml" -pl backend -am package -DskipTests
 fi
 
-echo "[1/4] starting unified backend on 9000"
+echo "[1/4] starting unified backend on $BACKEND_PORT"
 nohup "$JAVA_BIN" -jar "$BACKEND_JAR" \
+  --server.port="$BACKEND_PORT" \
   > "$LOG_DIR/backend.log" 2>&1 < /dev/null &
 
-echo "[2/4] starting manager frontend on 8001"
+echo "[2/3] starting unified frontend on $WEB_PORT"
 (
-  cd "$ROOT_DIR/frontend/ai-assistant-manager"
-  : > "$LOG_DIR/manager-ui.log"
-  nohup npm run dev -- --host 0.0.0.0 --port 8001 --strictPort > "$LOG_DIR/manager-ui.log" 2>&1 < /dev/null &
+  cd "$ROOT_DIR/frontend/ai-assistant-web"
+  : > "$LOG_DIR/web-ui.log"
+  nohup npm run dev -- --host 0.0.0.0 --port "$WEB_PORT" --strictPort > "$LOG_DIR/web-ui.log" 2>&1 < /dev/null &
 )
 
-echo "[3/4] starting consumer frontend on 9001"
-(
-  cd "$ROOT_DIR/frontend/ai-assistant-consumer"
-  : > "$LOG_DIR/consumer-ui.log"
-  nohup npm run dev -- --host 0.0.0.0 --port 9001 --strictPort > "$LOG_DIR/consumer-ui.log" 2>&1 < /dev/null &
-)
-
-wait_http_up "http://127.0.0.1:9000/" "backend"
-wait_http_up "http://127.0.0.1:8001/" "manager ui"
-wait_http_up "http://127.0.0.1:9001/" "consumer ui"
+wait_http_up "http://127.0.0.1:${BACKEND_PORT}/" "backend"
+wait_http_up "http://127.0.0.1:${WEB_PORT}/" "web ui"
 
 echo
 echo "Started. Visit:"
-echo "  manager ui   http://127.0.0.1:8001/"
-echo "  consumer ui  http://127.0.0.1:9001/"
-echo "  manager api  http://127.0.0.1:9000/manager/"
-echo "  consumer api http://127.0.0.1:9000/consumer/"
+echo "  web ui       http://127.0.0.1:${WEB_PORT}/"
+echo "  manager api  http://127.0.0.1:${BACKEND_PORT}/manager/"
+echo "  consumer api http://127.0.0.1:${BACKEND_PORT}/consumer/"
+echo "  auth api     http://127.0.0.1:${BACKEND_PORT}/auth/"
 echo
 echo "Logs:"
 echo "  $LOG_DIR/backend.log"
-echo "  $LOG_DIR/manager-ui.log"
-echo "  $LOG_DIR/consumer-ui.log"
+echo "  $LOG_DIR/web-ui.log"

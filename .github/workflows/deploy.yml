@@ -14,10 +14,10 @@ concurrency:
 env:
   JAVA_VERSION: "17"
   NODE_VERSION: "18"
-  DEPLOY_HOST: "149.88.92.159"
-  DEPLOY_USER: "root"
-  DEPLOY_PORT: "16328"
-  DEPLOY_DIR: "/opt/qa-assistant"
+  DEPLOY_HOST: ${{ vars.DEPLOY_HOST || '43.242.200.67' }}
+  DEPLOY_USER: ${{ vars.DEPLOY_USER || 'root' }}
+  DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '12471' }}
+  DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/qa-assistant' }}
 
 jobs:
   build-and-deploy:
@@ -48,15 +48,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Build manager frontend
+      - name: Build unified frontend
         run: |
-          cd frontend/ai-assistant-manager
-          npm ci --legacy-peer-deps
-          npm run build
-
-      - name: Build consumer frontend
-        run: |
-          cd frontend/ai-assistant-consumer
+          cd frontend/ai-assistant-web
           npm ci --legacy-peer-deps
           npm run build
 
@@ -73,7 +67,7 @@ jobs:
       - name: Prepare server directories
         run: |
           ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
-            mkdir -p '$DEPLOY_DIR/config' '$DEPLOY_DIR/logs/backend' '$DEPLOY_DIR/upload' '$DEPLOY_DIR/nginx' '$DEPLOY_DIR/html/ai-manager' '$DEPLOY_DIR/html/ai-consumer' '$DEPLOY_DIR/initdb'
+            mkdir -p '$DEPLOY_DIR/config' '$DEPLOY_DIR/logs/backend' '$DEPLOY_DIR/upload' '$DEPLOY_DIR/nginx' '$DEPLOY_DIR/html/ai' '$DEPLOY_DIR/initdb'
           "
 
       - name: Write runtime env file
@@ -114,30 +108,19 @@ jobs:
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/config/backend-prod.yml"
           rsync -az \
             -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
-            deploy/server/config/backend-prod-149.88.92.159.yml \
-            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/config/backend-prod-149.88.92.159.yml"
-          rsync -az \
-            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
-            deploy/server/nginx.149.88.92.159.conf \
+            deploy/server/nginx.ai-assistant.conf \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/nginx/default.conf"
           rsync -az \
             -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
             deploy/server/initdb/ \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/initdb/"
 
-      - name: Upload manager frontend
+      - name: Upload unified frontend
         run: |
           rsync -az --delete \
             -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
-            frontend/ai-assistant-manager/dist/ \
-            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/html/ai-manager/"
-
-      - name: Upload consumer frontend
-        run: |
-          rsync -az --delete \
-            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
-            frontend/ai-assistant-consumer/dist/ \
-            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/html/ai-consumer/"
+            frontend/ai-assistant-web/dist/ \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/html/ai/"
 
       - name: Deploy services
         run: |
