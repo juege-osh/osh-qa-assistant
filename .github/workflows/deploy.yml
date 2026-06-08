@@ -75,6 +75,13 @@ jobs:
           DB_PASSWORD="${{ secrets.AI_ASSISTANT_DB_PASSWORD }}"
           REDIS_PASSWORD="${{ secrets.AI_ASSISTANT_REDIS_PASSWORD }}"
           OPENAI_API_KEY="${{ secrets.AI_ASSISTANT_OPENAI_API_KEY }}"
+          existing_env="$(ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "test -f '$DEPLOY_DIR/.env' && cat '$DEPLOY_DIR/.env' || true")"
+          existing_db_password="$(printf '%s\n' "$existing_env" | awk -F= '$1=="AI_ASSISTANT_DB_PASSWORD" {sub(/^[^=]*=/, ""); print; exit}')"
+          existing_redis_password="$(printf '%s\n' "$existing_env" | awk -F= '$1=="AI_ASSISTANT_REDIS_PASSWORD" {sub(/^[^=]*=/, ""); print; exit}')"
+          existing_openai_api_key="$(printf '%s\n' "$existing_env" | awk -F= '$1=="AI_ASSISTANT_OPENAI_API_KEY" {sub(/^[^=]*=/, ""); print; exit}')"
+          DB_PASSWORD="${existing_db_password:-$DB_PASSWORD}"
+          REDIS_PASSWORD="${existing_redis_password:-$REDIS_PASSWORD}"
+          OPENAI_API_KEY="${OPENAI_API_KEY:-$existing_openai_api_key}"
           DB_PASSWORD="${DB_PASSWORD:-OshQaMysql@2026}"
           REDIS_PASSWORD="${REDIS_PASSWORD:-OshQaRedis@2026}"
           cat > /tmp/qa-assistant.env <<EOF
@@ -135,9 +142,46 @@ jobs:
             docker compose up -d --remove-orphans
           "
 
+      - name: Repair MySQL root network grant
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
+            set -e
+            cd '$DEPLOY_DIR'
+            db_password=\$(awk -F= '\$1==\"AI_ASSISTANT_DB_PASSWORD\" {sub(/^[^=]*=/, \"\"); print; exit}' .env)
+            if [ -z \"\$db_password\" ]; then
+              echo 'AI_ASSISTANT_DB_PASSWORD is missing from .env' >&2
+              exit 1
+            fi
+            db_password_sql=\$(printf '%s' \"\$db_password\" | sed \"s/'/''/g\")
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              if docker exec qa-assistant-mysql8 sh -lc 'MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" mysql -uroot -h127.0.0.1 -NBe \"SELECT 1\" >/dev/null 2>&1'; then
+                break
+              fi
+              if [ \"\$i\" = 10 ]; then
+                docker logs --tail 80 qa-assistant-mysql8 || true
+                exit 1
+              fi
+              sleep 5
+            done
+            {
+              printf \"CREATE USER IF NOT EXISTS 'root'@'%%' IDENTIFIED WITH mysql_native_password BY '%s';\\n\" \"\$db_password_sql\"
+              printf \"ALTER USER 'root'@'%%' IDENTIFIED WITH mysql_native_password BY '%s';\\n\" \"\$db_password_sql\"
+              printf \"GRANT ALL PRIVILEGES ON *.* TO 'root'@'%%' WITH GRANT OPTION;\\n\"
+              printf \"FLUSH PRIVILEGES;\\n\"
+            } > /tmp/qa-assistant-grant.sql
+            docker exec -i qa-assistant-mysql8 sh -lc 'MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" mysql -uroot' < /tmp/qa-assistant-grant.sql
+            rm -f /tmp/qa-assistant-grant.sql
+            if ! docker exec qa-assistant-mysql8 sh -lc 'MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" mysql -uroot -hmysql8 -NBe \"SELECT 1\" >/dev/null 2>&1'; then
+              echo 'MySQL root network grant check failed' >&2
+              exit 1
+            fi
+          "
+
       - name: Verify deployment
         run: |
           ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
+            set -e
+            cd '$DEPLOY_DIR'
             for i in 1 2 3 4 5 6 7 8 9 10; do
               backend_body=\$(curl -s http://127.0.0.1:19000/auth/getCode || true)
               backend_code=\$(printf '%s' \"\$backend_body\" | grep -q '\"success\":true' && echo 200 || echo 000)
@@ -148,12 +192,50 @@ jobs:
               fi
               sleep 10
             done
+            echo 'Basic health check failed'
             docker ps
             docker logs --tail 120 qa-assistant-backend || true
             docker logs --tail 120 qa-assistant-nginx || true
             docker logs --tail 120 qa-assistant-embedding-api || true
             docker logs --tail 120 qa-assistant-rerank-api || true
             exit 1
+          "
+
+      - name: Verify login and protected APIs
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
+            set -e
+            cd '$DEPLOY_DIR'
+            redis_password=\$(awk -F= '\$1==\"AI_ASSISTANT_REDIS_PASSWORD\" {sub(/^[^=]*=/, \"\"); print; exit}' .env)
+            code_file=\$(mktemp)
+            login_file=\$(mktemp)
+            query_file=\$(mktemp)
+            cleanup() {
+              rm -f \"\$code_file\" \"\$login_file\" \"\$query_file\"
+            }
+            trap cleanup EXIT
+
+            curl -fsS http://127.0.0.1:19000/auth/getCode > \"\$code_file\"
+            captcha_id=\$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[\"data\"][\"captchaId\"])' \"\$code_file\")
+            captcha_raw=\$(docker exec qa-assistant-redis sh -lc \"redis-cli -a \\\"\$redis_password\\\" --raw GET \\\"\$captcha_id\\\"\" | tr -d '\r\n')
+            captcha_code=\$(python3 -c 'import json,sys; raw=sys.argv[1]; print(json.loads(raw) if raw[:1]==\"\\\"\" else raw)' \"\$captcha_raw\")
+            if [ -z \"\$captcha_code\" ]; then
+              echo 'Failed to read captcha code from Redis' >&2
+              exit 1
+            fi
+
+            curl -fsS -X POST http://127.0.0.1:19000/auth/login \
+              -H 'Content-Type: application/json' \
+              -d \"{\\\"username\\\":\\\"admin\\\",\\\"pwd\\\":\\\"123456\\\",\\\"role\\\":\\\"ADMIN\\\",\\\"captchaId\\\":\\\"\$captcha_id\\\",\\\"code\\\":\\\"\$captcha_code\\\"}\" \
+              > \"\$login_file\"
+            token=\$(python3 -c 'import json,sys; data=json.load(open(sys.argv[1])); assert data.get(\"code\")==200, data; print(data[\"data\"][\"token\"])' \"\$login_file\")
+
+            curl -fsS -X POST http://127.0.0.1:19000/manager/manager/queryPage \
+              -H 'Content-Type: application/json' \
+              -H \"Authorization: \$token\" \
+              -d '{\"pageNow\":1,\"pageSize\":2}' > \"\$query_file\"
+            python3 -c 'import json,sys; data=json.load(open(sys.argv[1])); assert data.get(\"code\")==200, data' \"\$query_file\"
+            echo 'Login and protected API check passed'
           "
 
       - name: Show service status
