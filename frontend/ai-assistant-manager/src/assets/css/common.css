@@ -1,19 +1,25 @@
 :root {
-  --space-bg: #0a0f0d;
-  --space-bg-soft: #0f1a15;
-  --space-panel: rgba(10, 22, 18, 0.82);
-  --space-panel-strong: rgba(14, 30, 24, 0.92);
-  --space-border: rgba(52, 211, 153, 0.22);
-  --space-text: #e8f5f0;
-  --space-muted: #8fb5a6;
-  --space-primary: #34d399;
-  --space-secondary: #f59e0b;
-  --space-pink: #fb923c;
-  --space-success: #10b981;
-  --space-warning: #fbbf24;
-  --space-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
-  --space-glow: 0 0 28px rgba(52, 211, 153, 0.28);
-  --space-card-shadow: 0 18px 56px rgba(0, 0, 0, 0.32);
+  --space-bg: #f3f6fb;
+  --space-bg-soft: #eef3fb;
+  --space-bg-elevated: #f8fbff;
+  --space-panel: rgba(255, 255, 255, 0.95);
+  --space-panel-strong: rgba(255, 255, 255, 0.98);
+  --space-border: #e3e8f1;
+  --space-border-strong: #d7dfea;
+  --space-text: #253047;
+  --space-text-soft: #4f5d78;
+  --space-muted: #7f8aa3;
+  --space-primary: #409eff;
+  --space-primary-soft: #edf5ff;
+  --space-secondary: #e6a23c;
+  --space-pink: #f56c6c;
+  --space-success: #67c23a;
+  --space-warning: #e6a23c;
+  --space-shadow: 0 10px 30px rgba(37, 48, 71, 0.06);
+  --space-glow: none;
+  --space-card-shadow: 0 16px 40px rgba(37, 48, 71, 0.08);
+  --space-radius: 16px;
+  --space-radius-sm: 12px;
 }
 
 * {
@@ -28,35 +34,9 @@ body {
   color: var(--space-text);
   font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
   background:
-    radial-gradient(circle at 18% 16%, rgba(52, 211, 153, 0.22), transparent 28%),
-    radial-gradient(circle at 78% 6%, rgba(245, 158, 11, 0.3), transparent 26%),
-    radial-gradient(circle at 62% 88%, rgba(251, 146, 60, 0.16), transparent 30%),
-    linear-gradient(135deg, #060d0a 0%, #0a1a14 42%, #0d1f18 100%);
+    radial-gradient(circle at top left, rgba(64, 158, 255, 0.08), transparent 26%),
+    linear-gradient(180deg, #f8fbff 0%, var(--space-bg) 220px);
   background-attachment: fixed;
-}
-
-body::before,
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-}
-
-body::before {
-  background-image:
-    radial-gradient(#ffffff 0.8px, transparent 0.8px),
-    radial-gradient(rgba(52, 211, 153, 0.9) 1px, transparent 1px);
-  background-position: 0 0, 36px 42px;
-  background-size: 86px 86px, 132px 132px;
-  opacity: 0.36;
-}
-
-body::after {
-  background:
-    linear-gradient(115deg, transparent 0 45%, rgba(52, 211, 153, 0.11) 49%, transparent 53% 100%),
-    radial-gradient(ellipse at 50% 120%, rgba(245, 158, 11, 0.24), transparent 58%);
 }
 
 li {
@@ -76,6 +56,7 @@ textarea {
 }
 
 #app {
+  min-height: 100vh;
   color: var(--space-text);
 }
 
@@ -113,7 +94,7 @@ a {
 
 .color-red,
 .color-red-important {
-  color: #ff6b8b !important;
+  color: #f56c6c !important;
 }
 
 .dialog-footer {
@@ -149,14 +130,13 @@ a {
 .el-dialog,
 .el-message-box {
   border-color: var(--space-border) !important;
-  background: var(--space-panel) !important;
+  background: #ffffff !important;
   color: var(--space-text) !important;
-  backdrop-filter: blur(18px);
   box-shadow: var(--space-shadow);
 }
 
 .el-card {
-  border-radius: 18px !important;
+  border-radius: var(--space-radius-sm) !important;
   overflow: hidden;
 }
 
@@ -166,7 +146,7 @@ a {
 .el-table tr,
 .el-descriptions__label,
 .el-descriptions__content {
-  background: rgba(6, 16, 12, 0.62) !important;
+  background: #f8fafc !important;
   color: var(--space-text) !important;
   border-color: var(--space-border) !important;
 }
@@ -178,7 +158,7 @@ a {
 }
 
 .el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell {
-  background: rgba(52, 211, 153, 0.1) !important;
+  background: #f8fbff !important;
 }
 
 .el-form-item__label,
@@ -196,10 +176,11 @@ a {
 .el-textarea__inner,
 .el-input-group__prepend,
 .el-input-group__append {
-  border: 1px solid rgba(52, 211, 153, 0.24) !important;
-  background: rgba(5, 14, 10, 0.72) !important;
-  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.06) !important;
+  border: 1px solid var(--space-border) !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(37, 48, 71, 0.03) !important;
   color: var(--space-text) !important;
+  border-radius: 10px !important;
 }
 
 .el-input__inner,
@@ -209,27 +190,41 @@ a {
 
 .el-input__inner::placeholder,
 .el-textarea__inner::placeholder {
-  color: rgba(214, 230, 255, 0.48) !important;
+  color: #c0c4cc !important;
 }
 
 .el-button {
   border-radius: 10px !important;
-  border: 1px solid rgba(52, 211, 153, 0.28) !important;
-  font-weight: 600 !important;
+  border: 1px solid var(--space-border) !important;
+  font-weight: 500 !important;
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease !important;
 }
 
 .el-button--primary,
 .el-button--success,
 .el-button--danger {
   border: 0 !important;
-  color: #051a12 !important;
-  background: linear-gradient(135deg, var(--space-primary), #f59e0b 58%, var(--space-pink)) !important;
-  box-shadow: 0 12px 30px rgba(52, 211, 153, 0.24) !important;
+  color: #ffffff !important;
+}
+
+.el-button--primary {
+  background: var(--space-primary) !important;
+  box-shadow: 0 10px 24px rgba(64, 158, 255, 0.22) !important;
+}
+
+.el-button--success {
+  background: var(--space-success) !important;
+  box-shadow: 0 10px 24px rgba(103, 194, 58, 0.18) !important;
+}
+
+.el-button--danger {
+  background: var(--space-pink) !important;
+  box-shadow: 0 10px 24px rgba(245, 108, 108, 0.18) !important;
 }
 
 .el-button:hover {
   transform: translateY(-1px);
-  filter: brightness(1.08);
+  filter: brightness(1.03);
 }
 
 .el-menu {
@@ -239,20 +234,20 @@ a {
 
 .el-menu-item,
 .el-sub-menu__title {
-  color: rgba(234, 246, 255, 0.78) !important;
-  border-radius: 12px;
+  color: var(--space-text-soft) !important;
+  border-radius: 10px;
 }
 
 .el-menu-item:hover,
 .el-sub-menu__title:hover,
 .el-menu-item.is-active {
-  color: #ffffff !important;
-  background: linear-gradient(135deg, rgba(52, 211, 153, 0.18), rgba(245, 158, 11, 0.24)) !important;
-  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.2);
+  color: var(--space-primary) !important;
+  background: var(--space-primary-soft) !important;
+  box-shadow: inset 0 0 0 1px rgba(64, 158, 255, 0.12);
 }
 
 .el-dialog {
-  border-radius: 22px !important;
+  border-radius: 18px !important;
 }
 
 .el-overlay {
@@ -268,88 +263,94 @@ a {
 .hero-panel,
 .glass-panel {
   border: 1px solid var(--space-border);
-  border-radius: 24px;
-  background: linear-gradient(145deg, rgba(12, 22, 52, 0.88), rgba(10, 15, 38, 0.72));
+  border-radius: var(--space-radius);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 252, 255, 0.94));
   box-shadow: var(--space-card-shadow);
-  backdrop-filter: blur(18px);
 }
 
 .hero-panel {
   position: relative;
   overflow: hidden;
-  padding: 24px 28px;
+  padding: 22px 26px;
 }
 
 .hero-panel::before {
   content: "";
   position: absolute;
-  inset: auto -60px -90px auto;
-  width: 240px;
-  height: 240px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.26), transparent 70%);
+  inset: 0 auto auto 0;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(64, 158, 255, 0.12), transparent 68%);
+  pointer-events: none;
 }
 
 .hero-title {
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 1.2;
-  letter-spacing: 0.02em;
+  position: relative;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0;
+  color: var(--space-text);
 }
 
 .hero-subtitle {
-  margin-top: 10px;
+  position: relative;
+  margin-top: 6px;
   max-width: 760px;
-  color: var(--space-muted);
-  line-height: 1.8;
+  color: var(--space-text-soft);
+  line-height: 1.7;
+  font-size: 13px;
 }
 
 .hero-meta {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 18px;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .hero-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border: 1px solid rgba(52, 211, 153, 0.16);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(234, 246, 255, 0.88);
-  font-size: 13px;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid rgba(64, 158, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--space-text-soft);
+  font-size: 12px;
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 .stat-card {
-  padding: 18px 20px;
-  border: 1px solid rgba(52, 211, 153, 0.18);
-  border-radius: 20px;
-  background: rgba(4, 10, 28, 0.5);
+  padding: 14px 16px;
+  border: 1px solid var(--space-border);
+  border-radius: var(--space-radius-sm);
+  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  box-shadow: var(--space-shadow);
 }
 
 .stat-label {
   color: var(--space-muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .stat-value {
-  margin-top: 8px;
-  font-size: 26px;
-  font-weight: 800;
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--space-text);
 }
 
 .stat-help {
-  margin-top: 8px;
-  color: rgba(234, 246, 255, 0.65);
+  margin-top: 6px;
+  color: var(--space-muted);
   font-size: 12px;
 }
 
@@ -358,7 +359,7 @@ a {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  padding: 18px 20px;
+  padding: 16px 20px;
 }
 
 .toolbar-copy {
@@ -366,14 +367,16 @@ a {
 }
 
 .toolbar-title {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 600;
+  color: var(--space-text);
 }
 
 .toolbar-desc {
-  margin-top: 8px;
+  margin-top: 4px;
   color: var(--space-muted);
-  line-height: 1.7;
+  line-height: 1.6;
+  font-size: 12px;
 }
 
 .toolbar-actions {
@@ -383,7 +386,7 @@ a {
   gap: 10px;
 }
 
-/* ─── 修复：下拉菜单/弹出层白色背景 ─── */
+/* ─── 修复：下拉菜单/弹出层 ─── */
 .el-dropdown-menu,
 .el-dropdown-menu__item,
 .el-popper,
@@ -396,7 +399,7 @@ a {
 .el-popover,
 .el-tooltip__popper,
 .el-sub-menu .el-menu {
-  background: var(--space-panel-strong) !important;
+  background: #ffffff !important;
   border-color: var(--space-border) !important;
   color: var(--space-text) !important;
 }
@@ -405,8 +408,8 @@ a {
 .el-select-dropdown__item.hover,
 .el-select-dropdown__item:hover,
 .el-sub-menu .el-menu-item:hover {
-  background: rgba(52, 211, 153, 0.15) !important;
-  color: #fff !important;
+  background: rgba(64, 158, 255, 0.08) !important;
+  color: var(--space-primary) !important;
 }
 
 .el-dropdown-menu__item--divided {
@@ -414,16 +417,16 @@ a {
 }
 
 .el-popper.is-light {
-  background: var(--space-panel-strong) !important;
+  background: #ffffff !important;
   border: 1px solid var(--space-border) !important;
 }
 
 .el-popper.is-light .el-popper__arrow::before {
-  background: var(--space-panel-strong) !important;
+  background: #ffffff !important;
   border-color: var(--space-border) !important;
 }
 
-/* ─── 修复：分页器白色背景 ─── */
+/* ─── 修复：分页器 ─── */
 .el-pagination .el-pager li,
 .el-pagination button {
   background: transparent !important;
@@ -431,11 +434,11 @@ a {
 }
 
 .el-pagination .el-pager li.is-active {
-  background: rgba(52, 211, 153, 0.2) !important;
+  background: rgba(64, 158, 255, 0.1) !important;
   color: var(--space-primary) !important;
 }
 
-/* ─── 修复：表格空状态白色背景 ─── */
+/* ─── 修复：表格空状态 ─── */
 .el-table__empty-block,
 .el-table__empty-text {
   background: transparent !important;
@@ -446,22 +449,22 @@ a {
   background: transparent !important;
 }
 
-/* ─── 修复：Select 下拉白色 ─── */
+/* ─── 修复：Select 下拉 ─── */
 .el-select .el-input__wrapper {
-  background: rgba(5, 14, 10, 0.72) !important;
+  background: #ffffff !important;
 }
 
 /* ─── 修复：Tag 标签 ─── */
 .el-tag {
-  background: rgba(52, 211, 153, 0.12) !important;
-  border-color: rgba(52, 211, 153, 0.3) !important;
+  background: rgba(64, 158, 255, 0.1) !important;
+  border-color: rgba(64, 158, 255, 0.2) !important;
   color: var(--space-primary) !important;
 }
 
 /* ─── 修复：Message Box / Notification ─── */
 .el-message-box,
 .el-notification {
-  background: var(--space-panel-strong) !important;
+  background: #ffffff !important;
   border-color: var(--space-border) !important;
 }
 
@@ -472,7 +475,7 @@ a {
   color: var(--space-text) !important;
 }
 
-/* ─── 修复：Tabs 白色背景 ─── */
+/* ─── 修复：Tabs ─── */
 .el-tabs__header,
 .el-tabs__nav-wrap,
 .el-tabs__item {
@@ -488,7 +491,7 @@ a {
   background: var(--space-primary) !important;
 }
 
-/* ─── 修复：表格展开行白色背景 ─── */
+/* ─── 修复：表格展开行 ─── */
 .el-table__expanded-cell,
 .el-table__expand-icon,
 .el-table__row--level-1,
@@ -503,15 +506,15 @@ a {
 }
 
 .el-table--enable-row-hover .el-table__body tr:hover > td {
-  background: rgba(52, 211, 153, 0.08) !important;
+  background: #f5f7fa !important;
 }
 
 .el-table__expanded-cell[class*="cell"] {
-  background: rgba(10, 22, 18, 0.6) !important;
+  background: #fafafa !important;
   color: var(--space-text) !important;
 }
 
-/* ─── 全局兜底：所有白色背景强制覆盖 ─── */
+/* ─── 全局兜底 ─── */
 .el-table__body tr,
 .el-table__header tr,
 .el-table__footer tr,
@@ -527,7 +530,7 @@ a {
   background-color: var(--space-border) !important;
 }
 
-/* ─── 修复：所有 el 组件可能的白色背景 ─── */
+/* ─── 修复：所有 el 组件 ─── */
 .el-collapse,
 .el-collapse-item__header,
 .el-collapse-item__wrap,
@@ -557,24 +560,24 @@ a {
   color: var(--space-text) !important;
 }
 
-/* ─── 修复：验证码图片白色背景 ─── */
+/* ─── 修复：验证码图片 ─── */
 .captcha-img,
 .el-image {
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
-/* ─── 修复：子菜单弹出层白色背景（el-sub-menu popup）─── */
+/* ─── 修复：子菜单弹出层 ─── */
 .el-menu--popup,
 .el-menu--popup-container,
 .el-menu--popup .el-menu,
 .el-popper .el-menu,
 .el-popper .el-menu--vertical,
 .el-menu.el-menu--popup {
-  background: rgba(14, 30, 24, 0.95) !important;
-  background-color: rgba(14, 30, 24, 0.95) !important;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
   border: 1px solid var(--space-border) !important;
-  backdrop-filter: blur(18px) !important;
+  backdrop-filter: none !important;
 }
 
 .el-menu--popup .el-menu-item,
@@ -586,6 +589,6 @@ a {
 
 .el-menu--popup .el-menu-item:hover,
 .el-popper .el-menu-item:hover {
-  background: rgba(52, 211, 153, 0.15) !important;
-  color: #fff !important;
+  background: rgba(64, 158, 255, 0.08) !important;
+  color: var(--space-primary) !important;
 }

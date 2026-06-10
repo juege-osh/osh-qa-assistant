@@ -85,13 +85,17 @@
   </div>
 </template>
 <script setup name='UploadFileManage' lang='ts'>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useTable } from '@/hooks/useTable';
 import { pageUploadFileApi,deleteUploadFileByIdApi, updateUploadFileStatusApi } from '@/api/workspace/uploadFileApi';
 import { previewFileApi } from '@/api/workspace/filePreviewApi';
+import { pageKnowledgeLibApi } from '@/api/workspace/knowledgeLibApi';
 import { useRoute } from 'vue-router';
 import { Plus, Edit, Delete } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
+import { saveItem, getItem } from '@/util/storageUtil';
+
+const STORAGE_LAST_LIB_ID_KEY = 'last-selected-lib-id'
 
 let searchFormData = reactive({
   fileName: '',
@@ -116,11 +120,41 @@ const previewData = reactive({
   content: ''
 })
 
+// 是否已选中知识库
+const hasLibId = computed(() => {
+  return String(searchData.libId || '').trim().length > 0
+})
+
 // 处理请求入参
 function handleLibId() {
   const libIdFromQs = route.query.libId
   if (libIdFromQs) {
     searchData.libId = libIdFromQs as string
+    saveItem(STORAGE_LAST_LIB_ID_KEY, searchData.libId)
+  } else {
+    // 尝试从 localStorage 中恢复上次选中的 libId
+    const lastLibId = getItem(STORAGE_LAST_LIB_ID_KEY)
+    if (lastLibId) {
+      searchData.libId = lastLibId
+    }
+  }
+}
+
+/**
+ * 当 URL 和 localStorage 中都没有 libId 时，自动加载用户的知识库列表并选中第一个
+ */
+async function autoSelectLib() {
+  try {
+    const result = await pageKnowledgeLibApi({ pageNow: 1, pageSize: 1 })
+    if (result.data && result.data.length > 0) {
+      searchData.libId = String(result.data[0].id)
+      saveItem(STORAGE_LAST_LIB_ID_KEY, searchData.libId)
+      loadTable()
+    } else {
+      ElMessage.info('您还没有创建知识库，请先前往知识库管理创建后再查看文件')
+    }
+  } catch {
+    ElMessage.warning('自动加载知识库列表失败，请从知识库列表进入文件管理')
   }
 }
 // 修改文件状态
@@ -143,7 +177,11 @@ function openPreview(row: { id: string }) {
 
 onMounted(() => {
   handleLibId()
-  loadTable()
+  if (hasLibId.value) {
+    loadTable()
+  } else {
+    autoSelectLib()
+  }
 })
 </script>
 <style scoped>
@@ -161,7 +199,7 @@ onMounted(() => {
 
 .preview-chip {
   padding: 8px 12px;
-  border: 1px solid rgba(52, 211, 153, 0.18);
+  border: 1px solid var(--space-border);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--space-text);
@@ -171,7 +209,7 @@ onMounted(() => {
   max-height: 56vh;
   overflow: auto;
   padding: 16px;
-  border: 1px solid rgba(52, 211, 153, 0.18);
+  border: 1px solid var(--space-border);
   border-radius: 18px;
   background: rgba(4, 10, 8, 0.78);
   color: rgba(234, 246, 255, 0.9);

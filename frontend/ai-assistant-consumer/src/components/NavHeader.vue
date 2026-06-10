@@ -1,51 +1,84 @@
 <template>
   <div class="common-header">
     <el-row>
-      <el-col :span="20" :offset="2">
-        <el-menu :default-active="activeItem" mode="horizontal" :ellipsis="false" @select="handleSelect">
-          <div class="nav-left">
-            <el-menu-item index="/" class="brand-menu-item">
-              <div class="brand-shell">
-                <div class="brand-mark" aria-hidden="true"></div>
-                <div class="brand-copy">
-                  <div class="brand-title">OSH Wisdom</div>
-                  <div class="brand-divider"></div>
-                  <div class="brand-subtitle">智能知识平台</div>
+      <el-col :span="24">
+        <div class="header-shell">
+          <el-menu
+            :default-active="activeItem"
+            mode="horizontal"
+            :ellipsis="false"
+            class="header-menu"
+            @select="handleSelect"
+          >
+            <div class="nav-left">
+              <el-menu-item index="/" class="brand-menu-item">
+                <div class="brand-shell">
+                  <div class="brand-mark" aria-hidden="true"></div>
+                  <div class="brand-copy">
+                    <div class="brand-title">OSH Wisdom</div>
+                    <div class="brand-divider"></div>
+                    <div class="brand-subtitle">智能知识平台</div>
+                  </div>
                 </div>
+              </el-menu-item>
+
+              <div v-if="navItems.length" class="nav-main">
+                <el-menu-item
+                  v-for="item in navItems"
+                  :key="item.index"
+                  :index="item.index"
+                  class="nav-link-item"
+                >
+                  <el-icon>
+                    <component :is="item.icon" />
+                  </el-icon>
+                  {{ item.label }}
+                </el-menu-item>
               </div>
-            </el-menu-item>
-            <el-menu-item v-if="hasLogin" index="/personal/app/manage"><el-icon>
-                <ChatDotRound />
-              </el-icon>应用</el-menu-item>
-            <el-menu-item v-if="hasLogin" index="/personal/knowledgeLib/manage"><el-icon>
-                <Document />
-              </el-icon>知识库</el-menu-item>
-            <el-menu-item v-if="hasLogin" index="/doc"><el-icon>
-                <Memo />
-              </el-icon>接口文档</el-menu-item>
-          </div>
-          <div class="nav-right" v-if="hasLogin">
-            <el-sub-menu index="/user-submenu">
-              <template v-slot:title>
-                <div class="avatar">
-                  <el-avatar v-if="userStore.userInfo.avatarPath"
-                    :src="toAddressable(userStore.userInfo.avatarPath)"></el-avatar>
-                  <el-avatar v-else :src="getImage('user.png')"></el-avatar>
-                  <div class="greet">你好,{{ userStore.userInfo.username }}</div>
+            </div>
+
+            <div class="nav-right" v-if="hasLogin">
+              <el-dropdown
+                class="user-dropdown"
+                trigger="click"
+                placement="bottom-end"
+                popper-class="header-user-popper"
+              >
+                <div class="user-trigger">
+                  <div class="avatar">
+                    <el-avatar
+                      v-if="userStore.userInfo.avatarPath"
+                      :src="toAddressable(userStore.userInfo.avatarPath)"
+                    ></el-avatar>
+                    <el-avatar v-else :src="getImage('user.png')"></el-avatar>
+                    <div class="user-copy">
+                      <div class="user-headline">
+                        <div class="greet">你好，{{ userStore.userInfo.username }}</div>
+                        <div class="user-state">
+                          <span class="status-dot"></span>
+                          已登录
+                        </div>
+                      </div>
+                      <div class="user-role">平台用户</div>
+                    </div>
+                  </div>
                 </div>
-              </template>
-              <template v-if="hasLogin">
-                <el-menu-item index="/user-submenu/profile" @click="openUpdateProfileDialog(userStore.userInfo.id)">修改个人信息</el-menu-item>
-                <el-menu-item index="/user-submenu/pwd" @click="openUpdatePwd">修改密码</el-menu-item>
-                <el-menu-item index="/user-submenu/logout" @click="handleLogout">退出登录</el-menu-item>
-              </template>
-            </el-sub-menu>
-          </div>
-          <div class="nav-right" v-else>
-            <el-button type="primary" @click="router.replace('/login')">登录</el-button>
-            <el-button type="success" @click="router.replace('/register')">注册</el-button>
-          </div>
-        </el-menu>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="openUpdateProfileDialog(userStore.userInfo.id)">修改个人信息</el-dropdown-item>
+                    <el-dropdown-item @click="openUpdatePwd">修改密码</el-dropdown-item>
+                    <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+
+            <div class="nav-right nav-right-public" v-else>
+              <el-button type="primary" @click="router.replace('/login')">登录</el-button>
+              <el-button @click="router.replace('/register')">注册</el-button>
+            </div>
+          </el-menu>
+        </div>
         <!-- 修改个人信息对话框 -->
         <el-dialog title="修改个人信息" v-model="updateProfileDiaVisible" @close="handleUpdateProfileDiaCancel">
           <el-form ref="updateProfileForm" :model="updateProfileFormData" :rules="updateProfileRules"
@@ -91,7 +124,7 @@
 <script setup name='CommonHeader' lang='ts'>
 import { getImage } from '@/util/AssetsImageUtil';
 import { useUserStore } from '@/store/useUserStore';
-import { Document, Files } from "@element-plus/icons-vue"
+import { ChatDotRound, Document, Memo } from "@element-plus/icons-vue"
 import { clearAll } from '@/util/storageUtil';
 import { ref, reactive, computed } from 'vue';
 import { ElMessage, type UploadUserFile } from 'element-plus';
@@ -159,6 +192,16 @@ let hasLogin = computed<boolean>(() => {
   } else {
     return false;
   }
+})
+const navItems = computed(() => {
+  if (!hasLogin.value) {
+    return []
+  }
+  return [
+    { index: '/personal/app/manage', label: '应用', icon: ChatDotRound },
+    { index: '/personal/knowledgeLib/manage', label: '知识库', icon: Document },
+    { index: '/doc', label: '接口文档', icon: Memo }
+  ]
 })
 // 处理下拉框点击
 function openUpdateProfileDialog(id: string) {
@@ -230,156 +273,4 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
 }
 </script>
 
-<style scoped>
-.common-header {
-  height: 72px;
-  background: rgba(5, 12, 32, 0.76);
-  border-bottom: 1px solid var(--space-border);
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(18px);
-}
-
-.brand-shell {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 16px 10px 10px;
-  border: 1px solid rgba(52, 211, 153, 0.22);
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(11, 22, 52, 0.92), rgba(18, 32, 72, 0.7));
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 14px 32px rgba(0, 0, 0, 0.28);
-}
-
-.brand-mark {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  background:
-    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.98), rgba(52, 211, 153, 0.95) 14%, rgba(124, 92, 255, 0.85) 48%, rgba(13, 23, 52, 0.92) 76%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 10px 26px rgba(72, 214, 255, 0.22);
-}
-
-.brand-mark::before,
-.brand-mark::after {
-  content: "";
-  position: absolute;
-  border-radius: 999px;
-}
-
-.brand-mark::before {
-  width: 12px;
-  height: 12px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.55);
-}
-
-.brand-mark::after {
-  width: 26px;
-  height: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.42);
-  opacity: 0.72;
-}
-
-.brand-copy {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 42px;
-}
-
-.brand-title {
-  color: #fff;
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  line-height: 1;
-}
-
-.brand-divider {
-  width: 1px;
-  height: 18px;
-  background: rgba(52, 211, 153, 0.26);
-}
-
-.brand-subtitle {
-  color: var(--space-muted);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  line-height: 1;
-}
-
-:deep(.el-menu--horizontal) {
-  height: 72px;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 0;
-}
-
-.el-menu {
-  background: transparent;
-}
-
-:deep(.el-menu--horizontal > .el-menu-item),
-:deep(.el-menu--horizontal > .el-sub-menu .el-sub-menu__title) {
-  display: flex;
-  align-items: center;
-  height: 72px;
-  line-height: normal;
-}
-
-:deep(.el-menu--horizontal > .el-menu-item:first-child),
-:deep(.el-menu--horizontal > .el-menu-item:nth-child(5)) {
-  border-bottom: none;
-  text-decoration: none;
-}
-
-:deep(.el-menu--horizontal > .el-menu-item.brand-menu-item) {
-  padding: 0 12px 0 0;
-}
-
-:deep(.el-menu--horizontal > .el-menu-item:first-child:hover),
-:deep(.el-menu--horizontal > .el-menu-item:nth-child(5):hover) {
-  background: transparent !important;
-  box-shadow: none;
-}
-
-.header-search-form {
-  width: 400px;
-}
-
-.header-search-form .el-form-item {
-  margin-bottom: 0;
-}
-
-.nav-left,
-.nav-right,
-.avatar {
-  display: flex;
-  align-items: center;
-}
-
-.nav-left {
-  gap: 8px;
-}
-
-.nav-right {
-  gap: 10px;
-}
-
-.avatar {
-  justify-content: center;
-}
-
-.greet {
-  margin-left: 10px;
-  color: var(--space-text);
-}
-</style>
+<style src="@/assets/css/nav-header.css"></style>

@@ -93,48 +93,46 @@ onMounted(() => {
 <style scoped>
 .side-bar {
   height: 100%;
-  padding: 16px;
-  border: 1px solid var(--space-border);
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at 12% 12%, rgba(52, 211, 153, 0.16), transparent 28%),
-    linear-gradient(180deg, rgba(7, 14, 36, 0.88), rgba(10, 13, 32, 0.78));
-  box-shadow: var(--space-card-shadow);
-  backdrop-filter: blur(18px);
+  padding: 18px 14px 14px;
+  border: 1px solid rgba(227, 232, 241, 0.7);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.96));
+  box-shadow: 0 18px 36px rgba(37, 48, 71, 0.07);
 }
 
 .side-head {
-  padding: 6px 8px 16px;
+  padding: 6px 10px 16px;
 }
 
 .side-eyebrow {
   color: var(--space-primary);
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
 }
 
 .side-title {
-  margin-top: 10px;
-  font-size: 22px;
+  margin-top: 8px;
+  font-size: 17px;
   font-weight: 800;
+  color: var(--space-text);
 }
 
 .side-desc {
-  margin-top: 10px;
-  color: var(--space-muted);
+  margin-top: 8px;
+  color: var(--space-text-soft);
   line-height: 1.7;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .el-menu {
-  margin-top: 6px;
+  margin-top: 8px;
   border: 0;
 }
 
 .el-menu div,
 :deep(.el-sub-menu ul.el-menu div) {
-  border-bottom: 1px solid rgba(52, 211, 153, 0.1);
+  border-bottom: 1px solid rgba(227, 232, 241, 0.7);
 }
 
 .el-menu div:last-child,
@@ -144,15 +142,19 @@ onMounted(() => {
 
 :deep(.el-sub-menu__title),
 :deep(.el-menu-item) {
-  height: 46px;
-  margin: 6px 0;
+  height: 44px;
+  margin: 4px 0;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+  font-weight: 600;
 }
 
 :deep(.el-sub-menu__title:hover),
 :deep(.el-menu-item:focus),
 :deep(.el-menu-item:hover),
 :deep(.el-menu-item.is-active) {
-  background: linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(245, 158, 11, 0.24)) !important;
-  color: #fff !important;
+  background: linear-gradient(90deg, rgba(64, 158, 255, 0.12), rgba(64, 158, 255, 0.04)) !important;
+  color: var(--space-primary) !important;
+  box-shadow: inset 3px 0 0 var(--space-primary);
 }
 </style>

@@ -194,42 +194,42 @@ onMounted(() => {
 </script>
 <style scoped>
 .title {
-  font-weight: 900;
-  color: #fff;
-  letter-spacing: .03em;
+  font-weight: 700;
+  color: var(--space-text);
+  letter-spacing: .02em;
+  font-size: 14px;
 }
 
 .time-tip {
   padding-right: .3rem;
   color: var(--space-muted);
+  font-size: 12px;
 }
 
 :deep(.el-card__body) {
-  padding: 16px;
+  padding: 14px;
 }
 
 :deep(.el-card__footer) {
-  padding: 12px 16px;
-  background: rgba(5, 12, 32, 0.45) !important;
+  padding: 10px 14px;
+  background: #fafafa !important;
 }
 
 .app-card {
   position: relative;
-  min-height: 250px;
+  min-height: 220px;
   border: 1px solid var(--space-border) !important;
-  background:
-    radial-gradient(circle at 90% 8%, rgba(52, 211, 153, 0.16), transparent 28%),
-    linear-gradient(145deg, rgba(13, 23, 54, 0.88), rgba(18, 13, 49, 0.78)) !important;
-  transition: transform .2s ease, box-shadow .2s ease;
+  background: #ffffff !important;
+  transition: box-shadow .2s ease;
 }
 
 .app-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.5), 0 0 36px rgba(52, 211, 153, 0.18) !important;
+  transform: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
 }
 
 .card-wrapper {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .one-row,
@@ -245,17 +245,19 @@ onMounted(() => {
 }
 
 .right {
-  margin-left: 15px;
+  margin-left: 12px;
   flex: 1;
 }
 
 .desc {
-  margin-top: 14px;
+  margin-top: 10px;
   color: var(--space-muted);
+  font-size: 13px;
 }
 
 .app-id {
   color: var(--space-muted) !important;
+  font-size: 12px;
 }
 
 .desc-text {
@@ -265,9 +267,10 @@ onMounted(() => {
   -webkit-line-clamp: 3;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 2em;
-  min-height: 6em;
-  color: rgba(234, 246, 255, 0.84) !important;
+  line-height: 1.8em;
+  min-height: 5em;
+  color: var(--space-muted) !important;
+  font-size: 13px;
 }
 
 .bind-unbind-link {

@@ -1,19 +1,34 @@
 <template>
   <div class="page-shell chat-page">
-    <section class="hero-panel">
-      <div class="hero-title">智能问答工作台</div>
-      <div class="hero-subtitle">
-        用于验证应用与知识库的真实问答效果。支持多会话管理、上下文连续对话、回答复制、问题重试和会话重命名，方便做完整调试闭环。
-      </div>
-      <div class="hero-meta">
-        <span class="hero-badge">当前会话：{{ currentChatName || '未选择' }}</span>
-        <span class="hero-badge">会话数：{{ pageData.chats.length }}</span>
-        <span class="hero-badge">消息数：{{ pageData.messages.length }}</span>
-      </div>
+    <section :class="['hero-panel', heroExpanded ? 'is-expanded' : 'is-collapsed']">
+      <button
+        type="button"
+        class="hero-toggle"
+        :aria-expanded="heroExpanded"
+        @click="heroExpanded = !heroExpanded"
+      >
+        <div>
+          <div class="hero-title">智能问答工作台</div>
+          <div class="hero-toggle-hint">{{ heroExpanded ? '点击收起说明' : '点击展开说明' }}</div>
+        </div>
+        <span :class="['hero-toggle-icon', heroExpanded ? 'is-expanded' : '']">⌄</span>
+      </button>
+      <transition name="hero-collapse">
+        <div v-if="heroExpanded" class="hero-content">
+          <div class="hero-subtitle">
+            用于验证应用与知识库的真实问答效果。支持多会话管理、上下文连续对话、回答复制、问题重试和会话重命名，方便做完整调试闭环。
+          </div>
+          <div class="hero-meta">
+            <span class="hero-badge">当前会话：{{ currentChatName || '未选择' }}</span>
+            <span class="hero-badge">会话数：{{ pageData.chats.length }}</span>
+            <span class="hero-badge">消息数：{{ pageData.messages.length }}</span>
+          </div>
+        </div>
+      </transition>
     </section>
 
     <el-container class="app">
-      <el-aside width="320px" class="aside">
+      <el-aside width="300px" class="aside">
         <div class="aside-header">
           <div>
             <div class="aside-eyebrow">Sessions</div>
@@ -186,8 +201,10 @@ import sql from 'highlight.js/lib/languages/sql'
 import typescript from 'highlight.js/lib/languages/typescript'
 import xml from 'highlight.js/lib/languages/xml'
 import 'highlight.js/styles/github.css'
-import { BASE_URL } from '@/config/constants';
+import { BASE_URL, STORAGE_LAST_APP_ID_KEY } from '@/config/constants';
+import { saveItem, getItem } from '@/util/storageUtil';
 import { addChatApi, chatApi, deleteChatByIdApi, listRecentChatApi, renameChatApi } from '@/api/workspace/chatApi';
+import { pageAppApi } from '@/api/workspace/appApi';
 import type { AnyObjDefine, AnyObjsDefine } from '@/types/common';
 import { listHistoryMessageApi } from '@/api/workspace/chatMessageApi';
 import { useUserStore } from '@/store/useUserStore';
@@ -210,6 +227,8 @@ hljs.registerLanguage('html', xml)
 
 const md = new MarkdownIt({
   html: true,
+  breaks: true,
+  linkify: true,
   highlight: (str: string, lang: string) => {
     if (lang && hljs.getLanguage(lang)) {
       try {
@@ -234,6 +253,7 @@ const pageData = reactive({
 const activeChatId = ref('')
 const chatBox = ref<HTMLElement | null>(null)
 const sseConnected = ref(false)
+const heroExpanded = ref(false)
 const renameDialogVisible = ref(false)
 const sessionKeyword = ref('')
 const renameForm = reactive({
@@ -256,6 +276,10 @@ const currentChatName = computed(() => {
   return pageData.chats.find((item: AnyObjDefine) => item.id === activeChatId.value)?.chatName || ''
 })
 
+const hasAppId = computed(() => {
+  return String(pageData.appId || '').trim().length > 0
+})
+
 const filteredChats = computed(() => {
   const keyword = sessionKeyword.value.trim().toLowerCase()
   if (!keyword) {
@@ -266,7 +290,26 @@ const filteredChats = computed(() => {
   )
 })
 
+function ensureAppSelected(showMessage = true) {
+  if (hasAppId.value) {
+    return true
+  }
+  evtSource?.close()
+  sseConnected.value = false
+  activeChatId.value = ''
+  pageData.chats = []
+  pageData.messages = []
+  if (showMessage) {
+    ElMessage.warning('正在自动加载应用，请稍候...')
+    autoSelectApp()
+  }
+  return false
+}
+
 function addChat() {
+  if (!ensureAppSelected()) {
+    return
+  }
   const tmpRandom = Date.now().toString().slice(-4)
   addChatApi({
     appId: pageData.appId,
@@ -314,10 +357,15 @@ function pushMessage(typeDesc: string, message: string) {
   scrollBottom()
 }
 
+function renderPlainText(message: string) {
+  return md.utils.escapeHtml(String(message || '')).replace(/\n/g, '<br>')
+}
+
 function render(msgObj: AnyObjDefine) {
-  return msgObj.message.startsWith('#') || msgObj.message.includes('```')
-    ? md.render(msgObj.message)
-    : `<span>${msgObj.message}</span>`
+  if (msgObj.typeDesc === 'user') {
+    return `<p>${renderPlainText(msgObj.message)}</p>`
+  }
+  return md.render(String(msgObj.message || ''))
 }
 
 async function scrollBottom() {
@@ -328,6 +376,9 @@ async function scrollBottom() {
 }
 
 async function send() {
+  if (!ensureAppSelected()) {
+    return
+  }
   const txt = pageData.crtUserInput.trim()
   if (!txt) {
     ElMessage.error({ message: '请输入聊天内容' })
@@ -357,6 +408,9 @@ function handleEditorKeydown(event: KeyboardEvent) {
 }
 
 function connectSse() {
+  if (!ensureAppSelected(false) || !activeChatId.value) {
+    return
+  }
   evtSource?.close()
   sseConnected.value = false
   const token = userStore.token
@@ -400,6 +454,9 @@ function connectSse() {
 }
 
 function loadChats() {
+  if (!ensureAppSelected()) {
+    return
+  }
   listRecentChatApi(pageData.appId).then(result => {
     if (result.data) {
       pageData.chats = result.data
@@ -412,13 +469,39 @@ function loadChats() {
 
 function handleQueryStr() {
   const appIdFromQs = route.query.appId
-  if (appIdFromQs) {
-    pageData.appId = appIdFromQs as string
+  const normalizedAppId = Array.isArray(appIdFromQs) ? appIdFromQs[0] : appIdFromQs
+  if (normalizedAppId) {
+    pageData.appId = String(normalizedAppId).trim()
+    saveItem(STORAGE_LAST_APP_ID_KEY, pageData.appId)
+  } else {
+    // 尝试从 localStorage 中恢复上次选中的 appId
+    const lastAppId = getItem(STORAGE_LAST_APP_ID_KEY)
+    if (lastAppId) {
+      pageData.appId = lastAppId
+    }
   }
 }
 
 function usePrompt(prompt: string) {
   pageData.crtUserInput = prompt
+}
+
+/**
+ * 当 URL 和 localStorage 中都没有 appId 时，自动加载用户的应用列表并选中第一个
+ */
+async function autoSelectApp() {
+  try {
+    const result = await pageAppApi({ pageNow: 1, pageSize: 1 })
+    if (result.data && result.data.length > 0) {
+      pageData.appId = String(result.data[0].id)
+      saveItem(STORAGE_LAST_APP_ID_KEY, pageData.appId)
+      loadChats()
+    } else {
+      ElMessage.info('您还没有创建应用，请先前往应用管理创建应用后再开始聊天')
+    }
+  } catch {
+    ElMessage.warning('自动加载应用列表失败，请手动从应用列表进入聊天')
+  }
 }
 
 function openRenameDialog(chat: AnyObjDefine) {
@@ -505,31 +588,142 @@ function exportCurrentChat() {
 
 onMounted(() => {
   handleQueryStr()
-  loadChats()
+  if (hasAppId.value) {
+    loadChats()
+  } else {
+    autoSelectApp()
+  }
 })
 
 onUnmounted(() => evtSource?.close())
 </script>
 <style scoped>
 .chat-page {
-  min-height: calc(100vh - 190px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  height: 100%;
+  flex: 1;
+}
+
+.hero-panel {
+  flex-shrink: 0;
+  border: 1px solid rgba(227, 232, 241, 0.72);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 249, 255, 0.92));
+  box-shadow: 0 12px 28px rgba(37, 48, 71, 0.07);
+  overflow: hidden;
+}
+
+.hero-panel.is-collapsed {
+  box-shadow: 0 8px 22px rgba(37, 48, 71, 0.05);
+}
+
+.hero-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hero-toggle:focus-visible {
+  outline: 2px solid rgba(64, 158, 255, 0.45);
+  outline-offset: -2px;
+}
+
+.hero-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--space-text);
+  line-height: 1.2;
+}
+
+.hero-toggle-hint {
+  margin-top: 2px;
+  color: var(--space-muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.hero-toggle-icon {
+  flex: 0 0 auto;
+  color: var(--space-primary);
+  font-size: 16px;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform .2s ease;
+}
+
+.hero-toggle-icon.is-expanded {
+  transform: rotate(180deg);
+}
+
+.hero-content {
+  padding: 0 16px 12px;
+}
+
+.hero-subtitle {
+  color: var(--space-text-soft);
+  line-height: 1.6;
+  font-size: 12px;
+}
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(227, 232, 241, 0.95);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--space-text-soft);
+  font-size: 11px;
+}
+
+.hero-collapse-enter-active,
+.hero-collapse-leave-active {
+  transition: all .2s ease;
+}
+
+.hero-collapse-enter-from,
+.hero-collapse-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 .app {
-  min-height: 78vh;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--space-border);
-  border-radius: 28px;
-  background: rgba(7, 16, 12, 0.68);
-  box-shadow: var(--space-shadow);
-  backdrop-filter: blur(18px);
-}
-
-.aside {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--space-border);
-  background: linear-gradient(180deg, rgba(8, 20, 16, 0.96), rgba(10, 18, 14, 0.84));
+  border: 1px solid rgba(227, 232, 241, 0.72);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 24px 60px rgba(37, 48, 71, 0.1);
+}
+
+.app > .el-aside {
+  width: 280px !important;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid rgba(227, 232, 241, 0.8);
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f8fd 100%);
 }
 
 .aside-header {
@@ -537,53 +731,70 @@ onUnmounted(() => evtSource?.close())
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 20px 18px 10px;
+  padding: 16px 16px 10px;
 }
 
 .aside-eyebrow {
   color: var(--space-primary);
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
 }
 
 .aside-title {
-  margin-top: 8px;
-  font-size: 22px;
-  font-weight: 800;
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--space-text);
 }
 
 .session-hint {
-  padding: 0 18px 16px;
-  color: var(--space-muted);
-  line-height: 1.7;
-  font-size: 13px;
+  padding: 0 16px 12px;
+  color: var(--space-text-soft);
+  line-height: 1.6;
+  font-size: 12px;
 }
 
 .session-search {
-  padding: 0 16px 14px;
+  padding: 0 14px 12px;
 }
 
 .session-scroll {
   flex: 1;
-  padding: 0 12px 14px;
+  min-height: 0;
+  padding: 0 12px 12px;
+  overflow-y: auto;
 }
 
 .session-card {
-  padding: 14px;
+  position: relative;
+  padding: 12px;
   margin-bottom: 10px;
-  border: 1px solid rgba(52, 211, 153, 0.1);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(227, 232, 241, 0.92);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
   cursor: pointer;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease;
+  box-shadow: 0 10px 24px rgba(37, 48, 71, 0.05);
+  transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
 }
 
 .session-card:hover,
 .session-card.is-active {
   transform: translateY(-2px);
-  border-color: rgba(52, 211, 153, 0.36);
-  background: linear-gradient(135deg, rgba(52, 211, 153, 0.14), rgba(245, 158, 11, 0.16));
+  border-color: rgba(64, 158, 255, 0.32);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(237, 245, 255, 0.92));
+  box-shadow: 0 16px 30px rgba(64, 158, 255, 0.12);
+}
+
+.session-card.is-active::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #66b1ff, #409eff);
 }
 
 .session-main {
@@ -592,13 +803,14 @@ onUnmounted(() => evtSource?.close())
 
 .session-name {
   font-weight: 700;
-  color: #fff;
+  color: var(--space-text);
+  font-size: 13px;
 }
 
 .session-meta {
-  margin-top: 6px;
+  margin-top: 4px;
   color: var(--space-muted);
-  font-size: 12px;
+  font-size: 11px;
   word-break: break-all;
 }
 
@@ -606,56 +818,62 @@ onUnmounted(() => evtSource?.close())
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .session-btn {
   padding: 0;
   color: var(--space-muted);
+  font-size: 12px;
 }
 
 .session-btn.delete {
-  color: #ff8ca4;
+  color: #f56c6c;
 }
 
 .empty-session {
-  padding: 18px 14px;
+  padding: 14px 10px;
   color: var(--space-muted);
-  line-height: 1.8;
+  line-height: 1.7;
+  font-size: 12px;
 }
 
-.main {
+.app > .el-main {
+  flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   padding: 0;
-  background:
-    radial-gradient(circle at 82% 16%, rgba(52, 211, 153, 0.12), transparent 28%),
-    radial-gradient(circle at 35% 90%, rgba(245, 158, 11, 0.16), transparent 32%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 251, 255, 0.92));
 }
 
 .chat-head {
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid rgba(52, 211, 153, 0.12);
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid rgba(227, 232, 241, 0.9);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .chat-head-title {
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--space-text);
 }
 
 .chat-head-desc {
-  margin-top: 8px;
-  color: var(--space-muted);
+  margin-top: 4px;
+  color: var(--space-text-soft);
+  font-size: 12px;
 }
 
 .chat-head-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -663,32 +881,39 @@ onUnmounted(() => evtSource?.close())
 .tip-pill {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(234, 246, 255, 0.84);
-  font-size: 12px;
+  border: 1px solid rgba(227, 232, 241, 0.9);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--space-text-soft);
+  font-size: 11px;
 }
 
 .meta-pill.running {
-  background: rgba(46, 233, 166, 0.14);
-  color: var(--space-success);
+  background: rgba(64, 158, 255, 0.12);
+  border-color: rgba(64, 158, 255, 0.18);
+  color: var(--space-primary);
 }
 
 .scroll-btn {
   color: var(--space-primary);
+  font-size: 12px;
 }
 
 .chat-box {
   flex: 1;
-  padding: 24px;
+  min-height: 0;
+  padding: 16px 20px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0));
 }
 
 .bubble {
   display: flex;
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .bubble.self {
@@ -696,28 +921,29 @@ onUnmounted(() => evtSource?.close())
 }
 
 .avatar-ball {
-  flex: 0 0 42px;
-  width: 42px;
-  height: 42px;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  font-weight: 800;
-  background: rgba(52, 211, 153, 0.12);
-  border: 1px solid rgba(52, 211, 153, 0.26);
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(64, 158, 255, 0.1);
+  border: 1px solid rgba(64, 158, 255, 0.08);
   color: var(--space-primary);
+  box-shadow: 0 10px 24px rgba(64, 158, 255, 0.1);
 }
 
 .bubble.self .avatar-ball {
-  color: #03101f;
+  color: #ffffff;
   border: 0;
-  background: linear-gradient(135deg, var(--space-primary), #9c7cff);
+  background: linear-gradient(135deg, #66b1ff 0%, #409eff 70%, #2f7fe2 100%);
 }
 
 .content-wrap {
-  max-width: min(780px, 78%);
+  max-width: min(900px, 88%);
 }
 
 .bubble-top {
@@ -725,13 +951,13 @@ onUnmounted(() => evtSource?.close())
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .bubble-role {
-  color: var(--space-muted);
-  font-size: 12px;
-  font-weight: 700;
+  color: var(--space-text-soft);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .bubble-tools {
@@ -742,33 +968,148 @@ onUnmounted(() => evtSource?.close())
 .tool-btn {
   padding: 0;
   color: var(--space-primary);
+  font-size: 12px;
 }
 
 .content {
-  padding: 15px 18px;
-  border: 1px solid rgba(52, 211, 153, 0.18);
-  border-radius: 18px 18px 18px 8px;
+  padding: 12px 16px;
+  border: 1px solid rgba(227, 232, 241, 0.95);
+  border-radius: 14px 14px 14px 4px;
   color: var(--space-text);
-  background: rgba(10, 22, 18, 0.82);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.24);
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  box-shadow: 0 16px 32px rgba(37, 48, 71, 0.07);
   word-break: break-word;
-  line-height: 1.75;
+  line-height: 1.7;
+  font-size: 14px;
 }
 
 .bubble.self .content {
-  color: #03101f;
+  color: #ffffff;
   border: 0;
-  border-radius: 18px 18px 8px 18px;
-  background: linear-gradient(135deg, var(--space-primary), #9c7cff);
-  box-shadow: 0 16px 42px rgba(52, 211, 153, 0.24);
+  border-radius: 14px 14px 4px 14px;
+  background: linear-gradient(135deg, #66b1ff 0%, #409eff 70%, #2f7fe2 100%);
+  box-shadow: 0 18px 34px rgba(64, 158, 255, 0.24);
+}
+
+.content :deep(*) {
+  max-width: 100%;
+}
+
+.content :deep(p),
+.content :deep(ul),
+.content :deep(ol),
+.content :deep(blockquote),
+.content :deep(pre),
+.content :deep(table) {
+  margin: 0 0 10px;
+}
+
+.content :deep(p:last-child),
+.content :deep(ul:last-child),
+.content :deep(ol:last-child),
+.content :deep(blockquote:last-child),
+.content :deep(pre:last-child),
+.content :deep(table:last-child) {
+  margin-bottom: 0;
+}
+
+.content :deep(ul),
+.content :deep(ol) {
+  padding-left: 20px;
+}
+
+.content :deep(li + li) {
+  margin-top: 4px;
+}
+
+.content :deep(strong) {
+  font-weight: 700;
+}
+
+.content :deep(code) {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(64, 158, 255, 0.08);
+  color: var(--space-primary);
+  font-size: 0.92em;
+}
+
+.bubble.self .content :deep(code) {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.content :deep(a) {
+  color: var(--space-primary);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(64, 158, 255, 0.22);
+}
+
+.bubble.self .content :deep(a) {
+  color: #ffffff;
+  border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+.content :deep(blockquote) {
+  padding: 8px 12px;
+  border-left: 3px solid rgba(64, 158, 255, 0.26);
+  border-radius: 0 10px 10px 0;
+  background: rgba(64, 158, 255, 0.05);
+  color: var(--space-text-soft);
+}
+
+.content :deep(h1),
+.content :deep(h2),
+.content :deep(h3),
+.content :deep(h4) {
+  margin: 0 0 10px;
+  color: var(--space-text);
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.content :deep(h1) {
+  font-size: 20px;
+}
+
+.content :deep(h2) {
+  font-size: 17px;
+}
+
+.content :deep(h3),
+.content :deep(h4) {
+  font-size: 15px;
 }
 
 .bubble :deep(pre) {
-  margin: 8px 0;
-  padding: 12px;
+  margin: 6px 0;
+  padding: 10px;
   overflow: auto;
-  border-radius: 12px;
-  background: rgba(2, 6, 23, 0.85);
+  border-radius: 10px;
+  background: #f5f8fc;
+  border: 1px solid rgba(227, 232, 241, 0.95);
+}
+
+.content :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid rgba(227, 232, 241, 0.95);
+  border-radius: 10px;
+}
+
+.content :deep(th),
+.content :deep(td) {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(227, 232, 241, 0.9);
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+}
+
+.content :deep(th) {
+  background: rgba(64, 158, 255, 0.06);
+  font-weight: 700;
 }
 
 .empty-chat {
@@ -776,53 +1117,59 @@ onUnmounted(() => evtSource?.close())
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 420px;
+  min-height: 300px;
   text-align: center;
+  padding: 20px;
 }
 
 .empty-chat-title {
-  font-size: 28px;
-  font-weight: 800;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--space-text);
 }
 
 .empty-chat-desc {
-  max-width: 720px;
-  margin-top: 14px;
-  color: var(--space-muted);
-  line-height: 1.9;
+  max-width: 640px;
+  margin-top: 10px;
+  color: var(--space-text-soft);
+  line-height: 1.8;
+  font-size: 13px;
 }
 
 .quick-prompts {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 12px;
-  margin-top: 24px;
+  gap: 10px;
+  margin-top: 20px;
 }
 
 .prompt-chip {
-  padding: 10px 16px;
-  border: 1px solid rgba(52, 211, 153, 0.22);
+  padding: 9px 16px;
+  border: 1px solid rgba(227, 232, 241, 0.95);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.92);
   color: var(--space-text);
   cursor: pointer;
-  transition: transform .2s ease, border-color .2s ease;
+  font-size: 13px;
+  box-shadow: 0 10px 24px rgba(37, 48, 71, 0.05);
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
 
 .prompt-chip:hover {
   transform: translateY(-2px);
-  border-color: rgba(52, 211, 153, 0.4);
+  border-color: var(--space-primary);
+  box-shadow: 0 14px 28px rgba(64, 158, 255, 0.12);
 }
 
 .input-bar {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 18px 20px;
-  border-top: 1px solid var(--space-border);
-  background: rgba(5, 14, 10, 0.82);
-  backdrop-filter: blur(18px);
+  gap: 10px;
+  padding: 14px 18px 16px;
+  border-top: 1px solid rgba(227, 232, 241, 0.9);
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.94), rgba(255, 255, 255, 0.98));
 }
 
 .input-head,
@@ -840,13 +1187,14 @@ onUnmounted(() => evtSource?.close())
 }
 
 .input-title {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
+  color: var(--space-text);
 }
 
 .input-tip {
   color: var(--space-muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .input-actions-left,
@@ -855,19 +1203,30 @@ onUnmounted(() => evtSource?.close())
   gap: 10px;
 }
 
+@media (min-width: 1201px) {
+  .chat-page {
+    height: calc(100dvh - 180px);
+  }
+
+  .app {
+    height: 100%;
+  }
+}
+
 @media (max-width: 1200px) {
   .app {
     flex-direction: column;
+    min-height: 60vh;
   }
 
-  .aside {
+  .app > .el-aside {
     width: 100% !important;
     border-right: 0;
     border-bottom: 1px solid var(--space-border);
   }
 
   .session-scroll {
-    max-height: 260px;
+    max-height: 200px;
   }
 }
 
@@ -876,37 +1235,37 @@ onUnmounted(() => evtSource?.close())
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
   padding-left: 4px;
 }
 
 .fb-btn {
   padding: 4px 10px;
-  border: 1px solid rgba(52, 211, 153, 0.15);
+  border: 1px solid #e4e7ed;
   border-radius: 8px;
   background: transparent;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   transition: all 0.2s;
 }
 
 .fb-btn:hover {
-  border-color: rgba(52, 211, 153, 0.4);
-  background: rgba(52, 211, 153, 0.08);
+  border-color: var(--space-primary);
+  background: rgba(64, 158, 255, 0.06);
 }
 
 .fb-btn.active-up {
   border-color: var(--space-success);
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(16, 185, 129, 0.1);
 }
 
 .fb-btn.active-down {
-  border-color: #f87171;
-  background: rgba(248, 113, 113, 0.12);
+  border-color: #f56c6c;
+  background: rgba(245, 108, 108, 0.1);
 }
 
 .fb-text {
   color: var(--space-muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 </style>

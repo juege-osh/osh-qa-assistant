@@ -17,7 +17,7 @@
         <el-descriptions :column="1" border>
           <el-descriptions-item label="请求方式">POST</el-descriptions-item>
           <el-descriptions-item label="Content-Type">application/json</el-descriptions-item>
-          <el-descriptions-item label="baseUrl">http://localhost:9000/consumer</el-descriptions-item>
+          <el-descriptions-item label="baseUrl">http://localhost:9000</el-descriptions-item>
         </el-descriptions>
         <div v-for="(api,index) in apiList" :key="api.id" :id="api.id" style="padding-top:60px;margin-top:-60px">
           <h2>{{ (index+1) +"."+api.name }}</h2>
@@ -58,7 +58,7 @@ const apiList = [
       { name: 'appKey', desc: '系统颁发的appKey,在用户中心查看', type: 'String', required: '是' },
       { name: 'userInput', desc: '用户输入', type: 'String', required: '是' },
       { name: 'appId', desc: '应用标识,在应用列表中查看', type: 'String', required: '是' },
-      { name: 'chatId', desc: '唯一会话标识,可自己生成,用于区分不同会话', type: 'String', required: '否' },
+      { name: 'chatId', desc: '唯一会话标识,需由调用方自行生成,用于区分不同会话', type: 'String', required: '是' },
     ]
   },
 ] as AnyObjsDefine

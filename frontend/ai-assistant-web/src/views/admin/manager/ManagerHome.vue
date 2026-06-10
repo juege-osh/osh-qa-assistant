@@ -96,26 +96,28 @@ onMounted(() => {
 </script>
 <style scoped>
 .summary-panel {
-  padding: 22px;
+  padding: 18px 20px;
 }
 
 .summary-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--space-text);
 }
 
 .summary-list {
   display: grid;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .summary-item {
-  padding: 16px 18px;
-  border: 1px solid rgba(52, 211, 153, 0.14);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(234, 246, 255, 0.84);
-  line-height: 1.8;
+  padding: 12px 16px;
+  border: 1px solid var(--space-border);
+  border-radius: 8px;
+  background: #fafafa;
+  color: var(--space-muted);
+  line-height: 1.7;
+  font-size: 13px;
 }
 </style>

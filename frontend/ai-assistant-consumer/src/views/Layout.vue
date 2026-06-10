@@ -6,14 +6,12 @@
       </section>
       <section class="main-content">
         <!-- 除了顶部导航所占区域在这里统一定义 -->
-        <el-row>
-          <el-col :span="20" :offset="2" class="content-box">
-            <!-- empty-values指定空值是什么,默认['', null, undefined],空值无法选中 -->
-            <el-config-provider :value-on-clear="null" :empty-values="[undefined, null]">
-              <router-view :key="currentRoute.fullPath"></router-view>
-            </el-config-provider>
-          </el-col>
-        </el-row>
+        <div class="content-box">
+          <!-- empty-values指定空值是什么,默认['', null, undefined],空值无法选中 -->
+          <el-config-provider :value-on-clear="null" :empty-values="[undefined, null]">
+            <router-view :key="currentRoute.fullPath"></router-view>
+          </el-config-provider>
+        </div>
       </section>
     </section>
   </div>
@@ -29,12 +27,12 @@ let currentRoute = useRoute()
 .content-box {
   height: 100%;
   min-height: 100%;
-  padding: 18px;
-  border: 1px solid var(--space-border);
-  border-radius: 26px;
-  background: rgba(8, 15, 38, 0.62);
-  box-shadow: var(--space-shadow);
-  backdrop-filter: blur(18px);
+  padding: 14px;
+  border: 1px solid rgba(227, 232, 241, 0.76);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 20px 48px rgba(37, 48, 71, 0.08);
   overflow: hidden;
 }
 
@@ -52,11 +50,7 @@ let currentRoute = useRoute()
 
 .main-content {
   flex: 1;
-  padding: 22px 0 18px;
-}
-
-.main-content .el-row {
-  height: 100%;
+  padding: 10px 10px 12px;
 }
 
 </style>

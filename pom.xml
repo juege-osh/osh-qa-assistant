@@ -30,6 +30,8 @@
     <lombok.version>1.18.38</lombok.version>
     <spring-ai.version>1.1.0</spring-ai.version>
     <spring-ai-alibaba.version>1.1.0.0</spring-ai-alibaba.version>
+    <!-- S3 SDK 版本统一管理，common 模块用它连接 Cloudflare R2/OSS -->
+    <aws-java-sdk-s3.version>1.12.362</aws-java-sdk-s3.version>
   </properties>
 
   <dependencyManagement>
@@ -102,6 +104,12 @@
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
         <version>${guava.version}</version>
+      </dependency>
+      <!-- S3 兼容对象存储客户端版本声明，实际依赖由 common 模块按需引入 -->
+      <dependency>
+        <groupId>com.amazonaws</groupId>
+        <artifactId>aws-java-sdk-s3</artifactId>
+        <version>${aws-java-sdk-s3.version}</version>
       </dependency>
       <dependency>
         <groupId>org.projectlombok</groupId>

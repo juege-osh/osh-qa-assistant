@@ -32,3 +32,7 @@ deploy/video/
 *.mp4
 *.aiff
 *.mov
+
+deploy
+upload/resources
+bun.lock

@@ -2,8 +2,11 @@ package com.osh.ai.assistant.common.config;
 
 import com.osh.ai.assistant.common.config.properties.UploadProperties;
 import com.osh.ai.assistant.common.controller.StorageController;
+import com.osh.ai.assistant.common.service.OssService;
 import com.osh.ai.assistant.common.service.StorageService;
+import com.osh.ai.assistant.common.service.impl.OssServiceImpl;
 import com.osh.ai.assistant.common.service.impl.StorageServiceImpl;
+import com.osh.ai.assistant.common.util.OssUtil;
 import jakarta.annotation.Resource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -37,6 +40,16 @@ public class StorageConfig implements WebMvcConfigurer {
     @Bean
     public StorageService storageService() {
         return new StorageServiceImpl();
+    }
+
+    @Bean
+    public OssService ossService() {
+        return new OssServiceImpl();
+    }
+
+    @Bean
+    public OssUtil ossUtil() {
+        return new OssUtil();
     }
 
     @Bean

@@ -78,6 +78,17 @@
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
     </dependency>
+    <!-- S3 兼容对象存储客户端，用于对接 Cloudflare R2/OSS 上传能力 -->
+    <dependency>
+      <groupId>com.amazonaws</groupId>
+      <artifactId>aws-java-sdk-s3</artifactId>
+    </dependency>
+    <!-- common 模块新增存储切换与 OSS 路径规则单测，需要 Spring Test/Mockito/AssertJ 支持 -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
 </project>

@@ -71,23 +71,25 @@ onMounted(() => {
 </script>
 <style scoped>
 .account-panel {
-  padding: 20px 22px 24px;
+  padding: 18px 20px 22px;
 }
 
 .panel-title {
-  margin-bottom: 16px;
-  font-size: 18px;
-  font-weight: 700;
+  margin-bottom: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--space-text);
 }
 
 .hint {
-  margin-top: 16px;
+  margin-top: 14px;
   color: var(--space-muted);
-  line-height: 1.8;
+  line-height: 1.7;
+  font-size: 13px;
 }
 
 .value-small {
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1.5;
 }
 

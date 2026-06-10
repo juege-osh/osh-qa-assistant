@@ -152,13 +152,13 @@ onMounted(() => {
 </script>
 <style scoped>
 .left {
-  background: rgba(52, 211, 153, 0.08);
-  border: 1px solid rgba(52, 211, 153, 0.32);
+  background: rgba(64, 158, 255, 0.06);
+  border: 1px solid var(--space-border);
   padding: 3px;
   margin-right: 10px;
   border-radius: 8px;
-  width: 60px;
-  height: 60px;
+  width: 52px;
+  height: 52px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -172,7 +172,7 @@ onMounted(() => {
 
 .title {
   font-weight: 800;
-  color: #fff;
+  color: var(--space-text);
 }
 .middle-row {
   display: flex;
@@ -217,6 +217,6 @@ onMounted(() => {
   text-overflow: ellipsis;
   line-height: 2em;
   min-height: 6em;
-  color: rgba(234, 246, 255, 0.84) !important;
+  color: var(--space-muted) !important;
 }
 </style>

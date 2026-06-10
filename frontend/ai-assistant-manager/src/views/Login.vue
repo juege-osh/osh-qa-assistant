@@ -122,44 +122,15 @@ onMounted(() => {
   padding: 28px;
 }
 
-.login::before,
-.register::before {
-  content: "";
-  position: absolute;
-  width: 520px;
-  height: 520px;
-  left: 8%;
-  top: 10%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff, #9ff3ff 10%, rgba(52, 211, 153, 0.24) 28%, rgba(245, 158, 11, 0.16) 54%, transparent 70%);
-  filter: blur(.4px);
-  opacity: .42;
-}
-
-.login::after,
-.register::after {
-  content: "";
-  position: absolute;
-  width: 720px;
-  height: 180px;
-  right: -120px;
-  bottom: 12%;
-  border-radius: 50%;
-  border: 1px solid rgba(52, 211, 153, 0.24);
-  transform: rotate(-18deg);
-  box-shadow: 0 0 42px rgba(52, 211, 153, 0.16);
-}
-
 .card {
   position: relative;
   z-index: 1;
-  width: 450px;
-  padding: 38px 42px;
+  width: 420px;
+  padding: 32px 36px;
   border: 1px solid var(--space-border);
-  border-radius: 28px;
-  background: linear-gradient(145deg, rgba(10, 22, 18, 0.92), rgba(14, 30, 24, 0.88));
-  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.5), 0 0 60px rgba(52, 211, 153, 0.12);
-  backdrop-filter: blur(22px);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
 }
 
 .card::before {
@@ -167,38 +138,37 @@ onMounted(() => {
   display: block;
   margin-bottom: 10px;
   color: var(--space-primary);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: .18em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .14em;
   text-align: center;
 }
 
 .title {
   position: relative;
   text-align: center;
-  margin-bottom: 30px;
-  font-size: 28px;
-  font-weight: 900;
-  color: #fff;
-  letter-spacing: .08em;
-  text-shadow: 0 0 24px rgba(52, 211, 153, 0.45);
+  margin-bottom: 24px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--space-text);
+  letter-spacing: .04em;
 }
 
 .title::after {
   content: "";
   display: block;
-  width: 88px;
-  height: 3px;
-  margin: 14px auto 0;
+  width: 60px;
+  height: 2px;
+  margin: 10px auto 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, var(--space-primary), var(--space-pink), transparent);
+  background: var(--space-primary);
 }
 
 .captcha-img {
   height: 40px;
   min-width: 112px;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
@@ -218,7 +188,7 @@ onMounted(() => {
 .to-login {
   text-align: center;
   margin-top: 16px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--space-muted);
 }
 
@@ -228,6 +198,6 @@ onMounted(() => {
 }
 
 :deep(.el-form-item__label) {
-  font-weight: 700;
+  font-weight: 600;
 }
 </style>

@@ -21,4 +21,16 @@ public class UploadResultVO {
     * 文件的相对路径,格式:resources/ type/ 20230523/ 123.jpg
     */
     private String relativePath;
+    /**
+     * 存储方式: local 或 oss
+     */
+    private String storageType;
+    /**
+     * OSS 对象 key
+     */
+    private String objectKey;
+    /**
+     * 可访问 URL
+     */
+    private String url;
 }
