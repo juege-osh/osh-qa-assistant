@@ -58,7 +58,7 @@ public class ApiServiceImpl implements ApiService {
         }
         InvokeRecordBuilder builder = invokeManager.initInvokeRecordBuild(chatDTO,crtUser,app);
         executorService.execute(() -> {
-            aiChatService.doChat(emitter,app,builder);
+            aiChatService.doChat(emitter,app,builder,true);
         });
         return emitter;
     }

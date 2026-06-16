@@ -72,6 +72,36 @@ const userRoutes: UserRoutesDefine = [
           showInMenu: true,
           icon: ""
         }
+      },
+      {
+        path: "uploadFile",
+        componentPath: "personal/uploadfile/UploadFileHome",
+        children: [
+          {
+            path: "manage",
+            componentPath: "personal/uploadfile/UploadFileManage",
+            meta: {
+              authorityName: "文档管理",
+              activeMenuPath: "/personal/knowledgeLib/manage"
+            }
+          },
+          {
+            path: "toAdd",
+            componentPath: "personal/uploadfile/AddFile",
+            meta: {
+              authorityName: "添加文档",
+              activeMenuPath: "/personal/knowledgeLib/manage"
+            }
+          }
+        ]
+      },
+      {
+        path: "chat",
+        componentPath: "personal/chat/Chat",
+        meta: {
+          authorityName: "智能聊天助手",
+          activeMenuPath: "/personal/app/manage"
+        }
       }
     ]
   }

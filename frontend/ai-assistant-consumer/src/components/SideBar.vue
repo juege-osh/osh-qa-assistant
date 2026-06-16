@@ -35,10 +35,18 @@ let menuList = reactive<MenuItemsDefine>([])
 
 // 监听
 watch(() => currentRoute.path, (newValue,oldValue) => {
-  defaultActivePath.value = newValue
+  defaultActivePath.value = resolveActiveMenuPath()
 },{
   immediate:true
 })
+
+function resolveActiveMenuPath() {
+  const activeMenuPath = currentRoute.meta?.activeMenuPath
+  if (typeof activeMenuPath === 'string' && activeMenuPath) {
+    return activeMenuPath
+  }
+  return currentRoute.path
+}
 // 菜单项点击,index: 选中菜单项的 index,我们配置成菜单对应的路由路径
 function handleSelect(index: string) {
   router.replace(index)

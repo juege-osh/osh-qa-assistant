@@ -57,8 +57,10 @@ ai-assistant:
     completions-path: ${AI_ASSISTANT_OPENAI_COMPLETIONS_PATH:/v1/chat/completions}
 
 upload:
+  # 默认 local 兼容现有部署；配置为 oss 后走 S3 兼容对象存储。
   storage-type: ${AI_ASSISTANT_UPLOAD_STORAGE_TYPE:local}
   static-dir: /opt/qa-assistant/upload
+  # 优先使用 AI_ASSISTANT_OSS_*，同时兼容原 osh-backend 的 x-file-storage.cloudflare-r2.* 配置前缀。
   oss:
     access-key: ${AI_ASSISTANT_OSS_ACCESS_KEY:${x-file-storage.cloudflare-r2.access-key:}}
     secret-key: ${AI_ASSISTANT_OSS_SECRET_KEY:${x-file-storage.cloudflare-r2.secret-key:}}

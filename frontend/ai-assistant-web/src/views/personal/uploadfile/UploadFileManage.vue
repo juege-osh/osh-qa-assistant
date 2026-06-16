@@ -1,5 +1,9 @@
 <template>
   <div class="page-shell">
+    <section class="context-strip">
+      <el-button text class="context-back" @click="$router.push('/workspace/knowledgeLib/manage')">返回知识库</el-button>
+      <span class="context-note">文档维护属于知识库工作流，从知识库列表进入更适合持续整理内容。</span>
+    </section>
     <section class="hero-panel">
       <div class="hero-title">文档管理中心</div>
       <div class="hero-subtitle">
@@ -188,6 +192,25 @@ onMounted(() => {
 .table-panel,
 .pagination-panel {
   padding: 18px;
+}
+
+.context-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 0 2px;
+}
+
+.context-back {
+  padding-left: 0;
+  padding-right: 0;
+  font-weight: 600;
+}
+
+.context-note {
+  color: var(--space-text-soft);
+  font-size: 13px;
 }
 
 .preview-meta {

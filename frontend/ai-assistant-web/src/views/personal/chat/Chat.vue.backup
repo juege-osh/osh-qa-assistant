@@ -1,10 +1,78 @@
 <template>
   <div class="page-shell chat-page">
-    <section class="context-strip">
-      <el-button text class="context-back" @click="$router.push('/workspace/app/manage')">返回应用</el-button>
-      <span class="context-note">聊天调试属于应用工作流，从应用列表进入更顺手。</span>
+    <section :class="['hero-panel', heroExpanded ? 'is-expanded' : 'is-collapsed']">
+      <button
+        type="button"
+        class="hero-toggle"
+        :aria-expanded="heroExpanded"
+        @click="heroExpanded = !heroExpanded"
+      >
+        <div>
+          <div class="hero-title">智能问答工作台</div>
+          <div class="hero-toggle-hint">{{ heroExpanded ? '点击收起说明' : '点击展开说明' }}</div>
+        </div>
+        <span :class="['hero-toggle-icon', heroExpanded ? 'is-expanded' : '']">⌄</span>
+      </button>
+      <transition name="hero-collapse">
+        <div v-if="heroExpanded" class="hero-content">
+          <div class="hero-subtitle">
+            用于验证应用与知识库的真实问答效果。支持多会话管理、上下文连续对话、回答复制、问题重试和会话重命名，方便做完整调试闭环。
+          </div>
+          <div class="hero-meta">
+            <span class="hero-badge">当前会话：{{ currentChatName || '未选择' }}</span>
+            <span class="hero-badge">会话数：{{ pageData.chats.length }}</span>
+            <span class="hero-badge">消息数：{{ pageData.messages.length }}</span>
+          </div>
+        </div>
+      </transition>
     </section>
+
     <el-container class="app">
+      <el-aside width="300px" class="aside">
+        <div class="aside-header">
+          <div>
+            <div class="aside-eyebrow">Sessions</div>
+            <div class="aside-title">会话管理</div>
+          </div>
+          <el-button type="primary" @click="addChat">新开聊天</el-button>
+        </div>
+
+        <div class="session-hint">建议按业务场景拆分会话，便于复盘上下文和回答质量。</div>
+
+        <div class="session-search">
+          <el-input
+            v-model="sessionKeyword"
+            placeholder="搜索会话名称"
+            clearable
+          />
+        </div>
+
+        <el-scrollbar class="session-scroll">
+          <div
+            v-for="s in filteredChats"
+            :key="s.id"
+            :class="['session-card', activeChatId === s.id ? 'is-active' : '']"
+            @click="switchChat(s.id)"
+          >
+            <div class="session-main">
+              <div class="session-name">{{ s.chatName }}</div>
+              <div class="session-meta">会话 ID：{{ s.id }}</div>
+            </div>
+            <div class="session-actions">
+              <el-button class="session-btn" text @click.stop="openRenameDialog(s)">
+                重命名
+              </el-button>
+              <el-button class="session-btn delete" text @click.stop="delChat(s.id)">
+                删除
+              </el-button>
+            </div>
+          </div>
+          <div v-if="!pageData.chats.length" class="empty-session">
+            还没有聊天会话，先创建一个再开始测试。
+          </div>
+        </el-scrollbar>
+      </el-aside>
+
       <el-main class="main">
         <div class="chat-head">
           <div>
@@ -67,7 +135,7 @@
           <div v-else class="empty-chat">
             <div class="empty-chat-title">开始你的第一轮对话</div>
             <div class="empty-chat-desc">
-              当前会话还没有消息。输入问题后即可开始验证上下文、多轮对话与严格模式效果。
+              先在左侧选择一个会话，然后输入问题。建议先问知识库范围内的问题，再验证上下文、多轮对话与严格模式效果。
             </div>
             <div class="quick-prompts">
               <button v-for="prompt in quickPrompts" :key="prompt" class="prompt-chip" @click="usePrompt(prompt)">
@@ -104,6 +172,17 @@
       </el-main>
     </el-container>
 
+    <el-dialog v-model="renameDialogVisible" title="重命名会话" width="420px">
+      <el-form label-width="90px">
+        <el-form-item label="会话名称">
+          <el-input v-model="renameForm.chatName" maxlength="50" show-word-limit />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="renameDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitRename">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 <script setup name='Chat' lang='ts'>
@@ -124,7 +203,7 @@ import xml from 'highlight.js/lib/languages/xml'
 import 'highlight.js/styles/github.css'
 import { BASE_URL, STORAGE_LAST_APP_ID_KEY } from '@/config/constants';
 import { saveItem, getItem } from '@/util/storageUtil';
-import { chatApi, listRecentChatApi } from '@/api/workspace/chatApi';
+import { addChatApi, chatApi, deleteChatByIdApi, listRecentChatApi, renameChatApi } from '@/api/workspace/chatApi';
 import { pageAppApi } from '@/api/workspace/appApi';
 import type { AnyObjDefine, AnyObjsDefine } from '@/types/common';
 import { listHistoryMessageApi } from '@/api/workspace/chatMessageApi';
@@ -174,6 +253,13 @@ const pageData = reactive({
 const activeChatId = ref('')
 const chatBox = ref<HTMLElement | null>(null)
 const sseConnected = ref(false)
+const heroExpanded = ref(false)
+const renameDialogVisible = ref(false)
+const sessionKeyword = ref('')
+const renameForm = reactive({
+  id: '',
+  chatName: ''
+})
 const quickPrompts = [
   '请先概括这个知识库最核心的主题范围。',
   '请根据当前知识库回答一个最常见的业务问题。',
@@ -194,6 +280,16 @@ const hasAppId = computed(() => {
   return String(pageData.appId || '').trim().length > 0
 })
 
+const filteredChats = computed(() => {
+  const keyword = sessionKeyword.value.trim().toLowerCase()
+  if (!keyword) {
+    return pageData.chats
+  }
+  return pageData.chats.filter((item: AnyObjDefine) =>
+    String(item.chatName || '').toLowerCase().includes(keyword)
+  )
+})
+
 function ensureAppSelected(showMessage = true) {
   if (hasAppId.value) {
     return true
@@ -208,6 +304,34 @@ function ensureAppSelected(showMessage = true) {
     autoSelectApp()
   }
   return false
+}
+
+function addChat() {
+  if (!ensureAppSelected()) {
+    return
+  }
+  const tmpRandom = Date.now().toString().slice(-4)
+  addChatApi({
+    appId: pageData.appId,
+    chatName: `新会话${tmpRandom}`
+  }).then(result => {
+    pageData.chats.unshift(result.data)
+    switchChat(result.data.id)
+  })
+}
+
+function delChat(id: string) {
+  deleteChatByIdApi(id).then(() => {
+    pageData.chats = pageData.chats.filter((item: AnyObjDefine) => item.id !== id)
+    if (activeChatId.value === id) {
+      pageData.messages = []
+      activeChatId.value = ''
+      evtSource?.close()
+      if (pageData.chats.length) {
+        switchChat(pageData.chats[0].id)
+      }
+    }
+  })
 }
 
 function switchChat(id: string) {
@@ -336,21 +460,11 @@ function loadChats() {
   listRecentChatApi(pageData.appId).then(result => {
     if (result.data) {
       pageData.chats = result.data
-      const routeChatId = normalizeRouteChatId()
-      if (routeChatId) {
-        const existed = pageData.chats.find((item: AnyObjDefine) => String(item.id) === routeChatId)
-        if (existed || !activeChatId.value) {
-          switchChat(routeChatId)
-        }
+      if (!activeChatId.value && pageData.chats.length) {
+        switchChat(pageData.chats[0].id)
       }
     }
   })
-}
-
-function normalizeRouteChatId() {
-  const chatIdFromRoute = route.params.chatId
-  const normalizedChatId = Array.isArray(chatIdFromRoute) ? chatIdFromRoute[0] : chatIdFromRoute
-  return normalizedChatId ? String(normalizedChatId) : ''
 }
 
 function handleQueryStr() {
@@ -388,6 +502,31 @@ async function autoSelectApp() {
   } catch {
     ElMessage.warning('自动加载应用列表失败，请手动从应用列表进入聊天')
   }
+}
+
+function openRenameDialog(chat: AnyObjDefine) {
+  renameForm.id = chat.id
+  renameForm.chatName = chat.chatName
+  renameDialogVisible.value = true
+}
+
+function submitRename() {
+  const chatName = renameForm.chatName.trim()
+  if (!chatName) {
+    ElMessage.warning('请输入会话名称')
+    return
+  }
+  renameChatApi({
+    id: renameForm.id,
+    chatName
+  }).then(result => {
+    const target = pageData.chats.find((item: AnyObjDefine) => item.id === renameForm.id)
+    if (target) {
+      target.chatName = chatName
+    }
+    renameDialogVisible.value = false
+    ElMessage.success(result.msg)
+  })
 }
 
 async function copyMessage(message: string) {
@@ -462,29 +601,107 @@ onUnmounted(() => evtSource?.close())
 .chat-page {
   display: flex;
   flex-direction: column;
+  gap: 8px;
   min-height: 0;
   height: 100%;
   flex: 1;
-  overflow: hidden;
-  gap: 14px;
 }
 
-.context-strip {
+.hero-panel {
+  flex-shrink: 0;
+  border: 1px solid rgba(227, 232, 241, 0.72);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 249, 255, 0.92));
+  box-shadow: 0 12px 28px rgba(37, 48, 71, 0.07);
+  overflow: hidden;
+}
+
+.hero-panel.is-collapsed {
+  box-shadow: 0 8px 22px rgba(37, 48, 71, 0.05);
+}
+
+.hero-toggle {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 2px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
 }
 
-.context-back {
-  padding-left: 0;
-  padding-right: 0;
-  font-weight: 600;
+.hero-toggle:focus-visible {
+  outline: 2px solid rgba(64, 158, 255, 0.45);
+  outline-offset: -2px;
 }
 
-.context-note {
+.hero-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--space-text);
+  line-height: 1.2;
+}
+
+.hero-toggle-hint {
+  margin-top: 2px;
+  color: var(--space-muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.hero-toggle-icon {
+  flex: 0 0 auto;
+  color: var(--space-primary);
+  font-size: 16px;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform .2s ease;
+}
+
+.hero-toggle-icon.is-expanded {
+  transform: rotate(180deg);
+}
+
+.hero-content {
+  padding: 0 16px 12px;
+}
+
+.hero-subtitle {
   color: var(--space-text-soft);
-  font-size: 13px;
+  line-height: 1.6;
+  font-size: 12px;
+}
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(227, 232, 241, 0.95);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--space-text-soft);
+  font-size: 11px;
+}
+
+.hero-collapse-enter-active,
+.hero-collapse-leave-active {
+  transition: all .2s ease;
+}
+
+.hero-collapse-enter-from,
+.hero-collapse-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 .app {
@@ -497,6 +714,128 @@ onUnmounted(() => evtSource?.close())
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 24px 60px rgba(37, 48, 71, 0.1);
+}
+
+.app > .el-aside {
+  width: 280px !important;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid rgba(227, 232, 241, 0.8);
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f8fd 100%);
+}
+
+.aside-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 10px;
+}
+
+.aside-eyebrow {
+  color: var(--space-primary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.aside-title {
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--space-text);
+}
+
+.session-hint {
+  padding: 0 16px 12px;
+  color: var(--space-text-soft);
+  line-height: 1.6;
+  font-size: 12px;
+}
+
+.session-search {
+  padding: 0 14px 12px;
+}
+
+.session-scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 0 12px 12px;
+  overflow-y: auto;
+}
+
+.session-card {
+  position: relative;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(227, 232, 241, 0.92);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(37, 48, 71, 0.05);
+  transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+
+.session-card:hover,
+.session-card.is-active {
+  transform: translateY(-2px);
+  border-color: rgba(64, 158, 255, 0.32);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(237, 245, 255, 0.92));
+  box-shadow: 0 16px 30px rgba(64, 158, 255, 0.12);
+}
+
+.session-card.is-active::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #66b1ff, #409eff);
+}
+
+.session-main {
+  min-width: 0;
+}
+
+.session-name {
+  font-weight: 700;
+  color: var(--space-text);
+  font-size: 13px;
+}
+
+.session-meta {
+  margin-top: 4px;
+  color: var(--space-muted);
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.session-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.session-btn {
+  padding: 0;
+  color: var(--space-muted);
+  font-size: 12px;
+}
+
+.session-btn.delete {
+  color: #f56c6c;
+}
+
+.empty-session {
+  padding: 14px 10px;
+  color: var(--space-muted);
+  line-height: 1.7;
+  font-size: 12px;
 }
 
 .app > .el-main {
@@ -514,7 +853,7 @@ onUnmounted(() => evtSource?.close())
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 20px 10px;
+  padding: 16px 20px 12px;
   border-bottom: 1px solid rgba(227, 232, 241, 0.9);
   background: rgba(255, 255, 255, 0.72);
 }
@@ -564,17 +903,11 @@ onUnmounted(() => evtSource?.close())
 .chat-box {
   flex: 1;
   min-height: 0;
-  padding: 12px 20px;
+  padding: 16px 20px;
   overflow-y: auto;
   overscroll-behavior: contain;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0));
-}
-
-.chat-box:has(.empty-chat) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .bubble {
@@ -784,11 +1117,9 @@ onUnmounted(() => evtSource?.close())
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: min(980px, 100%);
-  min-height: clamp(220px, 42vh, 420px);
+  min-height: 300px;
   text-align: center;
-  margin: 0 auto;
-  padding: 8px 20px 4px;
+  padding: 20px;
 }
 
 .empty-chat-title {
@@ -810,7 +1141,7 @@ onUnmounted(() => evtSource?.close())
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
 .prompt-chip {
@@ -836,7 +1167,7 @@ onUnmounted(() => evtSource?.close())
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 18px 14px;
+  padding: 14px 18px 16px;
   border-top: 1px solid rgba(227, 232, 241, 0.9);
   background: linear-gradient(180deg, rgba(248, 251, 255, 0.94), rgba(255, 255, 255, 0.98));
 }
@@ -872,9 +1203,30 @@ onUnmounted(() => evtSource?.close())
   gap: 10px;
 }
 
+@media (min-width: 1201px) {
+  .chat-page {
+    height: calc(100dvh - 180px);
+  }
+
+  .app {
+    height: 100%;
+  }
+}
+
 @media (max-width: 1200px) {
   .app {
+    flex-direction: column;
     min-height: 60vh;
+  }
+
+  .app > .el-aside {
+    width: 100% !important;
+    border-right: 0;
+    border-bottom: 1px solid var(--space-border);
+  }
+
+  .session-scroll {
+    max-height: 200px;
   }
 }
 

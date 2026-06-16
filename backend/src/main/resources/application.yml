@@ -27,7 +27,7 @@ spring:
   data:
     redis:
       host: ${AI_ASSISTANT_REDIS_HOST:127.0.0.1}
-      port: ${AI_ASSISTANT_REDIS_PORT:6379}
+      port: ${AI_ASSISTANT_REDIS_PORT:56379}
       password: ${AI_ASSISTANT_REDIS_PASSWORD:replace-with-your-redis-password}
       timeout: 60000
       lettuce:
@@ -40,8 +40,8 @@ spring:
       qdrant:
         collection-name: assistant_knowledge_lib
         host: ${AI_ASSISTANT_QDRANT_HOST:127.0.0.1}
-        port: ${AI_ASSISTANT_QDRANT_PORT:6334}
-        initialize-schema: true
+        port: ${AI_ASSISTANT_QDRANT_PORT:56334}
+        initialize-schema: ${SPRING_AI_VECTORSTORE_QDRANT_INITIALIZE_SCHEMA:false}
     dashscope:
       api-key: ${AI_ASSISTANT_DASHSCOPE_API_KEY:dummy-dashscope-key}
       chat:
@@ -79,6 +79,12 @@ ai-assistant:
     base-url: ${AI_ASSISTANT_OPENAI_BASE_URL:https://v2.aicodee.com}
     api-key: ${AI_ASSISTANT_OPENAI_API_KEY:}
     completions-path: ${AI_ASSISTANT_OPENAI_COMPLETIONS_PATH:/v1/chat/completions}
+  qdrant:
+    probe:
+      enabled: ${AI_ASSISTANT_QDRANT_PROBE_ENABLED:true}
+      warn-after-seconds: ${AI_ASSISTANT_QDRANT_PROBE_WARN_AFTER_SECONDS:10}
+      check-timeout-seconds: ${AI_ASSISTANT_QDRANT_PROBE_CHECK_TIMEOUT_SECONDS:10}
+      retry-interval-seconds: ${AI_ASSISTANT_QDRANT_PROBE_RETRY_INTERVAL_SECONDS:10}
 
 mybatis-plus:
   mapper-locations: classpath*:/mybatis/mapper/*Mapper.xml
@@ -105,8 +111,10 @@ auth:
     - /resources/**
 
 upload:
+  # 默认 local 兼容原本地上传；配置为 oss 后走 S3 兼容对象存储。
   storage-type: ${AI_ASSISTANT_UPLOAD_STORAGE_TYPE:local}
   static-dir: ${AI_ASSISTANT_UPLOAD_DIR:/Users/rengang/chuangye/osh-projects/osh-rag/osh-qa-assistant/文档/upload}
+  # 优先使用 AI_ASSISTANT_OSS_*，同时兼容原 osh-backend 的 x-file-storage.cloudflare-r2.* 配置前缀。
   oss:
     access-key: ${AI_ASSISTANT_OSS_ACCESS_KEY:${x-file-storage.cloudflare-r2.access-key:}}
     secret-key: ${AI_ASSISTANT_OSS_SECRET_KEY:${x-file-storage.cloudflare-r2.secret-key:}}

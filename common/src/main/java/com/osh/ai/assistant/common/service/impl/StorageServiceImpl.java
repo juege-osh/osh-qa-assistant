@@ -50,6 +50,7 @@ public class StorageServiceImpl implements StorageService {
             log.error("获取文件内容出错",e);
             throw new BizEx("获取文件内容出错");
         }
+        // 保持 local 为默认行为，仅在 upload.storage-type=oss 时切换到远端对象存储。
         String relativePath = uploadProperties.isOssStorage()
                 ? storeOssFile(originalFilename, multipartFile.getContentType(), module, bytes)
                 : storeFile(originalFilename,module,bytes);
@@ -60,6 +61,7 @@ public class StorageServiceImpl implements StorageService {
         vo.setSize(multipartFile.getSize());
         vo.setStorageType(uploadProperties.isOssStorage() ? "oss" : "local");
         if (uploadProperties.isOssStorage()) {
+            // OSS 模式下 relativePath 本身就是对象 key，额外返回便于调用方删除或生成签名 URL。
             vo.setObjectKey(relativePath);
             vo.setUrl(buildOssUrl(relativePath));
         }
@@ -119,6 +121,7 @@ public class StorageServiceImpl implements StorageService {
     }
 
     private String storeOssFile(String originalFilename, String contentType, String module, byte[] bytes) {
+        // module 只允许映射到预定义目录，避免用户输入直接污染 OSS key 前缀。
         UploadPathEnum uploadPathEnum = UploadPathEnum.fromModule(module);
         return ossService.upload(originalFilename, contentType, bytes, uploadPathEnum, null);
     }

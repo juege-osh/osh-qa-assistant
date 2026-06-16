@@ -76,7 +76,7 @@ const staticRoutes = [
         children: [
           {
             path: '',
-            redirect: '/workspace/chat'
+            redirect: '/workspace/app/manage'
           },
           {
             path: 'userCenter',
@@ -106,17 +106,22 @@ const staticRoutes = [
           {
             path: 'uploadFile/manage',
             component: () => import('@/views/personal/uploadfile/UploadFileManage.vue'),
-            meta: { authorityName: '文档管理', role: 'USER' }
+            meta: { authorityName: '文档管理', role: 'USER', activeMenuPath: '/workspace/knowledgeLib/manage' }
           },
           {
             path: 'uploadFile/toAdd',
             component: () => import('@/views/personal/uploadfile/AddFile.vue'),
-            meta: { authorityName: '添加文档', role: 'USER' }
+            meta: { authorityName: '添加文档', role: 'USER', activeMenuPath: '/workspace/knowledgeLib/manage' }
           },
           {
             path: 'chat',
+            component: () => import('@/views/personal/chat/ChatList.vue'),
+            meta: { authorityName: '智能聊天助手', role: 'USER', activeMenuPath: '/workspace/app/manage' }
+          },
+          {
+            path: 'chat/:chatId',
             component: () => import('@/views/personal/chat/Chat.vue'),
-            meta: { authorityName: '智能聊天助手', role: 'USER' }
+            meta: { authorityName: '对话详情', role: 'USER', activeMenuPath: '/workspace/app/manage' }
           }
         ]
       },

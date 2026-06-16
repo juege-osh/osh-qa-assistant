@@ -45,7 +45,7 @@
 
 html,
 body {
-  min-height: 100%;
+  min-height: 100vh;
   color: var(--space-text);
   font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
   background:
@@ -71,7 +71,9 @@ textarea {
 }
 
 #app {
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   color: var(--space-text);
 }
 
@@ -273,6 +275,9 @@ a {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .hero-panel,

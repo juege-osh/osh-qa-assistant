@@ -39,6 +39,10 @@ const staticRoutes = [
         component: () => import("@/views/personal/PersonalHome.vue"),
         children: [
           {
+            path: "",
+            redirect: "/personal/app/manage"
+          },
+          {
             path: "userCenter",
             component: () => import("@/views/personal/user/UserCenter.vue"),
             meta: {
@@ -100,6 +104,7 @@ const staticRoutes = [
                 component: () => import("@/views/personal/uploadfile/UploadFileManage.vue"),
                 meta: {
                   authorityName: "文档管理",
+                  activeMenuPath: "/personal/knowledgeLib/manage"
                 }
               },
               {
@@ -107,6 +112,7 @@ const staticRoutes = [
                 component: () => import("@/views/personal/uploadfile/AddFile.vue"),
                 meta: {
                   authorityName: "添加文档",
+                  activeMenuPath: "/personal/knowledgeLib/manage"
                 }
               },
             ]
@@ -116,6 +122,7 @@ const staticRoutes = [
             component: () => import("@/views/personal/chat/Chat.vue"),
             meta: {
                   authorityName: "智能聊天助手",
+                  activeMenuPath: "/personal/app/manage"
             }
           },
         ]

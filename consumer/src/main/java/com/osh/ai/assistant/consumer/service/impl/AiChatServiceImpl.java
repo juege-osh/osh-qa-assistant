@@ -36,6 +36,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
@@ -81,11 +82,34 @@ public class AiChatServiceImpl implements AiChatService {
 			### 所有的回答只能使用中文。
 			""");
     private static final String NO_ANSWER = "问题超出知识库范围，我无法回答。";
+    private static final String KNOWLEDGE_TEMP_UNAVAILABLE = "当前暂时无法基于知识库给出可靠回答，请稍后再试。";
+
+    private record ChatResponsePlan(Flux<ChatResponse> response, String failReason) {
+        private static ChatResponsePlan ok(Flux<ChatResponse> response) {
+            return new ChatResponsePlan(response, null);
+        }
+
+        private static ChatResponsePlan message(String message) {
+            return new ChatResponsePlan(singleMessageResponse(message), null);
+        }
+
+        private static ChatResponsePlan fail(String message, String failReason) {
+            return new ChatResponsePlan(singleMessageResponse(message), failReason);
+        }
+
+        private static Flux<ChatResponse> singleMessageResponse(String message) {
+            Generation generation = new Generation(new AssistantMessage(message));
+            ChatResponse chatResponse = new ChatResponse(List.of(generation));
+            return Flux.just(chatResponse);
+        }
+    }
+
     @Override
-    public String doChat(SseEmitter sseEmitter, AppDO app, InvokeRecordBuilder builder) {
+    public String doChat(SseEmitter sseEmitter, AppDO app, InvokeRecordBuilder builder, boolean closeOnComplete) {
         StringBuilder retSb = new StringBuilder();
         InvokeRecordDetailBuilder detailBuilder4llm = initDetailBuilder4llm(builder);
-        Flux<ChatResponse> fluxResponse = obtainResponse(builder, app);
+        ChatResponsePlan responsePlan = obtainResponse(builder, app);
+        Flux<ChatResponse> fluxResponse = responsePlan.response();
         CountDownLatch cdl = new CountDownLatch(1);
         // 记录每次响应结果
         AtomicReference<ChatResponse> lastResponseRef = new AtomicReference<>();
@@ -102,7 +126,7 @@ public class AiChatServiceImpl implements AiChatService {
             })
             .doOnComplete(() -> {
                 // 所有的数据已经发送完毕
-                processComplete(sseEmitter,cdl,lastResponseRef,detailBuilder4llm);
+                processComplete(sseEmitter,cdl,lastResponseRef,detailBuilder4llm,responsePlan.failReason(), closeOnComplete);
             })
             .subscribe();
         try {
@@ -136,25 +160,34 @@ public class AiChatServiceImpl implements AiChatService {
     private void sendData(SseEmitter sseEmitter,String content) {
         try {
             sseEmitter.send(SseEmitter.event().data(content));
-        } catch (IOException e) {
-            log.error("send data to client error",e);
+        } catch (Exception e) {
+            if (isClientDisconnect(e)) {
+                log.info("sse client disconnected while sending response");
+            } else {
+                log.error("send data to client error",e);
+            }
             sseEmitter.completeWithError(e);
         }
     }
-    private void processComplete(SseEmitter sseEmitter, CountDownLatch cdl, AtomicReference<ChatResponse> lastResponseRef, InvokeRecordDetailBuilder detailBuilder4llm) {
+    private void processComplete(SseEmitter sseEmitter, CountDownLatch cdl, AtomicReference<ChatResponse> lastResponseRef,
+                                 InvokeRecordDetailBuilder detailBuilder4llm, String failReason, boolean closeOnComplete) {
         sendData(sseEmitter,ConsumerConstants.STREAM_END);
         // 获取最后一个响应
         ChatResponse lastResponse = lastResponseRef.get();
         if (lastResponse == null) {
             detailBuilder4llm.setStatus(InvokeStatusEnum.FAIL.getCode());
             detailBuilder4llm.setFailReason("响应为空");
+        }else if (StrUtil.isNotBlank(failReason)) {
+            detailBuilder4llm.setStatus(InvokeStatusEnum.FAIL.getCode());
+            detailBuilder4llm.setFailReason(failReason);
         }else {
             Usage usage = lastResponse.getMetadata().getUsage();
             detailBuilder4llm.setStatus(InvokeStatusEnum.SUCCESS.getCode());
             detailBuilder4llm.setCostToken(Long.valueOf(usage.getTotalTokens()));
         }
-        // 完成
-        sseEmitter.complete();
+        if (closeOnComplete) {
+            sseEmitter.complete();
+        }
         cdl.countDown();
     }
 
@@ -191,7 +224,7 @@ public class AiChatServiceImpl implements AiChatService {
     /**
      * 获取响应
      */
-    private Flux<ChatResponse> obtainResponse(InvokeRecordBuilder builder, AppDO app) {
+    private ChatResponsePlan obtainResponse(InvokeRecordBuilder builder, AppDO app) {
         ChatDTO chatDTO = builder.getChatDto();
         ChatClient.ChatClientRequestSpec chatClientRequestSpec = chatClient
             .prompt()
@@ -199,7 +232,15 @@ public class AiChatServiceImpl implements AiChatService {
             .system(getSystemPrompt(app))
             // 用户提示词
             .user(chatDTO.getUserInput());
-        List<Document> documents = obtainDocuments(chatDTO.getUserInput(), app,builder);
+        List<Document> documents;
+        try {
+            documents = obtainDocuments(chatDTO.getUserInput(), app,builder);
+        } catch (Exception e) {
+            String failReason = buildKnowledgeRetrievalFailReason(e);
+            log.error("knowledge retrieval unavailable, requestId={}, appId={}, libId={}, userInput={}",
+                chatDTO.getRequestId(), app.getId(), app.getLibId(), chatDTO.getUserInput(), e);
+            return ChatResponsePlan.fail(KNOWLEDGE_TEMP_UNAVAILABLE, failReason);
+        }
         if (CollUtil.isEmpty(documents)) {
             // 超出知识库范围了
             if (YesNoEnum.Y.getCode().equals(app.getOutLibEnable())) {
@@ -209,9 +250,7 @@ public class AiChatServiceImpl implements AiChatService {
             }else {
                 // 严格模式
                 // 返回只包含一个元素的Flux对象
-                Generation generation = new Generation(new AssistantMessage(NO_ANSWER));
-                ChatResponse chatResponse = new ChatResponse(List.of(generation));
-                return Flux.just(chatResponse);
+                return ChatResponsePlan.message(NO_ANSWER);
             }
         }else {
             // 有结果,通过自定义advisor放到上下文中
@@ -222,7 +261,7 @@ public class AiChatServiceImpl implements AiChatService {
             });
             uploadFileService.incrRecallCount(documents.stream().map(Document::getId).toList());
         }
-        return chatClientRequestSpec.stream().chatResponse();
+        return ChatResponsePlan.ok(chatClientRequestSpec.stream().chatResponse());
     }
 
     private String getSystemPrompt(AppDO app) {
@@ -255,17 +294,40 @@ public class AiChatServiceImpl implements AiChatService {
             List<Document> documents = vectorStore.similaritySearch(searchRequest);
             documents = doRerank(userInput,documents);
             return documents;
-        } catch (Exception e) {
-            if (YesNoEnum.Y.getCode().equals(app.getOutLibEnable())) {
-                log.warn("knowledge retrieval failed, fallback to direct chat, appId={}", app.getId(), e);
-                return List.of();
-            }
-            throw e;
         }finally {
             InvokeRecordContext.remove();
         }
 
 
+    }
+
+    private String buildKnowledgeRetrievalFailReason(Exception e) {
+        String message = e.getMessage();
+        String reason = "知识库检索暂不可用: " + e.getClass().getSimpleName();
+        if (StrUtil.isNotBlank(message)) {
+            reason += ": " + message;
+        }
+        if (reason.length() > 500) {
+            return reason.substring(0, 500);
+        }
+        return reason;
+    }
+
+    private boolean isClientDisconnect(Exception e) {
+        if (e instanceof AsyncRequestNotUsableException) {
+            return true;
+        }
+        Throwable current = e;
+        while (current != null) {
+            if (current instanceof IOException && StrUtil.containsIgnoreCase(current.getMessage(), "Broken pipe")) {
+                return true;
+            }
+            if (StrUtil.containsIgnoreCase(current.getClass().getName(), "ClientAbortException")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     /**

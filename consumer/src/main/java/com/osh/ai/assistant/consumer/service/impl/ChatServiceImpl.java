@@ -71,17 +71,20 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
         requireOwnedChat(chatId);
         // 0L 表示永不超时
         SseEmitter emitter = new SseEmitter(0L);
-        emitters.put(chatId, emitter);
+        SseEmitter previous = emitters.put(chatId, emitter);
         try {
             emitter.send(SseEmitter.event().name("connected").data("ok"));
         } catch (IOException e) {
-            emitters.remove(chatId);
+            emitters.remove(chatId, emitter);
             throw new BizEx("会话连接失败");
         }
+        if (previous != null) {
+            previous.complete();
+        }
         // 连接完成或出错时清理
-        emitter.onCompletion(() -> emitters.remove(chatId));
-        emitter.onTimeout(() -> emitters.remove(chatId));
-        emitter.onError(e -> emitters.remove(chatId));
+        emitter.onCompletion(() -> emitters.remove(chatId, emitter));
+        emitter.onTimeout(() -> emitters.remove(chatId, emitter));
+        emitter.onError(e -> emitters.remove(chatId, emitter));
         return emitter;
     }
 
@@ -101,7 +104,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
         // 保存用户输入的聊天信息
         chatMessageService.addUserMessage(chatReq);
         executorService.execute(() -> {
-            String assistantMessage = aiChatService.doChat(sseEmitter,app,builder);
+            String assistantMessage = aiChatService.doChat(sseEmitter,app,builder,false);
             // 保存ai响应的完整结果
             chatMessageService.addAssistantMessage(chatReq.getChatId(),assistantMessage);
         });

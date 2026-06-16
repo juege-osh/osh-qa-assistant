@@ -79,7 +79,7 @@
               </el-dropdown>
             </div>
 
-            <div class="nav-right nav-right-public" v-else>
+            <div class="nav-right nav-right-public" v-else-if="!isAuthPage">
               <el-button type="primary" @click="router.replace('/login')">登录</el-button>
               <el-button @click="router.replace('/register')">用户注册</el-button>
             </div>
@@ -204,6 +204,11 @@ let isAdmin = computed<boolean>(() => {
 })
 let isWorkspaceUser = computed<boolean>(() => {
   return userStore.userInfo.role === 'USER'
+})
+// 是否在登录/注册页
+let isAuthPage = computed<boolean>(() => {
+  const authPaths = ['/login', '/register', '/forget-password']
+  return authPaths.includes(route.path)
 })
 const navItems = computed(() => {
   const items = []

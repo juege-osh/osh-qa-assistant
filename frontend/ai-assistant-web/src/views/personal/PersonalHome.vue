@@ -34,22 +34,19 @@ watch(sidebarStorageKey, (key) => {
 })
 </script>
 <style scoped>
-.personal-home,
-.personal-grid,
-.personal-main {
-  height: 100%;
-}
-
 .personal-home {
-  min-height: calc(100vh - 190px);
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .personal-grid {
+  height: 100%;
   display: grid;
   grid-template-columns: minmax(250px, 0.8fr) minmax(0, 2.6fr);
   gap: 22px;
-  min-height: 100%;
-  align-items: start;
+  align-items: stretch;
 }
 
 .personal-home.sidebar-collapsed .personal-grid {
@@ -58,6 +55,9 @@ watch(sidebarStorageKey, (key) => {
 
 .personal-main {
   min-width: 0;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 @media (max-width: 1200px) {

@@ -11,6 +11,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.time.LocalDateTime;
 
 /**
@@ -34,6 +35,7 @@ public class OssServiceImpl implements OssService {
     @Override
     public String upload(String originalFilename, String contentType, byte[] bytes, UploadPathEnum pathEnum, String bizId) {
         UploadPathEnum uploadPathEnum = pathEnum == null ? UploadPathEnum.RESOURCE : pathEnum;
+        // 业务目录在 service 层统一生成，底层 OssUtil 只负责对象存储协议细节。
         String customPath = buildCustomPath(uploadPathEnum, bizId);
         return ossUtil.uploadFile(originalFilename, contentType, bytes, customPath);
     }
@@ -56,9 +58,18 @@ public class OssServiceImpl implements OssService {
         return ossUtil.deleteFile(fileKey);
     }
 
+    @Override
+    public void downloadToFile(String fileKey, File destFile) {
+        if (StringUtils.isBlank(fileKey)) {
+            throw new BizEx("文件路径不能为空");
+        }
+        ossUtil.downloadToFile(fileKey, destFile);
+    }
+
     private String buildCustomPath(UploadPathEnum pathEnum, String bizId) {
         String patternDate = DateUtil.format(LocalDateTime.now(), CommonConstants.UPLOAD_DATE_FORMAT);
         String normalizedBizId = StringUtils.isBlank(bizId) ? "" : StringUtils.strip(bizId, CommonConstants.SLASH) + CommonConstants.SLASH;
+        // key 结构: 业务目录/业务ID(可选)/日期/uuid_原文件名，方便按业务和日期排查对象。
         return pathEnum.getPath() + normalizedBizId + patternDate;
     }
 }

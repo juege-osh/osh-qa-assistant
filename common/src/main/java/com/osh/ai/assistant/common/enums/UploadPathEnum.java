@@ -4,7 +4,7 @@ import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 
 /**
- * OSS 上传路径类型
+ * OSS 上传路径类型，保留原 osh-backend 的业务目录约定。
  */
 @Getter
 public enum UploadPathEnum {
@@ -28,6 +28,10 @@ public enum UploadPathEnum {
         this.path = path;
     }
 
+    /**
+     * 将前端传入的 module 映射为固定 OSS 目录，未知模块回退到 resources，
+     * 避免把任意用户输入直接作为对象 key 前缀。
+     */
     public static UploadPathEnum fromModule(String module) {
         if (StringUtils.isBlank(module)) {
             return RESOURCE;
