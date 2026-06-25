@@ -35,6 +35,8 @@ watch(sidebarStorageKey, (key) => {
 </script>
 <style scoped>
 .personal-home {
+  --sidebar-expanded-width: 220px;
+  --sidebar-collapsed-width: 92px;
   height: 100%;
   flex: 1;
   min-height: 0;
@@ -44,13 +46,13 @@ watch(sidebarStorageKey, (key) => {
 .personal-grid {
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(250px, 0.8fr) minmax(0, 2.6fr);
+  grid-template-columns: var(--sidebar-expanded-width) minmax(0, 1fr);
   gap: 22px;
   align-items: stretch;
 }
 
 .personal-home.sidebar-collapsed .personal-grid {
-  grid-template-columns: 96px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
 }
 
 .personal-main {
@@ -62,7 +64,7 @@ watch(sidebarStorageKey, (key) => {
 
 @media (max-width: 1200px) {
   .personal-grid {
-    grid-template-columns: minmax(240px, 0.9fr) minmax(0, 2.2fr);
+    grid-template-columns: 208px minmax(0, 1fr);
   }
 }
 
