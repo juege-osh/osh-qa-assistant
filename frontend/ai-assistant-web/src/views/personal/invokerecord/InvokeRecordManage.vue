@@ -88,6 +88,7 @@
           <span class="review-badge">失败记录：{{ failRowCount }}</span>
           <span class="review-badge">慢请求：{{ slowRowCount }}</span>
           <span class="review-badge">长回答：{{ longAnswerRowCount }}</span>
+          <span class="review-badge">待跟进：{{ followUpCount }}</span>
         </div>
       </div>
       <div class="quick-filter-row">
@@ -167,6 +168,9 @@
               >
                 {{ tag.label }}
               </span>
+              <span v-if="getReviewStatus(item.key) !== 'pending'" class="priority-tag priority-tag--success">
+                {{ reviewStatusText[getReviewStatus(item.key)] }}
+              </span>
             </div>
           </div>
           <div class="priority-block">
@@ -185,6 +189,13 @@
             <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="copyText(item.detail.userInput, '查询词')">复制问题</el-button>
             <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="openDetailDialog('响应结果', item.detail.assistantMessage)">查看回答</el-button>
             <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="copyAcceptanceEntry(item.row, item.detail)">复制验收条目</el-button>
+            <el-button
+              text
+              class="workspace-btn workspace-btn--text record-text-btn"
+              @click="cycleReviewStatus(item.key)"
+            >
+              {{ nextReviewActionText(item.key) }}
+            </el-button>
           </div>
         </article>
       </div>
@@ -293,6 +304,25 @@
                   </div>
                 </template>
               </el-table-column>
+              <el-table-column label="复盘状态" width="150">
+                <template v-slot:default="scope">
+                  <div class="cell-stack">
+                    <el-tag
+                      :type="reviewStatusTagType[getReviewStatus(buildReviewKey(props.row, scope.row))]"
+                      effect="light"
+                    >
+                      {{ reviewStatusText[getReviewStatus(buildReviewKey(props.row, scope.row))] }}
+                    </el-tag>
+                    <el-button
+                      text
+                      class="workspace-btn workspace-btn--text record-text-btn"
+                      @click="cycleReviewStatus(buildReviewKey(props.row, scope.row))"
+                    >
+                      {{ nextReviewActionText(buildReviewKey(props.row, scope.row)) }}
+                    </el-button>
+                  </div>
+                </template>
+              </el-table-column>
             </el-table>
           </template>
         </el-table-column>
@@ -360,6 +390,7 @@ import { computed, reactive, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useTable } from '@/hooks/useTable';
 import { pageInvokeRecordApi, queryInvokeRecordOverviewApi } from '@/api/workspace/invokeRecordApi';
+import { getItem, saveItem } from '@/util/storageUtil';
 let searchFormData = reactive({
   appName: "",
   userInputKeyword: "",
@@ -382,6 +413,18 @@ const detailDialogTitle = ref('')
 const detailDialogContent = ref('')
 const acceptanceDialogVisible = ref(false)
 const acceptanceDialogContent = ref('')
+const reviewStatusStoreKey = 'invoke-record-review-status'
+const reviewStatusMap = ref<Record<string, ReviewStatus>>(loadReviewStatusMap())
+const reviewStatusText: Record<ReviewStatus, string> = {
+  pending: '待复盘',
+  reviewed: '已复盘',
+  followUp: '待跟进'
+}
+const reviewStatusTagType: Record<ReviewStatus, 'info' | 'success' | 'warning'> = {
+  pending: 'info',
+  reviewed: 'success',
+  followUp: 'warning'
+}
 
 const overview = reactive({
   totalCount: 0,
@@ -445,6 +488,10 @@ const priorityReviewList = computed(() => {
       return Number(b.detail.costTime || b.row.costTime || 0) - Number(a.detail.costTime || a.row.costTime || 0)
     })
     .slice(0, 8)
+})
+
+const followUpCount = computed(() => {
+  return Object.values(reviewStatusMap.value).filter((status) => status === 'followUp').length
 })
 
 const currentQuickViewDesc = computed(() => {
@@ -687,6 +734,55 @@ function buildRiskTags(row: any, detail: any) {
   return tags
 }
 
+function buildReviewKey(row: any, detail: any) {
+  const detailList = row.detailList || []
+  const index = Math.max(detailList.findIndex((item: any) => item === detail), 0)
+  return `${row.id}-${index + 1}`
+}
+
+function getReviewStatus(key: string): ReviewStatus {
+  return reviewStatusMap.value[key] || 'pending'
+}
+
+function cycleReviewStatus(key: string) {
+  const current = getReviewStatus(key)
+  const next: ReviewStatus =
+    current === 'pending'
+      ? 'reviewed'
+      : current === 'reviewed'
+        ? 'followUp'
+        : 'pending'
+  reviewStatusMap.value = {
+    ...reviewStatusMap.value,
+    [key]: next
+  }
+  saveItem(reviewStatusStoreKey, reviewStatusMap.value)
+  ElMessage.success(`已更新为${reviewStatusText[next]}`)
+}
+
+function nextReviewActionText(key: string) {
+  const current = getReviewStatus(key)
+  if (current === 'pending') {
+    return '标记已复盘'
+  }
+  if (current === 'reviewed') {
+    return '标记待跟进'
+  }
+  return '清除状态'
+}
+
+function loadReviewStatusMap(): Record<string, ReviewStatus> {
+  const raw = getItem(reviewStatusStoreKey)
+  if (!raw) {
+    return {}
+  }
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return {}
+  }
+}
+
 function sanitizeInline(value: any) {
   return String(value ?? '-').replace(/\n/g, ' ').trim() || '-'
 }
@@ -706,6 +802,8 @@ function downloadMarkdown(content: string, fileName: string) {
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
 }
+
+type ReviewStatus = 'pending' | 'reviewed' | 'followUp'
 
 onMounted(() => {
   loadTable()

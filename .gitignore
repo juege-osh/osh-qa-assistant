@@ -42,3 +42,4 @@ deploy
 upload/resources
 bun.lock
 CLAUDE.md
+AGENTS.md
