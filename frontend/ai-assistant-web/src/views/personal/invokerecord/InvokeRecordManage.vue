@@ -121,6 +121,20 @@
         >
           只看长回答
         </el-button>
+        <el-button
+          class="workspace-btn"
+          :class="quickView === 'followUp' ? 'workspace-btn--primary' : 'workspace-btn--ghost'"
+          @click="quickView = 'followUp'"
+        >
+          只看待跟进
+        </el-button>
+        <el-button
+          class="workspace-btn"
+          :class="quickView === 'reviewed' ? 'workspace-btn--primary' : 'workspace-btn--ghost'"
+          @click="quickView = 'reviewed'"
+        >
+          只看已复盘
+        </el-button>
         <span class="quick-filter-hint">慢请求默认按耗时 ≥ 5000ms，长回答默认按回答长度 ≥ 200 字符判断。</span>
       </div>
       <div class="review-header-note">
@@ -407,7 +421,7 @@ let {
   handlePageNowChange,
 } = useTable({ searchFormData, loadTableApi: pageInvokeRecordApi })
 
-const quickView = ref<'all' | 'fail' | 'slow' | 'long'>('all')
+const quickView = ref<'all' | 'fail' | 'slow' | 'long' | 'followUp' | 'reviewed'>('all')
 const detailDialogVisible = ref(false)
 const detailDialogTitle = ref('')
 const detailDialogContent = ref('')
@@ -452,6 +466,16 @@ const filteredRows = computed(() => {
   if (quickView.value === 'long') {
     return rows.filter((row: any) =>
       (row.detailList || []).some((detail: any) => String(detail.assistantMessage || '').length >= 200)
+    )
+  }
+  if (quickView.value === 'followUp') {
+    return rows.filter((row: any) =>
+      (row.detailList || []).some((detail: any) => getReviewStatus(buildReviewKey(row, detail)) === 'followUp')
+    )
+  }
+  if (quickView.value === 'reviewed') {
+    return rows.filter((row: any) =>
+      (row.detailList || []).some((detail: any) => getReviewStatus(buildReviewKey(row, detail)) === 'reviewed')
     )
   }
   return rows
@@ -503,6 +527,12 @@ const currentQuickViewDesc = computed(() => {
   }
   if (quickView.value === 'long') {
     return '当前仅显示长回答，适合重点检查是否真正答题、是否有依据，以及是否存在过度铺陈。'
+  }
+  if (quickView.value === 'followUp') {
+    return '当前仅显示已标记为待跟进的记录，适合集中处理需要继续补知识、补提示词或补链路观测的问题。'
+  }
+  if (quickView.value === 'reviewed') {
+    return '当前仅显示已复盘记录，适合回看已经检查过的样本，确认结论是否需要再整理进验收文档。'
   }
   return '当前显示全部记录，适合做完整抽样和总体复盘。'
 })
