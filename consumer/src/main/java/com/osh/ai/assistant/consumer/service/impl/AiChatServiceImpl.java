@@ -7,6 +7,7 @@ import com.alibaba.cloud.ai.model.RerankModel;
 import com.alibaba.cloud.ai.model.RerankRequest;
 import com.alibaba.cloud.ai.model.RerankResponse;
 import com.osh.ai.assistant.common.bean.entity.AppDO;
+import com.osh.ai.assistant.common.bean.entity.UploadFileDO;
 import com.osh.ai.assistant.common.constants.CommonConstants;
 import com.osh.ai.assistant.common.enums.InvokeStatusEnum;
 import com.osh.ai.assistant.common.enums.YesNoEnum;
@@ -85,17 +86,21 @@ public class AiChatServiceImpl implements AiChatService {
     private static final String KNOWLEDGE_TEMP_UNAVAILABLE = "当前知识库检索暂时不可用，无法基于可靠依据完成回答。建议你稍后重试；如果问题比较具体，也可以换一种更明确的问法后再试。";
     private static final String STREAM_INTERRUPTED = "当前回答因服务异常中断，以上内容可能不完整。建议你稍后重试，或换一种更具体的问法继续提问。";
 
-    private record ChatResponsePlan(Flux<ChatResponse> response, String failReason) {
+    private record ChatResponsePlan(Flux<ChatResponse> response, String failReason, String referencesMarkdown) {
         private static ChatResponsePlan ok(Flux<ChatResponse> response) {
-            return new ChatResponsePlan(response, null);
+            return new ChatResponsePlan(response, null, null);
         }
 
         private static ChatResponsePlan message(String message) {
-            return new ChatResponsePlan(singleMessageResponse(message), null);
+            return new ChatResponsePlan(singleMessageResponse(message), null, null);
         }
 
         private static ChatResponsePlan fail(String message, String failReason) {
-            return new ChatResponsePlan(singleMessageResponse(message), failReason);
+            return new ChatResponsePlan(singleMessageResponse(message), failReason, null);
+        }
+
+        private static ChatResponsePlan okWithReferences(Flux<ChatResponse> response, String referencesMarkdown) {
+            return new ChatResponsePlan(response, null, referencesMarkdown);
         }
 
         private static Flux<ChatResponse> singleMessageResponse(String message) {
@@ -111,6 +116,7 @@ public class AiChatServiceImpl implements AiChatService {
         InvokeRecordDetailBuilder detailBuilder4llm = initDetailBuilder4llm(builder);
         ChatResponsePlan responsePlan = obtainResponse(builder, app);
         Flux<ChatResponse> fluxResponse = responsePlan.response();
+        String referencesMarkdown = responsePlan.referencesMarkdown();
         CountDownLatch cdl = new CountDownLatch(1);
         // 记录每次响应结果
         AtomicReference<ChatResponse> lastResponseRef = new AtomicReference<>();
@@ -127,7 +133,7 @@ public class AiChatServiceImpl implements AiChatService {
             })
             .doOnComplete(() -> {
                 // 所有的数据已经发送完毕
-                processComplete(sseEmitter,cdl,lastResponseRef,detailBuilder4llm,responsePlan.failReason(), closeOnComplete);
+                processComplete(sseEmitter,cdl,lastResponseRef,detailBuilder4llm,responsePlan.failReason(), referencesMarkdown, retSb, closeOnComplete);
             })
             .subscribe();
         try {
@@ -171,7 +177,15 @@ public class AiChatServiceImpl implements AiChatService {
         }
     }
     private void processComplete(SseEmitter sseEmitter, CountDownLatch cdl, AtomicReference<ChatResponse> lastResponseRef,
-                                 InvokeRecordDetailBuilder detailBuilder4llm, String failReason, boolean closeOnComplete) {
+                                 InvokeRecordDetailBuilder detailBuilder4llm, String failReason,
+                                 String referencesMarkdown, StringBuilder retSb, boolean closeOnComplete) {
+        if (StrUtil.isNotBlank(referencesMarkdown)) {
+            if (StrUtil.isNotBlank(retSb.toString()) && !StrUtil.endWith(retSb.toString(), "\n")) {
+                retSb.append("\n\n");
+            }
+            retSb.append(referencesMarkdown);
+            sendData(sseEmitter, referencesMarkdown);
+        }
         sendData(sseEmitter,ConsumerConstants.STREAM_END);
         // 获取最后一个响应
         ChatResponse lastResponse = lastResponseRef.get();
@@ -270,7 +284,7 @@ public class AiChatServiceImpl implements AiChatService {
             });
             uploadFileService.incrRecallCount(documents.stream().map(Document::getId).toList());
         }
-        return ChatResponsePlan.ok(chatClientRequestSpec.stream().chatResponse());
+        return ChatResponsePlan.okWithReferences(chatClientRequestSpec.stream().chatResponse(), buildReferencesMarkdown(documents));
     }
 
     private String getSystemPrompt(AppDO app) {
@@ -321,6 +335,26 @@ public class AiChatServiceImpl implements AiChatService {
             return reason.substring(0, 500);
         }
         return reason;
+    }
+
+    private String buildReferencesMarkdown(List<Document> documents) {
+        if (CollUtil.isEmpty(documents)) {
+            return null;
+        }
+        List<UploadFileDO> uploadFiles = uploadFileService.selectByDocIds(documents.stream().map(Document::getId).toList());
+        if (CollUtil.isEmpty(uploadFiles)) {
+            return null;
+        }
+        StringBuilder builder = new StringBuilder("\n\n---\n**参考来源**\n");
+        int limit = Math.min(uploadFiles.size(), 3);
+        for (int i = 0; i < limit; i++) {
+            UploadFileDO uploadFileDO = uploadFiles.get(i);
+            builder.append(i + 1)
+                .append(". ")
+                .append(uploadFileDO.getFileName())
+                .append("\n");
+        }
+        return builder.toString();
     }
 
     private boolean isClientDisconnect(Exception e) {

@@ -32,7 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -124,6 +126,22 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
             }
         }
         updateBatchById(uploadFile2updateList);
+    }
+
+    @Override
+    public List<UploadFileDO> selectByDocIds(List<String> docIds) {
+        if (CollUtil.isEmpty(docIds)) {
+            return List.of();
+        }
+        Map<Long, UploadFileDO> deduplicated = new LinkedHashMap<>();
+        for (String docId : docIds) {
+            UploadFileDO uploadFileDO = getBaseMapper().selectByDocId(docId);
+            if (uploadFileDO == null) {
+                continue;
+            }
+            deduplicated.putIfAbsent(uploadFileDO.getId(), uploadFileDO);
+        }
+        return new ArrayList<>(deduplicated.values());
     }
 
     @Override

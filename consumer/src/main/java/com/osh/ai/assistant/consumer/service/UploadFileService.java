@@ -44,10 +44,15 @@ public interface UploadFileService extends IService<UploadFileDO> {
     List<UploadFileDO> selectByLibId(Long libId);
 
     /**
-     * 对召回次数+1
-     * @param docIds
-     */
+      * 对召回次数+1
+      * @param docIds
+      */
     void incrRecallCount(List<String> docIds);
+
+    /**
+     * 根据命中的文档 id 反查关联来源文件
+     */
+    List<UploadFileDO> selectByDocIds(List<String> docIds);
 
     void updateStatus(UploadFileUpdateStatusReq req);
 
