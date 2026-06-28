@@ -218,6 +218,28 @@
       </div>
     </section>
 
+    <section class="glass-panel review-panel">
+      <div class="review-header">
+        <div>
+          <div class="review-title">待跟进问题分布</div>
+          <div class="review-desc">把待跟进记录归到补知识、补切分、补提示词、补展示、补观测等动作类型，帮助后续直接进入任务池。</div>
+        </div>
+        <div class="review-badges">
+          <span class="review-badge">已归类：{{ categorizedFollowUpCount }}</span>
+        </div>
+      </div>
+      <div v-if="followUpCategoryStats.length" class="category-grid">
+        <article v-for="item in followUpCategoryStats" :key="item.key" class="category-card">
+          <div class="category-card-count">{{ item.count }}</div>
+          <div class="category-card-title">{{ item.label }}</div>
+          <div class="category-card-desc">{{ item.description }}</div>
+        </article>
+      </div>
+      <div v-else class="empty-review-hint">
+        当前还没有待跟进分类，先把某些明细标记为待跟进，再选择对应原因分类。
+      </div>
+    </section>
+
     <!-- 表格   -->
     <section class="glass-panel table-panel">
       <el-table :data="filteredRows" stripe :border="true" style="width: 100%">
@@ -337,6 +359,34 @@
                   </div>
                 </template>
               </el-table-column>
+              <el-table-column label="跟进分类" width="180">
+                <template v-slot:default="scope">
+                  <div class="cell-stack">
+                    <el-select
+                      v-if="getReviewStatus(buildReviewKey(props.row, scope.row)) === 'followUp'"
+                      :model-value="getFollowUpCategory(buildReviewKey(props.row, scope.row))"
+                      placeholder="选择分类"
+                      size="small"
+                      style="width: 150px"
+                      @change="updateFollowUpCategory(buildReviewKey(props.row, scope.row), $event)"
+                    >
+                      <el-option
+                        v-for="option in followUpCategoryOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                    <span v-else class="follow-up-category-placeholder">仅待跟进可分类</span>
+                    <span
+                      v-if="getFollowUpCategory(buildReviewKey(props.row, scope.row))"
+                      class="follow-up-category-text"
+                    >
+                      {{ getFollowUpCategoryLabel(buildReviewKey(props.row, scope.row)) }}
+                    </span>
+                  </div>
+                </template>
+              </el-table-column>
             </el-table>
           </template>
         </el-table-column>
@@ -428,7 +478,9 @@ const detailDialogContent = ref('')
 const acceptanceDialogVisible = ref(false)
 const acceptanceDialogContent = ref('')
 const reviewStatusStoreKey = 'invoke-record-review-status'
+const followUpCategoryStoreKey = 'invoke-record-follow-up-category'
 const reviewStatusMap = ref<Record<string, ReviewStatus>>(loadReviewStatusMap())
+const followUpCategoryMap = ref<Record<string, FollowUpCategory>>(loadFollowUpCategoryMap())
 const reviewStatusText: Record<ReviewStatus, string> = {
   pending: '待复盘',
   reviewed: '已复盘',
@@ -438,6 +490,30 @@ const reviewStatusTagType: Record<ReviewStatus, 'info' | 'success' | 'warning'> 
   pending: 'info',
   reviewed: 'success',
   followUp: 'warning'
+}
+const followUpCategoryOptions = [
+  { value: 'knowledge', label: '补知识' },
+  { value: 'chunking', label: '补切分' },
+  { value: 'prompt', label: '补提示词' },
+  { value: 'ui', label: '补展示' },
+  { value: 'observe', label: '补观测' },
+  { value: 'other', label: '其他' }
+] as const
+const followUpCategoryLabelMap: Record<FollowUpCategory, string> = {
+  knowledge: '补知识',
+  chunking: '补切分',
+  prompt: '补提示词',
+  ui: '补展示',
+  observe: '补观测',
+  other: '其他'
+}
+const followUpCategoryDescMap: Record<FollowUpCategory, string> = {
+  knowledge: '知识源缺失、知识范围不完整、资料不够支撑回答',
+  chunking: '切分粒度不合适、召回片段断裂、上下文拼接不理想',
+  prompt: '提示词约束不够、回答风格不稳、失败反馈不够体面',
+  ui: '前端展示不清楚、来源说明不够、验收动作不顺手',
+  observe: '日志字段不够、缺少关键观测、排障信息不完整',
+  other: '暂时无法归入以上分类的问题'
 }
 
 const overview = reactive({
@@ -516,6 +592,29 @@ const priorityReviewList = computed(() => {
 
 const followUpCount = computed(() => {
   return Object.values(reviewStatusMap.value).filter((status) => status === 'followUp').length
+})
+
+const categorizedFollowUpCount = computed(() => {
+  return Object.entries(reviewStatusMap.value).filter(([key, status]) =>
+    status === 'followUp' && Boolean(followUpCategoryMap.value[key])
+  ).length
+})
+
+const followUpCategoryStats = computed(() => {
+  return followUpCategoryOptions
+    .map((option) => {
+      const count = Object.entries(reviewStatusMap.value).filter(([key, status]) =>
+        status === 'followUp' && followUpCategoryMap.value[key] === option.value
+      ).length
+      return {
+        key: option.value,
+        label: option.label,
+        description: followUpCategoryDescMap[option.value],
+        count
+      }
+    })
+    .filter((item) => item.count > 0)
+    .sort((a, b) => b.count - a.count)
 })
 
 const currentQuickViewDesc = computed(() => {
@@ -786,6 +885,12 @@ function cycleReviewStatus(key: string) {
     ...reviewStatusMap.value,
     [key]: next
   }
+  if (next !== 'followUp' && followUpCategoryMap.value[key]) {
+    const nextCategoryMap = { ...followUpCategoryMap.value }
+    delete nextCategoryMap[key]
+    followUpCategoryMap.value = nextCategoryMap
+    saveItem(followUpCategoryStoreKey, followUpCategoryMap.value)
+  }
   saveItem(reviewStatusStoreKey, reviewStatusMap.value)
   ElMessage.success(`已更新为${reviewStatusText[next]}`)
 }
@@ -803,6 +908,43 @@ function nextReviewActionText(key: string) {
 
 function loadReviewStatusMap(): Record<string, ReviewStatus> {
   const raw = getItem(reviewStatusStoreKey)
+  if (!raw) {
+    return {}
+  }
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return {}
+  }
+}
+
+function getFollowUpCategory(key: string): FollowUpCategory | '' {
+  return followUpCategoryMap.value[key] || ''
+}
+
+function getFollowUpCategoryLabel(key: string) {
+  const category = getFollowUpCategory(key)
+  if (!category) {
+    return ''
+  }
+  return followUpCategoryLabelMap[category]
+}
+
+function updateFollowUpCategory(key: string, category: FollowUpCategory) {
+  if (getReviewStatus(key) !== 'followUp') {
+    ElMessage.warning('只有待跟进记录才能设置分类')
+    return
+  }
+  followUpCategoryMap.value = {
+    ...followUpCategoryMap.value,
+    [key]: category
+  }
+  saveItem(followUpCategoryStoreKey, followUpCategoryMap.value)
+  ElMessage.success(`已归类为${followUpCategoryLabelMap[category]}`)
+}
+
+function loadFollowUpCategoryMap(): Record<string, FollowUpCategory> {
+  const raw = getItem(followUpCategoryStoreKey)
   if (!raw) {
     return {}
   }
@@ -834,6 +976,7 @@ function downloadMarkdown(content: string, fileName: string) {
 }
 
 type ReviewStatus = 'pending' | 'reviewed' | 'followUp'
+type FollowUpCategory = 'knowledge' | 'chunking' | 'prompt' | 'ui' | 'observe' | 'other'
 
 onMounted(() => {
   loadTable()
@@ -1028,6 +1171,50 @@ onMounted(() => {
 
 .priority-text--danger {
   color: #b42318;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.category-card {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(64, 158, 255, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.category-card-count {
+  color: var(--space-primary-strong);
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.category-card-title {
+  margin-top: 10px;
+  color: var(--space-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.category-card-desc,
+.follow-up-category-placeholder,
+.follow-up-category-text {
+  color: var(--space-text-soft);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.category-card-desc {
+  margin-top: 6px;
+}
+
+.follow-up-category-text {
+  color: var(--space-primary-strong);
+  font-weight: 600;
 }
 
 .priority-actions {
