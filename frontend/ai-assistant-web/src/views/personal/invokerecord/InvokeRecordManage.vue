@@ -70,6 +70,9 @@
           <el-form-item>
             <el-button class="workspace-btn workspace-btn--ghost" @click="exportCurrentRows">导出当前结果</el-button>
           </el-form-item>
+          <el-form-item>
+            <el-button class="workspace-btn workspace-btn--ghost" @click="exportAcceptanceDraft">导出验收草稿</el-button>
+          </el-form-item>
         </el-form>
       </div>
     </section>
@@ -213,6 +216,26 @@
                   </div>
                 </template>
               </el-table-column>
+              <el-table-column label="验收整理" width="180">
+                <template v-slot:default="scope">
+                  <div class="cell-stack">
+                    <el-button
+                      text
+                      class="workspace-btn workspace-btn--text record-text-btn"
+                      @click="copyAcceptanceEntry(props.row, scope.row)"
+                    >
+                      复制验收条目
+                    </el-button>
+                    <el-button
+                      text
+                      class="workspace-btn workspace-btn--text record-text-btn"
+                      @click="openAcceptanceDialog(props.row, scope.row)"
+                    >
+                      查看验收草稿
+                    </el-button>
+                  </div>
+                </template>
+              </el-table-column>
             </el-table>
           </template>
         </el-table-column>
@@ -265,6 +288,14 @@
       </div>
       <pre class="detail-dialog-content">{{ detailDialogContent }}</pre>
     </el-dialog>
+
+    <el-dialog v-model="acceptanceDialogVisible" class="record-detail-dialog" title="验收条目草稿" width="860px">
+      <div class="detail-dialog-copy">
+        <div class="detail-dialog-tip">这是一条可直接带去人工验收文档的草稿，结论项保持待人工填写，避免系统替你做判断。</div>
+        <el-button class="workspace-btn workspace-btn--ghost" @click="copyText(acceptanceDialogContent, '验收条目草稿')">复制内容</el-button>
+      </div>
+      <pre class="detail-dialog-content">{{ acceptanceDialogContent }}</pre>
+    </el-dialog>
   </div>
 </template>
 <script setup name='InvokeRecordManage' lang='ts'>
@@ -292,6 +323,8 @@ const quickView = ref<'all' | 'fail' | 'slow' | 'long'>('all')
 const detailDialogVisible = ref(false)
 const detailDialogTitle = ref('')
 const detailDialogContent = ref('')
+const acceptanceDialogVisible = ref(false)
+const acceptanceDialogContent = ref('')
 
 const overview = reactive({
   totalCount: 0,
@@ -413,6 +446,90 @@ function exportCurrentRows() {
   ElMessage.success('已导出当前调用记录')
 }
 
+function buildAcceptanceEntry(row: any, detail: any, index: number) {
+  return [
+    `| TC-${String(row.id)}-${index + 1} | 待分类 | ${sanitizeTableCell(detail.userInput)} | 待补充 | ${buildAnswerSummary(detail.assistantMessage)} | 待人工判断 | 待人工判断 | 待人工判断 | ${Number(detail.status) === 0 ? '重点检查' : '待人工判断'} | 待人工判断 | 待人工判断 | 记录ID=${row.id}；应用=${sanitizeInline(row.appName)}；知识库=${sanitizeInline(row.libName)}；状态=${sanitizeInline(detail.statusDesc || row.statusDesc)}；耗时=${detail.costTime ?? row.costTime ?? '-'}ms |`,
+    '',
+    `补充信息：`,
+    `- 原始失败原因：${sanitizeInline(detail.failReason || row.failReason || '无')}`,
+    `- 模型：${sanitizeInline(detail.modelName || '未知')}`,
+    `- Token：${detail.costToken ?? '-'}`,
+    `- 开始时间：${sanitizeInline(detail.startTime || row.startTime || '-')}`,
+    `- 结束时间：${sanitizeInline(detail.endTime || row.endTime || '-')}`,
+    `- 原始回答全文：`,
+    '```text',
+    String(detail.assistantMessage || ''),
+    '```'
+  ].join('\n')
+}
+
+function exportAcceptanceDraft() {
+  if (!filteredRows.value.length) {
+    ElMessage.warning('当前没有可导出的验收草稿')
+    return
+  }
+  const records = filteredRows.value.flatMap((row: any) => {
+    const detailList = row.detailList || []
+    if (!detailList.length) {
+      return [
+        `| TC-${String(row.id)}-1 | 待分类 | - | 待补充 | - | 待人工判断 | 待人工判断 | 待人工判断 | ${Number(row.status) === 0 ? '重点检查' : '待人工判断'} | 待人工判断 | 待人工判断 | 记录ID=${row.id}；应用=${sanitizeInline(row.appName)}；知识库=${sanitizeInline(row.libName)}；状态=${sanitizeInline(row.statusDesc)}；耗时=${row.costTime ?? '-'}ms |`
+      ]
+    }
+    return detailList.map((detail: any, index: number) => buildAcceptanceEntry(row, detail, index))
+  })
+
+  const lines = [
+    '# RAG MVP 测试问题集与效果记录',
+    '',
+    '## 1. 当前导出说明',
+    '',
+    `- 导出时间：${new Date().toLocaleString()}`,
+    `- 当前聚焦：${currentQuickViewDesc.value}`,
+    `- 当前记录数：${filteredRows.value.length}`,
+    `- 导出目的：从调用记录页生成验收草稿，便于后续人工补齐“期望知识点 / 验收结论 / 汇总结论”`,
+    '',
+    '## 2. 当前版本信息',
+    '',
+    '- 测试日期：',
+    '- 测试人：',
+    '- 应用名称：',
+    '- 场景类型：内部知识问答 / 任务指导',
+    '- 知识库范围：',
+    '- 发布版本：',
+    '- 实验版本：',
+    '- 版本说明：',
+    '',
+    '## 3. 调用记录转验收表',
+    '',
+    '| 编号 | 问题类型 | 用户问题 | 期望知识点 / 期望行为 | 实际回答摘要 | 命中问题 | 可信 | 易懂 | 失败体面 | HitRate@5 | Completeness | 备注 |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    ...records,
+    '',
+    '## 4. 汇总结论',
+    '',
+    `- 当前导出记录数：${filteredRows.value.length}`,
+    `- 失败记录数：${filteredRows.value.filter((row: any) => Number(row.status) === 0).length}`,
+    `- 慢请求数：${filteredRows.value.filter((row: any) => Number(row.costTime || 0) >= 5000).length}`,
+    `- 长回答记录数：${filteredRows.value.filter((row: any) => (row.detailList || []).some((detail: any) => String(detail.assistantMessage || '').length >= 200)).length}`,
+    '- 命中问题通过数：待人工填写',
+    '- 可信通过数：待人工填写',
+    '- 易懂通过数：待人工填写',
+    '- 失败体面通过数：待人工填写',
+    '',
+    '## 5. 后续动作',
+    '',
+    '- 需要补知识的内容：',
+    '- 需要优化切分的内容：',
+    '- 需要优化检索/重排的内容：',
+    '- 需要优化 Prompt 的内容：',
+    '- 需要优化前端展示的内容：',
+    '- 需要补日志或观测的内容：'
+  ]
+
+  downloadMarkdown(lines.join('\n'), `rag-mvp-acceptance-draft-${Date.now()}.md`)
+  ElMessage.success('已导出验收草稿')
+}
+
 function resetFilters() {
   searchData.appName = ""
   searchData.userInputKeyword = ""
@@ -428,6 +545,47 @@ function openDetailDialog(title: string, content: string) {
   detailDialogTitle.value = title
   detailDialogContent.value = String(content || '')
   detailDialogVisible.value = true
+}
+
+function openAcceptanceDialog(row: any, detail: any) {
+  const detailList = row.detailList || []
+  const index = Math.max(detailList.findIndex((item: any) => item === detail), 0)
+  acceptanceDialogContent.value = buildAcceptanceEntry(row, detail, index)
+  acceptanceDialogVisible.value = true
+}
+
+async function copyAcceptanceEntry(row: any, detail: any) {
+  const detailList = row.detailList || []
+  const index = Math.max(detailList.findIndex((item: any) => item === detail), 0)
+  await copyText(buildAcceptanceEntry(row, detail, index), '验收条目')
+}
+
+function buildAnswerSummary(message: string) {
+  const normalized = String(message || '').replace(/\s+/g, ' ').trim()
+  if (!normalized) {
+    return '-'
+  }
+  return sanitizeTableCell(normalized.slice(0, 120))
+}
+
+function sanitizeInline(value: any) {
+  return String(value ?? '-').replace(/\n/g, ' ').trim() || '-'
+}
+
+function sanitizeTableCell(value: any) {
+  return sanitizeInline(value).replace(/\|/g, '\\|')
+}
+
+function downloadMarkdown(content: string, fileName: string) {
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 onMounted(() => {
