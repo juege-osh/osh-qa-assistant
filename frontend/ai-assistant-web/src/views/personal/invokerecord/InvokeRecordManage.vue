@@ -35,11 +35,17 @@
       <div class="toolbar-copy">
         <div class="toolbar-title">筛选记录</div>
         <div class="toolbar-desc">
-          你可以按状态和时间范围过滤记录，快速定位失败请求、慢请求和特定时间段内的模型表现。
+          你可以按应用、问题关键词、状态和时间范围过滤记录，快速定位失败请求、慢请求和特定场景下的模型表现。
         </div>
       </div>
       <div class="toolbar-actions">
         <el-form :model="searchData" :inline="true">
+          <el-form-item>
+            <el-input v-model="searchData.appName" placeholder="按应用名称筛选" clearable style="width: 180px" />
+          </el-form-item>
+          <el-form-item>
+            <el-input v-model="searchData.userInputKeyword" placeholder="按问题关键词筛选" clearable style="width: 220px" />
+          </el-form-item>
           <el-form-item label="状态:" style="width: 150px;">
             <el-select v-model="searchData.status" style="width: 150px">
               <el-option label="全部" value=""></el-option>
@@ -57,6 +63,9 @@
           </el-form-item>
           <el-form-item>
             <el-button @click="loadTable" type="primary">查询</el-button>
+          </el-form-item>
+          <el-form-item>
+            <el-button class="workspace-btn workspace-btn--ghost" @click="resetFilters">重置</el-button>
           </el-form-item>
           <el-form-item>
             <el-button class="workspace-btn workspace-btn--ghost" @click="exportCurrentRows">导出当前结果</el-button>
@@ -194,6 +203,8 @@ import { ElMessage } from 'element-plus'
 import { useTable } from '@/hooks/useTable';
 import { pageInvokeRecordApi, queryInvokeRecordOverviewApi } from '@/api/workspace/invokeRecordApi';
 let searchFormData = reactive({
+  appName: "",
+  userInputKeyword: "",
   status: "",
   startTime: null,
   endTime: null
@@ -287,6 +298,16 @@ function exportCurrentRows() {
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
   ElMessage.success('已导出当前调用记录')
+}
+
+function resetFilters() {
+  searchData.appName = ""
+  searchData.userInputKeyword = ""
+  searchData.status = ""
+  searchData.startTime = null
+  searchData.endTime = null
+  searchData.pageNow = 1
+  loadTable()
 }
 
 onMounted(() => {

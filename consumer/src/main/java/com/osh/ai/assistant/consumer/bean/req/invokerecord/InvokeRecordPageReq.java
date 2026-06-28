@@ -30,4 +30,12 @@ public class InvokeRecordPageReq extends BasePageReq {
      * 结束时间
      */
     private String endTime;
+    /**
+     * 应用名称关键词
+     */
+    private String appName;
+    /**
+     * 查询词关键词
+     */
+    private String userInputKeyword;
 }
