@@ -1,7 +1,7 @@
 <template>
   <div class="page-shell chat-page">
     <section class="context-strip">
-      <el-button text class="context-back" @click="$router.push('/workspace/app/manage')">返回应用</el-button>
+      <el-button text class="context-back workspace-btn workspace-btn--text" @click="$router.push('/workspace/app/manage')">返回应用</el-button>
       <span class="context-note">聊天调试属于应用工作流，从应用列表进入更顺手。</span>
     </section>
     <el-container class="app">
@@ -16,8 +16,8 @@
               {{ pageData.sending ? '生成中' : '空闲中' }}
             </span>
             <span class="meta-pill">SSE {{ sseConnected ? '已连接' : '重连中' }}</span>
-            <el-button text class="scroll-btn" @click="exportCurrentChat">导出会话</el-button>
-            <el-button text class="scroll-btn" @click="scrollBottom">到底部</el-button>
+            <el-button text class="scroll-btn workspace-btn workspace-btn--ghost" @click="exportCurrentChat">导出会话</el-button>
+            <el-button text class="scroll-btn workspace-btn workspace-btn--ghost" @click="scrollBottom">到底部</el-button>
           </div>
         </div>
 
@@ -33,11 +33,11 @@
                 <div class="bubble-top">
                   <div class="bubble-role">{{ msg.typeDesc === 'user' ? '你' : '问答助手' }}</div>
                   <div class="bubble-tools">
-                    <el-button text class="tool-btn" @click="copyMessage(msg.message)">复制</el-button>
+                    <el-button text class="tool-btn workspace-btn workspace-btn--text" @click="copyMessage(msg.message)">复制</el-button>
                     <el-button
                       v-if="msg.typeDesc === 'user'"
                       text
-                      class="tool-btn"
+                      class="tool-btn workspace-btn workspace-btn--text"
                       @click="retryMessage(msg.message)"
                     >
                       重试
@@ -96,8 +96,8 @@
               <span class="tip-pill">支持 Markdown 返回</span>
             </div>
             <div class="input-actions-right">
-              <el-button @click="pageData.crtUserInput = ''">清空</el-button>
-              <el-button type="primary" :loading="pageData.sending" @click="send">发送问题</el-button>
+              <el-button class="workspace-btn workspace-btn--ghost" @click="pageData.crtUserInput = ''">清空</el-button>
+              <el-button type="primary" class="workspace-btn workspace-btn--primary" :loading="pageData.sending" @click="send">发送问题</el-button>
             </div>
           </div>
         </div>
@@ -477,9 +477,7 @@ onUnmounted(() => evtSource?.close())
 }
 
 .context-back {
-  padding-left: 0;
-  padding-right: 0;
-  font-weight: 600;
+  margin-left: -10px;
 }
 
 .context-note {
@@ -557,7 +555,7 @@ onUnmounted(() => evtSource?.close())
 }
 
 .scroll-btn {
-  color: var(--space-primary);
+  min-height: 32px !important;
   font-size: 12px;
 }
 
@@ -633,8 +631,7 @@ onUnmounted(() => evtSource?.close())
 }
 
 .tool-btn {
-  padding: 0;
-  color: var(--space-primary);
+  min-height: 28px !important;
   font-size: 12px;
 }
 

@@ -1,7 +1,7 @@
 <template>
   <div class="page-shell chat-list-page">
     <section class="context-strip">
-      <el-button text class="context-back" @click="router.push('/workspace/app/manage')">返回应用</el-button>
+      <el-button text class="context-back workspace-btn workspace-btn--text" @click="router.push('/workspace/app/manage')">返回应用</el-button>
       <span class="context-note">聊天会话属于应用调试入口，可从应用列表继续切换场景。</span>
     </section>
     <section class="session-panel">
@@ -10,7 +10,7 @@
           <div class="panel-title">会话管理</div>
           <div class="panel-desc">共 {{ pageData.chats.length }} 个会话，最近更新：{{ latestUpdateTime }}</div>
         </div>
-        <el-button type="primary" @click="addChat">
+        <el-button type="primary" class="workspace-btn workspace-btn--primary" @click="addChat">
           <el-icon><Plus /></el-icon>
           新开聊天
         </el-button>
@@ -44,10 +44,10 @@
             </div>
           </div>
           <div class="session-actions">
-            <el-button text @click.stop="openRenameDialog(s)">
+            <el-button text class="workspace-icon-btn" @click.stop="openRenameDialog(s)">
               <el-icon><Edit /></el-icon>
             </el-button>
-            <el-button text type="danger" @click.stop="delChat(s.id)">
+            <el-button text type="danger" class="workspace-icon-btn workspace-icon-btn--danger" @click.stop="delChat(s.id)">
               <el-icon><Delete /></el-icon>
             </el-button>
           </div>
@@ -55,7 +55,7 @@
         
         <div v-if="!pageData.chats.length" class="empty-state">
           <el-empty description="还没有聊天会话">
-            <el-button type="primary" @click="addChat">创建第一个会话</el-button>
+            <el-button type="primary" class="workspace-btn workspace-btn--primary" @click="addChat">创建第一个会话</el-button>
           </el-empty>
         </div>
       </div>
@@ -247,9 +247,7 @@ onMounted(() => {
 }
 
 .context-back {
-  padding-left: 0;
-  padding-right: 0;
-  font-weight: 600;
+  margin-left: -10px;
 }
 
 .context-note {
@@ -288,6 +286,10 @@ onMounted(() => {
   color: var(--space-text-soft);
   font-size: 12px;
   line-height: 1.4;
+}
+
+.panel-header :deep(.workspace-btn--primary) {
+  min-width: 116px;
 }
 
 .session-search {
@@ -348,7 +350,7 @@ onMounted(() => {
 .session-actions {
   flex-shrink: 0;
   display: flex;
-  gap: 4px;
+  gap: 6px;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
