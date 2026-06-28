@@ -1,0 +1,49 @@
+services:
+  qa-assistant-backend-laughing:
+    image: eclipse-temurin:17-jre
+    container_name: qa-assistant-backend-laughing
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      AI_ASSISTANT_CONTAINER_UPLOAD_DIR: /opt/qa-assistant/upload
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+UseContainerSupport
+        -XX:InitialRAMPercentage=${LAUGHING_JAVA_INITIAL_RAM_PERCENTAGE:-20}
+        -XX:MaxRAMPercentage=${LAUGHING_JAVA_MAX_RAM_PERCENTAGE:-60}
+    mem_limit: ${LAUGHING_BACKEND_MEMORY_LIMIT:-1024m}
+    working_dir: /app
+    command:
+      - java
+      - -jar
+      - /app/backend.jar
+      - --spring.config.additional-location=file:/app/config/backend-prod-laughing.yml
+    volumes:
+      - ./backend.jar:/app/backend.jar:ro
+      - ./config:/app/config:ro
+      - ./upload:/opt/qa-assistant/upload
+      - ./logs/backend:/logs
+    ports:
+      - "${LAUGHING_BACKEND_PORT:-19088}:9000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - qa-assistant-laughing-network
+
+  qa-assistant-nginx-laughing:
+    image: nginx:1.27-alpine
+    container_name: qa-assistant-nginx-laughing
+    restart: unless-stopped
+    depends_on:
+      - qa-assistant-backend-laughing
+    ports:
+      - "${LAUGHING_HTTP_PORT:-18088}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./html:/usr/share/nginx/html:ro
+    networks:
+      - qa-assistant-laughing-network
+
+networks:
+  qa-assistant-laughing-network:
+    driver: bridge

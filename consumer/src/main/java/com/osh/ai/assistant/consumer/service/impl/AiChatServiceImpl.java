@@ -81,8 +81,9 @@ public class AiChatServiceImpl implements AiChatService {
 			## 限制
 			### 所有的回答只能使用中文。
 			""");
-    private static final String NO_ANSWER = "问题超出知识库范围，我无法回答。";
-    private static final String KNOWLEDGE_TEMP_UNAVAILABLE = "当前暂时无法基于知识库给出可靠回答，请稍后再试。";
+    private static final String NO_ANSWER = "当前未在知识库中找到足够相关依据，暂时无法可靠回答这个问题。建议你换一种更具体的问法，补充关键词、制度名称或流程名称后再试；如果这是一个应该能回答的问题，请联系知识库维护人补充内容。";
+    private static final String KNOWLEDGE_TEMP_UNAVAILABLE = "当前知识库检索暂时不可用，无法基于可靠依据完成回答。建议你稍后重试；如果问题比较具体，也可以换一种更明确的问法后再试。";
+    private static final String STREAM_INTERRUPTED = "当前回答因服务异常中断，以上内容可能不完整。建议你稍后重试，或换一种更具体的问法继续提问。";
 
     private record ChatResponsePlan(Flux<ChatResponse> response, String failReason) {
         private static ChatResponsePlan ok(Flux<ChatResponse> response) {
@@ -122,7 +123,7 @@ public class AiChatServiceImpl implements AiChatService {
                 processCancel(cdl,detailBuilder4llm);
             })
             .doOnError(error -> {
-                processError(sseEmitter,error,cdl,detailBuilder4llm);
+                processError(sseEmitter,error,cdl,detailBuilder4llm,retSb);
             })
             .doOnComplete(() -> {
                 // 所有的数据已经发送完毕
@@ -191,11 +192,19 @@ public class AiChatServiceImpl implements AiChatService {
         cdl.countDown();
     }
 
-    private void processError(SseEmitter sseEmitter, Throwable error, CountDownLatch cdl, InvokeRecordDetailBuilder detailBuilder4llm) {
+    private void processError(SseEmitter sseEmitter, Throwable error, CountDownLatch cdl,
+                              InvokeRecordDetailBuilder detailBuilder4llm, StringBuilder retSb) {
         log.error("chat appear error",error);
         detailBuilder4llm.setStatus(InvokeStatusEnum.FAIL.getCode());
         detailBuilder4llm.setFailReason(error.getMessage());
-        sseEmitter.completeWithError(error);
+        String visibleMessage = StrUtil.isBlank(retSb.toString()) ? KNOWLEDGE_TEMP_UNAVAILABLE : STREAM_INTERRUPTED;
+        if (StrUtil.isNotBlank(retSb.toString()) && !StrUtil.endWith(retSb.toString(), "\n")) {
+            retSb.append("\n\n");
+        }
+        retSb.append(visibleMessage);
+        sendData(sseEmitter, visibleMessage);
+        sendData(sseEmitter, ConsumerConstants.STREAM_END);
+        sseEmitter.complete();
         cdl.countDown();
     }
 
@@ -270,8 +279,9 @@ public class AiChatServiceImpl implements AiChatService {
             rule = "优先从上下文中返回答案,如果上下文中找不到,就自行搜索资料后回答";
         }else {
             rule = """
-                如果上下文信息中没有用户的答案,只能返回"问题超出知识库范围，我无法回答。"这几个字,
-                不能有其他任何多余的回答。
+                如果上下文信息中没有足够依据,请明确说明当前未在知识库中找到足够相关依据,
+                暂时无法可靠回答,并建议用户换一种更具体的问法或联系知识库维护人。
+                不要编造答案,不要假装已经从知识库中找到了依据。
                 """;
         }
         Map<String,Object> promptParam = Map.of("rule",rule);

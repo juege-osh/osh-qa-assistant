@@ -1,0 +1,193 @@
+name: Deploy QAEnv Laughing
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - qa_laughing
+
+concurrency:
+  group: deploy-qaenv-laughing
+  cancel-in-progress: false
+
+env:
+  JAVA_VERSION: "17"
+  NODE_VERSION: "18"
+  DEPLOY_HOST: ${{ vars.QAENV_DEPLOY_HOST || '43.242.200.25' }}
+  DEPLOY_USER: ${{ vars.QAENV_DEPLOY_USER || 'root' }}
+  DEPLOY_PORT: ${{ vars.QAENV_DEPLOY_PORT || '58753' }}
+  DEPLOY_DIR: ${{ vars.QAENV_DEPLOY_DIR || '/opt/qa-assistant-laughing' }}
+  LAUGHING_HTTP_PORT: ${{ vars.QAENV_LAUGHING_HTTP_PORT || '18088' }}
+  LAUGHING_BACKEND_PORT: ${{ vars.QAENV_LAUGHING_BACKEND_PORT || '19088' }}
+  LAUGHING_BACKEND_MEMORY_LIMIT: ${{ vars.QAENV_LAUGHING_BACKEND_MEMORY_LIMIT || '768m' }}
+  LAUGHING_JAVA_INITIAL_RAM_PERCENTAGE: ${{ vars.QAENV_LAUGHING_JAVA_INITIAL_RAM_PERCENTAGE || '20' }}
+  LAUGHING_JAVA_MAX_RAM_PERCENTAGE: ${{ vars.QAENV_LAUGHING_JAVA_MAX_RAM_PERCENTAGE || '50' }}
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy laughing app-only stack
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Build backend jar
+        run: mvn -f pom.xml -pl backend -am package -DskipTests
+
+      - name: Validate backend jar
+        run: |
+          test -f backend/target/backend.jar
+          unzip -t backend/target/backend.jar > /dev/null
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build unified frontend for app-only deployment
+        run: |
+          cd frontend/ai-assistant-web
+          npm ci --legacy-peer-deps
+          VITE_BASE_URL='' \
+          VITE_BASE_RESOURCES_URL='/consumer/' \
+          npm run build
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.QAENV_SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "$DEPLOY_PORT" -T 15 "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Prepare server directories
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
+            mkdir -p '$DEPLOY_DIR/config' '$DEPLOY_DIR/logs/backend' '$DEPLOY_DIR/upload' '$DEPLOY_DIR/nginx' '$DEPLOY_DIR/html/ai'
+          "
+
+      - name: Write runtime env file
+        run: |
+          cat > /tmp/qaenv-laughing.env <<EOF
+          AI_ASSISTANT_DB_HOST=${{ vars.QAENV_AI_ASSISTANT_DB_HOST || '43.242.200.25' }}
+          AI_ASSISTANT_DB_PORT=${{ vars.QAENV_AI_ASSISTANT_DB_PORT || '53306' }}
+          AI_ASSISTANT_DB_NAME=${{ vars.QAENV_AI_ASSISTANT_DB_NAME || 'ai_assistant' }}
+          AI_ASSISTANT_DB_USERNAME=${{ vars.QAENV_AI_ASSISTANT_DB_USERNAME || 'root' }}
+          AI_ASSISTANT_DB_PASSWORD=${{ secrets.QAENV_AI_ASSISTANT_DB_PASSWORD }}
+          AI_ASSISTANT_DB_USE_SSL=${{ vars.QAENV_AI_ASSISTANT_DB_USE_SSL || 'false' }}
+          AI_ASSISTANT_DB_TIMEZONE=${{ vars.QAENV_AI_ASSISTANT_DB_TIMEZONE || 'GMT%2B8' }}
+          AI_ASSISTANT_REDIS_HOST=${{ vars.QAENV_AI_ASSISTANT_REDIS_HOST || '43.242.200.25' }}
+          AI_ASSISTANT_REDIS_PORT=${{ vars.QAENV_AI_ASSISTANT_REDIS_PORT || '56379' }}
+          AI_ASSISTANT_REDIS_PASSWORD=${{ secrets.QAENV_AI_ASSISTANT_REDIS_PASSWORD }}
+          AI_ASSISTANT_QDRANT_HOST=${{ vars.QAENV_AI_ASSISTANT_QDRANT_HOST || '43.242.200.25' }}
+          AI_ASSISTANT_QDRANT_PORT=${{ vars.QAENV_AI_ASSISTANT_QDRANT_PORT || '56334' }}
+          SPRING_AI_VECTORSTORE_QDRANT_INITIALIZE_SCHEMA=${{ vars.QAENV_SPRING_AI_VECTORSTORE_QDRANT_INITIALIZE_SCHEMA || 'false' }}
+          AI_ASSISTANT_OPENAI_ENABLED=${{ vars.QAENV_AI_ASSISTANT_OPENAI_ENABLED || 'true' }}
+          AI_ASSISTANT_OPENAI_BASE_URL=${{ vars.QAENV_AI_ASSISTANT_OPENAI_BASE_URL || 'https://v2.aicodee.com' }}
+          AI_ASSISTANT_OPENAI_API_KEY=${{ secrets.QAENV_AI_ASSISTANT_OPENAI_API_KEY }}
+          AI_ASSISTANT_CHAT_PROVIDER=${{ vars.QAENV_AI_ASSISTANT_CHAT_PROVIDER || 'openai' }}
+          AI_ASSISTANT_CHAT_MODEL=${{ vars.QAENV_AI_ASSISTANT_CHAT_MODEL || 'MiniMax-M2.7-highspeed' }}
+          AI_ASSISTANT_CHAT_TEMPERATURE=${{ vars.QAENV_AI_ASSISTANT_CHAT_TEMPERATURE || '0.7' }}
+          AI_ASSISTANT_EMBEDDING_PROVIDER=${{ vars.QAENV_AI_ASSISTANT_EMBEDDING_PROVIDER || 'openai' }}
+          AI_ASSISTANT_EMBEDDING_MODEL=${{ vars.QAENV_AI_ASSISTANT_EMBEDDING_MODEL || 'Qwen/Qwen3-Embedding-0.6B' }}
+          AI_ASSISTANT_EMBEDDING_BASE_URL=${{ vars.QAENV_AI_ASSISTANT_EMBEDDING_BASE_URL || 'https://api.siliconflow.cn' }}
+          AI_ASSISTANT_EMBEDDING_API_KEY=${{ secrets.QAENV_AI_ASSISTANT_EMBEDDING_API_KEY }}
+          AI_ASSISTANT_EMBEDDING_DIMENSIONS=${{ vars.QAENV_AI_ASSISTANT_EMBEDDING_DIMENSIONS || '512' }}
+          AI_ASSISTANT_EMBEDDING_PATH=${{ vars.QAENV_AI_ASSISTANT_EMBEDDING_PATH || '/v1/embeddings' }}
+          AI_ASSISTANT_RERANK_ENABLED=${{ vars.QAENV_AI_ASSISTANT_RERANK_ENABLED || 'false' }}
+          AI_ASSISTANT_RERANK_PROVIDER=${{ vars.QAENV_AI_ASSISTANT_RERANK_PROVIDER || 'local' }}
+          AI_ASSISTANT_RERANK_MODEL=${{ vars.QAENV_AI_ASSISTANT_RERANK_MODEL || 'BAAI/bge-reranker-base' }}
+          AI_ASSISTANT_RERANK_BASE_URL=${{ vars.QAENV_AI_ASSISTANT_RERANK_BASE_URL || 'http://127.0.0.1:17997' }}
+          AI_ASSISTANT_RERANK_API_KEY=${{ secrets.QAENV_AI_ASSISTANT_RERANK_API_KEY || 'local-rerank' }}
+          AI_ASSISTANT_RERANK_PATH=${{ vars.QAENV_AI_ASSISTANT_RERANK_PATH || '/rerank' }}
+          AI_ASSISTANT_UPLOAD_STORAGE_TYPE=${{ vars.QAENV_AI_ASSISTANT_UPLOAD_STORAGE_TYPE || 'oss' }}
+          AI_ASSISTANT_OSS_ACCESS_KEY=${{ secrets.QAENV_AI_ASSISTANT_OSS_ACCESS_KEY }}
+          AI_ASSISTANT_OSS_SECRET_KEY=${{ secrets.QAENV_AI_ASSISTANT_OSS_SECRET_KEY }}
+          AI_ASSISTANT_OSS_ENDPOINT=${{ vars.QAENV_AI_ASSISTANT_OSS_ENDPOINT }}
+          AI_ASSISTANT_OSS_BUCKET_NAME=${{ vars.QAENV_AI_ASSISTANT_OSS_BUCKET_NAME }}
+          AI_ASSISTANT_OSS_PUBLIC_DOMAIN=${{ vars.QAENV_AI_ASSISTANT_OSS_PUBLIC_DOMAIN }}
+          AI_ASSISTANT_OSS_BASE_PATH=${{ vars.QAENV_AI_ASSISTANT_OSS_BASE_PATH || 'resources/' }}
+          AI_ASSISTANT_OSS_PATH_STYLE_ACCESS=${{ vars.QAENV_AI_ASSISTANT_OSS_PATH_STYLE_ACCESS || 'true' }}
+          LAUGHING_HTTP_PORT=$LAUGHING_HTTP_PORT
+          LAUGHING_BACKEND_PORT=$LAUGHING_BACKEND_PORT
+          LAUGHING_BACKEND_MEMORY_LIMIT=$LAUGHING_BACKEND_MEMORY_LIMIT
+          LAUGHING_JAVA_INITIAL_RAM_PERCENTAGE=$LAUGHING_JAVA_INITIAL_RAM_PERCENTAGE
+          LAUGHING_JAVA_MAX_RAM_PERCENTAGE=$LAUGHING_JAVA_MAX_RAM_PERCENTAGE
+          EOF
+          scp -o ConnectTimeout=30 -P "$DEPLOY_PORT" /tmp/qaenv-laughing.env "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/.env"
+
+      - name: Upload backend jar
+        run: |
+          rsync -az --inplace \
+            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
+            backend/target/backend.jar \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/backend.jar"
+
+      - name: Upload laughing deploy configs
+        run: |
+          rsync -az \
+            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
+            ops/laughing/docker-compose.laughing.yml \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/docker-compose.yml"
+          rsync -az \
+            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
+            ops/laughing/backend-prod-laughing.yml \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/config/backend-prod-laughing.yml"
+          rsync -az \
+            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
+            ops/laughing/nginx.laughing.conf \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/nginx/default.conf"
+
+      - name: Upload unified frontend
+        run: |
+          rsync -az --delete \
+            -e "ssh -o ConnectTimeout=30 -p $DEPLOY_PORT" \
+            frontend/ai-assistant-web/dist/ \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/html/ai/"
+
+      - name: Deploy laughing services
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
+            cd '$DEPLOY_DIR'
+            docker compose pull
+            docker compose up -d --remove-orphans --force-recreate
+          "
+
+      - name: Verify deployment
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
+            set -e
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              backend_body=\$(curl -s http://127.0.0.1:${LAUGHING_BACKEND_PORT}/auth/getCode || true)
+              backend_code=\$(printf '%s' \"\$backend_body\" | grep -q '\"success\":true' && echo 200 || echo 000)
+              web_code=\$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${LAUGHING_HTTP_PORT}/ai/)
+              echo \"Health check attempt \$i: backend HTTP \$backend_code, web HTTP \$web_code\"
+              if [ \"\$backend_code\" = '200' ] && [ \"\$web_code\" = '200' ]; then
+                exit 0
+              fi
+              sleep 10
+            done
+            echo 'Basic health check failed'
+            docker ps
+            docker logs --tail 120 qa-assistant-backend-laughing || true
+            docker logs --tail 120 qa-assistant-nginx-laughing || true
+            exit 1
+          "
+
+      - name: Show service status
+        if: always()
+        run: |
+          ssh -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
+            docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+            docker stats --no-stream qa-assistant-backend-laughing qa-assistant-nginx-laughing || true
+          " || true
