@@ -81,15 +81,61 @@
           <div class="review-desc">建议优先检查命中问题、可信、易懂、失败体面四项，再结合调用耗时和失败原因定位问题。</div>
         </div>
         <div class="review-badges">
-          <span class="review-badge">记录数：{{ tableData.rows.length }}</span>
-          <span class="review-badge">建议先看失败记录与长回答记录</span>
+          <span class="review-badge">当前记录数：{{ filteredRows.length }}</span>
+          <span class="review-badge">失败记录：{{ failRowCount }}</span>
+          <span class="review-badge">慢请求：{{ slowRowCount }}</span>
+          <span class="review-badge">长回答：{{ longAnswerRowCount }}</span>
+        </div>
+      </div>
+      <div class="quick-filter-row">
+        <span class="quick-filter-label">快速聚焦</span>
+        <el-button
+          class="workspace-btn"
+          :class="quickView === 'all' ? 'workspace-btn--primary' : 'workspace-btn--ghost'"
+          @click="quickView = 'all'"
+        >
+          全部记录
+        </el-button>
+        <el-button
+          class="workspace-btn"
+          :class="quickView === 'fail' ? 'workspace-btn--primary' : 'workspace-btn--ghost'"
+          @click="quickView = 'fail'"
+        >
+          只看失败
+        </el-button>
+        <el-button
+          class="workspace-btn"
+          :class="quickView === 'slow' ? 'workspace-btn--primary' : 'workspace-btn--ghost'"
+          @click="quickView = 'slow'"
+        >
+          只看慢请求
+        </el-button>
+        <el-button
+          class="workspace-btn"
+          :class="quickView === 'long' ? 'workspace-btn--primary' : 'workspace-btn--ghost'"
+          @click="quickView = 'long'"
+        >
+          只看长回答
+        </el-button>
+        <span class="quick-filter-hint">慢请求默认按耗时 ≥ 5000ms，长回答默认按回答长度 ≥ 200 字符判断。</span>
+      </div>
+      <div class="review-header-note">
+        <span>建议顺序：先看失败，再看慢请求，最后抽样看长回答是否真正答题且有依据。</span>
+      </div>
+    </section>
+
+    <section class="glass-panel review-panel compact-panel">
+      <div class="review-header">
+        <div>
+          <div class="review-title">当前聚焦说明</div>
+          <div class="review-desc">{{ currentQuickViewDesc }}</div>
         </div>
       </div>
     </section>
 
     <!-- 表格   -->
     <section class="glass-panel table-panel">
-      <el-table :data="tableData.rows" stripe :border="true" style="width: 100%">
+      <el-table :data="filteredRows" stripe :border="true" style="width: 100%">
         <el-table-column type="expand">
           <template v-slot:default="props">
             <el-table :data="props.row.detailList" stripe :border="true" style="width: 100%">
@@ -107,14 +153,24 @@
               </el-table-column>
               <el-table-column prop="failReason" label="失败原因">
                 <template v-slot:default="scope">
-                  <el-tooltip placement="top">
-                    <template v-slot:content>
-                      <div class="new-line">
-                        {{ scope.row.failReason }}
-                      </div>
-                    </template>
-                    <p class="ellipsis">{{ scope.row.failReason }}</p>
-                  </el-tooltip>
+                  <div class="cell-stack">
+                    <el-tooltip placement="top">
+                      <template v-slot:content>
+                        <div class="new-line">
+                          {{ scope.row.failReason }}
+                        </div>
+                      </template>
+                      <p class="ellipsis">{{ scope.row.failReason }}</p>
+                    </el-tooltip>
+                    <el-button
+                      v-if="scope.row.failReason"
+                      text
+                      class="workspace-btn workspace-btn--text record-text-btn"
+                      @click="openDetailDialog('失败原因', scope.row.failReason)"
+                    >
+                      查看全文
+                    </el-button>
+                  </div>
                 </template>
               </el-table-column>
               <el-table-column prop="startTime" label="开始时间">
@@ -132,7 +188,10 @@
                       </template>
                       <p class="ellipsis">{{ scope.row.userInput }}</p>
                     </el-tooltip>
-                    <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="copyText(scope.row.userInput, '查询词')">复制</el-button>
+                    <div class="record-actions">
+                      <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="copyText(scope.row.userInput, '查询词')">复制</el-button>
+                      <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="openDetailDialog('查询词', scope.row.userInput)">查看全文</el-button>
+                    </div>
                   </div>
                 </template>
               </el-table-column>
@@ -147,7 +206,10 @@
                       </template>
                       <p class="ellipsis multi-line-ellipsis">{{ scope.row.assistantMessage }}</p>
                     </el-tooltip>
-                    <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="copyText(scope.row.assistantMessage, '响应结果')">复制</el-button>
+                    <div class="record-actions">
+                      <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="copyText(scope.row.assistantMessage, '响应结果')">复制</el-button>
+                      <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="openDetailDialog('响应结果', scope.row.assistantMessage)">查看全文</el-button>
+                    </div>
                   </div>
                 </template>
               </el-table-column>
@@ -195,10 +257,18 @@
         layout="total, sizes, prev, pager, next, jumper" :total="tableData.total">
       </el-pagination>
     </section>
+
+    <el-dialog v-model="detailDialogVisible" class="record-detail-dialog" :title="detailDialogTitle" width="780px">
+      <div class="detail-dialog-copy">
+        <div class="detail-dialog-tip">这里展示完整文本，方便直接做人工验收和问题复盘。</div>
+        <el-button class="workspace-btn workspace-btn--ghost" @click="copyText(detailDialogContent, detailDialogTitle)">复制内容</el-button>
+      </div>
+      <pre class="detail-dialog-content">{{ detailDialogContent }}</pre>
+    </el-dialog>
   </div>
 </template>
 <script setup name='InvokeRecordManage' lang='ts'>
-import { computed, reactive, onMounted } from 'vue'
+import { computed, reactive, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useTable } from '@/hooks/useTable';
 import { pageInvokeRecordApi, queryInvokeRecordOverviewApi } from '@/api/workspace/invokeRecordApi';
@@ -218,6 +288,11 @@ let {
   handlePageNowChange,
 } = useTable({ searchFormData, loadTableApi: pageInvokeRecordApi })
 
+const quickView = ref<'all' | 'fail' | 'slow' | 'long'>('all')
+const detailDialogVisible = ref(false)
+const detailDialogTitle = ref('')
+const detailDialogContent = ref('')
+
 const overview = reactive({
   totalCount: 0,
   successCount: 0,
@@ -231,6 +306,43 @@ const successRate = computed(() => {
     return '0%'
   }
   return `${((overview.successCount / overview.totalCount) * 100).toFixed(1)}%`
+})
+
+const filteredRows = computed(() => {
+  const rows = tableData.rows || []
+  if (quickView.value === 'fail') {
+    return rows.filter((row: any) => Number(row.status) === 0)
+  }
+  if (quickView.value === 'slow') {
+    return rows.filter((row: any) => Number(row.costTime || 0) >= 5000)
+  }
+  if (quickView.value === 'long') {
+    return rows.filter((row: any) =>
+      (row.detailList || []).some((detail: any) => String(detail.assistantMessage || '').length >= 200)
+    )
+  }
+  return rows
+})
+
+const failRowCount = computed(() => (tableData.rows || []).filter((row: any) => Number(row.status) === 0).length)
+const slowRowCount = computed(() => (tableData.rows || []).filter((row: any) => Number(row.costTime || 0) >= 5000).length)
+const longAnswerRowCount = computed(() =>
+  (tableData.rows || []).filter((row: any) =>
+    (row.detailList || []).some((detail: any) => String(detail.assistantMessage || '').length >= 200)
+  ).length
+)
+
+const currentQuickViewDesc = computed(() => {
+  if (quickView.value === 'fail') {
+    return '当前仅显示失败记录，适合优先排查失败体面、错误暴露和明显不可用问题。'
+  }
+  if (quickView.value === 'slow') {
+    return '当前仅显示慢请求，适合排查耗时过长、上下文过重或链路抖动问题。'
+  }
+  if (quickView.value === 'long') {
+    return '当前仅显示长回答，适合重点检查是否真正答题、是否有依据，以及是否存在过度铺陈。'
+  }
+  return '当前显示全部记录，适合做完整抽样和总体复盘。'
 })
 
 function loadOverview() {
@@ -249,19 +361,20 @@ async function copyText(text: string, label: string) {
 }
 
 function exportCurrentRows() {
-  if (!tableData.rows.length) {
+  if (!filteredRows.value.length) {
     ElMessage.warning('当前没有可导出的调用记录')
     return
   }
   const lines = [
     '# 调用记录导出',
     `> 导出时间：${new Date().toLocaleString()}`,
-    `> 当前记录数：${tableData.rows.length}`,
+    `> 当前记录数：${filteredRows.value.length}`,
+    `> 当前聚焦：${currentQuickViewDesc.value}`,
     '',
     '---',
     ''
   ]
-  tableData.rows.forEach((row: any) => {
+  filteredRows.value.forEach((row: any) => {
     lines.push(`## 记录 ${row.id}`)
     lines.push(`- 应用：${row.appName || '-'}`)
     lines.push(`- 知识库：${row.libName || '-'}`)
@@ -307,7 +420,14 @@ function resetFilters() {
   searchData.startTime = null
   searchData.endTime = null
   searchData.pageNow = 1
+  quickView.value = 'all'
   loadTable()
+}
+
+function openDetailDialog(title: string, content: string) {
+  detailDialogTitle.value = title
+  detailDialogContent.value = String(content || '')
+  detailDialogVisible.value = true
 }
 
 onMounted(() => {
@@ -326,6 +446,11 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.compact-panel {
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 
 .review-header {
@@ -364,11 +489,37 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.quick-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.quick-filter-label {
+  color: var(--space-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.quick-filter-hint,
+.review-header-note {
+  color: var(--space-text-soft);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .cell-stack {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
+}
+
+.record-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .record-text-btn {
@@ -385,6 +536,32 @@ onMounted(() => {
   white-space: normal;
 }
 
+.detail-dialog-copy {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.detail-dialog-tip {
+  color: var(--space-text-soft);
+  font-size: 13px;
+}
+
+.detail-dialog-content {
+  max-height: 55vh;
+  overflow: auto;
+  margin: 0;
+  padding: 16px;
+  border-radius: 16px;
+  background: #f8fafc;
+  color: var(--space-text);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 @media (max-width: 900px) {
   .review-header {
     flex-direction: column;
@@ -392,6 +569,11 @@ onMounted(() => {
 
   .review-badges {
     justify-content: flex-start;
+  }
+
+  .detail-dialog-copy {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>
