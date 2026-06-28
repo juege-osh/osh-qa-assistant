@@ -14,11 +14,16 @@ dist/
 *.log
 logs/
 .local-runlogs/
+.laughing-runtime/
+QAENV_DEPLOY_LOCAL_REVIEW.md
+.qaenv-laughing.env.local
 
 # IDE
 .idea/
 .vscode/
 *.iml
+*.swp
+*.swo
 
 # OS
 .DS_Store
