@@ -179,14 +179,6 @@ public class AiChatServiceImpl implements AiChatService {
     private void processComplete(SseEmitter sseEmitter, CountDownLatch cdl, AtomicReference<ChatResponse> lastResponseRef,
                                  InvokeRecordDetailBuilder detailBuilder4llm, String failReason,
                                  String referencesMarkdown, StringBuilder retSb, boolean closeOnComplete) {
-        if (StrUtil.isNotBlank(referencesMarkdown)) {
-            if (StrUtil.isNotBlank(retSb.toString()) && !StrUtil.endWith(retSb.toString(), "\n")) {
-                retSb.append("\n\n");
-            }
-            retSb.append(referencesMarkdown);
-            sendData(sseEmitter, referencesMarkdown);
-        }
-        sendData(sseEmitter,ConsumerConstants.STREAM_END);
         // 获取最后一个响应
         ChatResponse lastResponse = lastResponseRef.get();
         if (lastResponse == null) {
@@ -199,7 +191,9 @@ public class AiChatServiceImpl implements AiChatService {
             Usage usage = lastResponse.getMetadata().getUsage();
             detailBuilder4llm.setStatus(InvokeStatusEnum.SUCCESS.getCode());
             detailBuilder4llm.setCostToken(Long.valueOf(usage.getTotalTokens()));
+            appendReferencesIfPresent(sseEmitter, retSb, referencesMarkdown);
         }
+        sendData(sseEmitter,ConsumerConstants.STREAM_END);
         if (closeOnComplete) {
             sseEmitter.complete();
         }
@@ -345,7 +339,7 @@ public class AiChatServiceImpl implements AiChatService {
         if (CollUtil.isEmpty(uploadFiles)) {
             return null;
         }
-        StringBuilder builder = new StringBuilder("\n\n---\n**参考来源**\n");
+        StringBuilder builder = new StringBuilder("---\n**参考来源**\n");
         int limit = Math.min(uploadFiles.size(), 3);
         for (int i = 0; i < limit; i++) {
             UploadFileDO uploadFileDO = uploadFiles.get(i);
@@ -355,6 +349,17 @@ public class AiChatServiceImpl implements AiChatService {
                 .append("\n");
         }
         return builder.toString();
+    }
+
+    private void appendReferencesIfPresent(SseEmitter sseEmitter, StringBuilder retSb, String referencesMarkdown) {
+        if (StrUtil.isBlank(referencesMarkdown) || StrUtil.isBlank(retSb.toString())) {
+            return;
+        }
+        String referencesBlock = StrUtil.endWith(retSb.toString(), "\n")
+            ? "\n" + referencesMarkdown
+            : "\n\n" + referencesMarkdown;
+        retSb.append(referencesBlock);
+        sendData(sseEmitter, referencesBlock);
     }
 
     private boolean isClientDisconnect(Exception e) {
