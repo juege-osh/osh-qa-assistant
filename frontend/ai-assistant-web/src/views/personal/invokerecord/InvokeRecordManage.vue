@@ -228,6 +228,10 @@
           <span class="review-badge">已归类：{{ categorizedFollowUpCount }}</span>
         </div>
       </div>
+      <div class="category-export-row">
+        <el-button class="workspace-btn workspace-btn--ghost" @click="exportFollowUpTaskDraft">导出后续任务草稿</el-button>
+        <span class="quick-filter-hint">按当前待跟进分类结果生成 Markdown，方便直接整理进任务池或复盘文档。</span>
+      </div>
       <div v-if="followUpCategoryStats.length" class="category-grid">
         <article v-for="item in followUpCategoryStats" :key="item.key" class="category-card">
           <div class="category-card-count">{{ item.count }}</div>
@@ -788,6 +792,78 @@ function exportAcceptanceDraft() {
   ElMessage.success('已导出验收草稿')
 }
 
+function exportFollowUpTaskDraft() {
+  const followUpEntries = filteredRows.value.flatMap((row: any) => {
+    const detailList = row.detailList || []
+    return detailList
+      .map((detail: any) => {
+        const key = buildReviewKey(row, detail)
+        const category = getFollowUpCategory(key)
+        if (getReviewStatus(key) !== 'followUp' || !category) {
+          return null
+        }
+        return {
+          key,
+          row,
+          detail,
+          category
+        }
+      })
+      .filter(Boolean)
+  }) as Array<{ key: string; row: any; detail: any; category: FollowUpCategory }>
+
+  if (!followUpEntries.length) {
+    ElMessage.warning('当前没有可导出的待跟进任务草稿')
+    return
+  }
+
+  const grouped = followUpCategoryOptions
+    .map((option) => ({
+      ...option,
+      entries: followUpEntries.filter((item) => item.category === option.value)
+    }))
+    .filter((group) => group.entries.length > 0)
+
+  const lines = [
+    '# RAG MVP 后续任务草稿',
+    '',
+    `- 导出时间：${new Date().toLocaleString()}`,
+    `- 当前聚焦：${currentQuickViewDesc.value}`,
+    `- 待跟进总数：${followUpEntries.length}`,
+    '',
+    '## 问题分类汇总',
+    ''
+  ]
+
+  grouped.forEach((group) => {
+    lines.push(`### ${group.label}（${group.entries.length}）`)
+    lines.push(followUpCategoryDescMap[group.value])
+    lines.push('')
+    group.entries.forEach((item, index) => {
+      lines.push(`#### ${group.label}-${index + 1}`)
+      lines.push(`- 记录编号：${item.row.id}`)
+      lines.push(`- 应用：${sanitizeInline(item.row.appName)}`)
+      lines.push(`- 知识库：${sanitizeInline(item.row.libName)}`)
+      lines.push(`- 模型：${sanitizeInline(item.detail.modelName || '未知模型')}`)
+      lines.push(`- 耗时：${item.detail.costTime ?? item.row.costTime ?? '-'}ms`)
+      lines.push(`- 用户问题：${sanitizeInline(item.detail.userInput)}`)
+      lines.push(`- 回答摘要：${summarizeDisplayText(item.detail.assistantMessage)}`)
+      lines.push(`- 失败原因：${sanitizeInline(item.detail.failReason || item.row.failReason || '无')}`)
+      lines.push(`- 建议动作：围绕“${group.label}”方向进入任务池进一步处理`)
+      lines.push('')
+    })
+  })
+
+  lines.push('## 建议后续动作')
+  lines.push('')
+  lines.push('- 按分类评估是否需要新建任务，优先处理数量最多且影响体验最直接的问题。')
+  lines.push('- 针对同类问题抽样核对原始调用记录，避免把单点异常误判成系统性问题。')
+  lines.push('- 若同类问题连续出现，建议在任务中补充可复现样例问题与对应记录编号。')
+
+  downloadMarkdown(lines.join('\n'), `rag-follow-up-task-draft-${Date.now()}.md`)
+  ElMessage.success('已导出后续任务草稿')
+}
+
 function resetFilters() {
   searchData.appName = ""
   searchData.userInputKeyword = ""
@@ -1177,6 +1253,13 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
+}
+
+.category-export-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
 }
 
 .category-card {
