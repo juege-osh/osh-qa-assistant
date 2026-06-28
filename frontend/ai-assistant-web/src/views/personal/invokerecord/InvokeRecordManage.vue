@@ -639,7 +639,9 @@ const followUpCategoryStats = computed(() => {
   return followUpCategoryOptions
     .map((option) => {
       const count = Object.entries(reviewStatusMap.value).filter(([key, status]) =>
-        status === 'followUp' && followUpCategoryMap.value[key] === option.value
+        status === 'followUp' &&
+        followUpCategoryMap.value[key] === option.value &&
+        matchFollowUpCategoryView(option.value)
       ).length
       return {
         key: option.value,
@@ -914,6 +916,13 @@ function getFollowUpEntries() {
       })
       .filter(Boolean)
   }) as Array<{ key: string; row: any; detail: any; category: FollowUpCategory }>
+}
+
+function matchFollowUpCategoryView(category: FollowUpCategory) {
+  if (!followUpCategoryView.value) {
+    return true
+  }
+  return followUpCategoryView.value === category
 }
 
 function resetFilters() {
