@@ -233,6 +233,25 @@
         <el-button class="workspace-btn workspace-btn--ghost" @click="openTaskSuggestionDialog">查看任务建议清单</el-button>
         <span class="quick-filter-hint">按当前待跟进分类结果生成 Markdown，方便直接整理进任务池或复盘文档。</span>
       </div>
+      <div class="quick-filter-row">
+        <span class="quick-filter-label">分类聚焦</span>
+        <el-button
+          class="workspace-btn"
+          :class="followUpCategoryView === '' ? 'workspace-btn--primary' : 'workspace-btn--ghost'"
+          @click="followUpCategoryView = ''"
+        >
+          全部分类
+        </el-button>
+        <el-button
+          v-for="option in followUpCategoryOptions"
+          :key="option.value"
+          class="workspace-btn"
+          :class="followUpCategoryView === option.value ? 'workspace-btn--primary' : 'workspace-btn--ghost'"
+          @click="followUpCategoryView = option.value"
+        >
+          {{ option.label }}
+        </el-button>
+      </div>
       <div v-if="followUpCategoryStats.length" class="category-grid">
         <article v-for="item in followUpCategoryStats" :key="item.key" class="category-card">
           <div class="category-card-count">{{ item.count }}</div>
@@ -492,6 +511,7 @@ const acceptanceDialogVisible = ref(false)
 const acceptanceDialogContent = ref('')
 const taskSuggestionDialogVisible = ref(false)
 const taskSuggestionContent = ref('')
+const followUpCategoryView = ref<FollowUpCategory | ''>('')
 const reviewStatusStoreKey = 'invoke-record-review-status'
 const followUpCategoryStoreKey = 'invoke-record-follow-up-category'
 const reviewStatusMap = ref<Record<string, ReviewStatus>>(loadReviewStatusMap())
@@ -561,7 +581,7 @@ const filteredRows = computed(() => {
   }
   if (quickView.value === 'followUp') {
     return rows.filter((row: any) =>
-      (row.detailList || []).some((detail: any) => getReviewStatus(buildReviewKey(row, detail)) === 'followUp')
+      (row.detailList || []).some((detail: any) => matchFollowUpFilter(row, detail))
     )
   }
   if (quickView.value === 'reviewed') {
@@ -1028,6 +1048,17 @@ function loadReviewStatusMap(): Record<string, ReviewStatus> {
 
 function getFollowUpCategory(key: string): FollowUpCategory | '' {
   return followUpCategoryMap.value[key] || ''
+}
+
+function matchFollowUpFilter(row: any, detail: any) {
+  const key = buildReviewKey(row, detail)
+  if (getReviewStatus(key) !== 'followUp') {
+    return false
+  }
+  if (!followUpCategoryView.value) {
+    return true
+  }
+  return getFollowUpCategory(key) === followUpCategoryView.value
 }
 
 function getFollowUpCategoryLabel(key: string) {
