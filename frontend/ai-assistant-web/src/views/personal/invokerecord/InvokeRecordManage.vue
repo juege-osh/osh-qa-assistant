@@ -230,6 +230,7 @@
       </div>
       <div class="category-export-row">
         <el-button class="workspace-btn workspace-btn--ghost" @click="exportFollowUpTaskDraft">导出后续任务草稿</el-button>
+        <el-button class="workspace-btn workspace-btn--ghost" @click="openTaskSuggestionDialog">查看任务建议清单</el-button>
         <span class="quick-filter-hint">按当前待跟进分类结果生成 Markdown，方便直接整理进任务池或复盘文档。</span>
       </div>
       <div v-if="followUpCategoryStats.length" class="category-grid">
@@ -451,6 +452,14 @@
       </div>
       <pre class="detail-dialog-content">{{ acceptanceDialogContent }}</pre>
     </el-dialog>
+
+    <el-dialog v-model="taskSuggestionDialogVisible" class="record-detail-dialog" title="后续任务建议清单" width="920px">
+      <div class="detail-dialog-copy">
+        <div class="detail-dialog-tip">这里按当前待跟进分类结果生成可直接复制的任务建议清单，适合快速贴到禅道或复盘消息里。</div>
+        <el-button class="workspace-btn workspace-btn--ghost" @click="copyText(taskSuggestionContent, '后续任务建议清单')">复制内容</el-button>
+      </div>
+      <pre class="detail-dialog-content">{{ taskSuggestionContent }}</pre>
+    </el-dialog>
   </div>
 </template>
 <script setup name='InvokeRecordManage' lang='ts'>
@@ -481,6 +490,8 @@ const detailDialogTitle = ref('')
 const detailDialogContent = ref('')
 const acceptanceDialogVisible = ref(false)
 const acceptanceDialogContent = ref('')
+const taskSuggestionDialogVisible = ref(false)
+const taskSuggestionContent = ref('')
 const reviewStatusStoreKey = 'invoke-record-review-status'
 const followUpCategoryStoreKey = 'invoke-record-follow-up-category'
 const reviewStatusMap = ref<Record<string, ReviewStatus>>(loadReviewStatusMap())
@@ -793,28 +804,29 @@ function exportAcceptanceDraft() {
 }
 
 function exportFollowUpTaskDraft() {
-  const followUpEntries = filteredRows.value.flatMap((row: any) => {
-    const detailList = row.detailList || []
-    return detailList
-      .map((detail: any) => {
-        const key = buildReviewKey(row, detail)
-        const category = getFollowUpCategory(key)
-        if (getReviewStatus(key) !== 'followUp' || !category) {
-          return null
-        }
-        return {
-          key,
-          row,
-          detail,
-          category
-        }
-      })
-      .filter(Boolean)
-  }) as Array<{ key: string; row: any; detail: any; category: FollowUpCategory }>
-
-  if (!followUpEntries.length) {
+  const taskSuggestion = buildFollowUpTaskSuggestion()
+  if (!taskSuggestion) {
     ElMessage.warning('当前没有可导出的待跟进任务草稿')
     return
+  }
+  downloadMarkdown(taskSuggestion, `rag-follow-up-task-draft-${Date.now()}.md`)
+  ElMessage.success('已导出后续任务草稿')
+}
+
+function openTaskSuggestionDialog() {
+  const taskSuggestion = buildFollowUpTaskSuggestion()
+  if (!taskSuggestion) {
+    ElMessage.warning('当前没有可展示的后续任务建议清单')
+    return
+  }
+  taskSuggestionContent.value = taskSuggestion
+  taskSuggestionDialogVisible.value = true
+}
+
+function buildFollowUpTaskSuggestion() {
+  const followUpEntries = getFollowUpEntries()
+  if (!followUpEntries.length) {
+    return ''
   }
 
   const grouped = followUpCategoryOptions
@@ -860,8 +872,28 @@ function exportFollowUpTaskDraft() {
   lines.push('- 针对同类问题抽样核对原始调用记录，避免把单点异常误判成系统性问题。')
   lines.push('- 若同类问题连续出现，建议在任务中补充可复现样例问题与对应记录编号。')
 
-  downloadMarkdown(lines.join('\n'), `rag-follow-up-task-draft-${Date.now()}.md`)
-  ElMessage.success('已导出后续任务草稿')
+  return lines.join('\n')
+}
+
+function getFollowUpEntries() {
+  return filteredRows.value.flatMap((row: any) => {
+    const detailList = row.detailList || []
+    return detailList
+      .map((detail: any) => {
+        const key = buildReviewKey(row, detail)
+        const category = getFollowUpCategory(key)
+        if (getReviewStatus(key) !== 'followUp' || !category) {
+          return null
+        }
+        return {
+          key,
+          row,
+          detail,
+          category
+        }
+      })
+      .filter(Boolean)
+  }) as Array<{ key: string; row: any; detail: any; category: FollowUpCategory }>
 }
 
 function resetFilters() {
