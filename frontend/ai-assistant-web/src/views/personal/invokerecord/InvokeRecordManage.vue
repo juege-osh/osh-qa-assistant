@@ -136,6 +136,63 @@
       </div>
     </section>
 
+    <section class="glass-panel review-panel">
+      <div class="review-header">
+        <div>
+          <div class="review-title">优先复盘清单</div>
+          <div class="review-desc">这里按失败、慢请求、长回答等规则自动挑出值得优先检查的记录，只做排查建议，不替代人工验收结论。</div>
+        </div>
+        <div class="review-badges">
+          <span class="review-badge">待优先复盘：{{ priorityReviewList.length }}</span>
+        </div>
+      </div>
+      <div v-if="priorityReviewList.length" class="priority-grid">
+        <article v-for="item in priorityReviewList" :key="item.key" class="priority-card">
+          <div class="priority-card-head">
+            <div>
+              <div class="priority-card-title">
+                {{ item.row.appName || '未命名应用' }}
+                <span class="priority-card-id">#{{ item.row.id }}</span>
+              </div>
+              <div class="priority-card-meta">
+                {{ item.row.libName || '未绑定知识库' }} · {{ item.detail.modelName || '未知模型' }} · {{ item.detail.costTime ?? item.row.costTime ?? '-' }}ms
+              </div>
+            </div>
+            <div class="priority-tag-group">
+              <span
+                v-for="tag in item.riskTags"
+                :key="`${item.key}-${tag.key}`"
+                class="priority-tag"
+                :class="`priority-tag--${tag.tone}`"
+              >
+                {{ tag.label }}
+              </span>
+            </div>
+          </div>
+          <div class="priority-block">
+            <div class="priority-label">用户问题</div>
+            <div class="priority-text">{{ item.detail.userInput || '-' }}</div>
+          </div>
+          <div class="priority-block">
+            <div class="priority-label">回答摘要</div>
+            <div class="priority-text">{{ summarizeDisplayText(item.detail.assistantMessage) }}</div>
+          </div>
+          <div class="priority-block" v-if="item.detail.failReason || item.row.failReason">
+            <div class="priority-label">失败原因</div>
+            <div class="priority-text priority-text--danger">{{ item.detail.failReason || item.row.failReason }}</div>
+          </div>
+          <div class="priority-actions">
+            <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="copyText(item.detail.userInput, '查询词')">复制问题</el-button>
+            <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="openDetailDialog('响应结果', item.detail.assistantMessage)">查看回答</el-button>
+            <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="copyAcceptanceEntry(item.row, item.detail)">复制验收条目</el-button>
+          </div>
+        </article>
+      </div>
+      <div v-else class="empty-review-hint">
+        当前筛选结果里没有自动判定为重点复盘的记录，可以继续抽样检查表格明细。
+      </div>
+    </section>
+
     <!-- 表格   -->
     <section class="glass-panel table-panel">
       <el-table :data="filteredRows" stripe :border="true" style="width: 100%">
@@ -365,6 +422,31 @@ const longAnswerRowCount = computed(() =>
   ).length
 )
 
+const priorityReviewList = computed(() => {
+  return filteredRows.value
+    .flatMap((row: any) => {
+      const detailList = row.detailList || []
+      return detailList.map((detail: any, index: number) => {
+        const riskTags = buildRiskTags(row, detail)
+        return {
+          key: `${row.id}-${index + 1}`,
+          row,
+          detail,
+          riskTags,
+          riskScore: riskTags.reduce((sum: number, tag: any) => sum + tag.score, 0)
+        }
+      })
+    })
+    .filter((item: any) => item.riskTags.length > 0)
+    .sort((a: any, b: any) => {
+      if (b.riskScore !== a.riskScore) {
+        return b.riskScore - a.riskScore
+      }
+      return Number(b.detail.costTime || b.row.costTime || 0) - Number(a.detail.costTime || a.row.costTime || 0)
+    })
+    .slice(0, 8)
+})
+
 const currentQuickViewDesc = computed(() => {
   if (quickView.value === 'fail') {
     return '当前仅显示失败记录，适合优先排查失败体面、错误暴露和明显不可用问题。'
@@ -568,6 +650,43 @@ function buildAnswerSummary(message: string) {
   return sanitizeTableCell(normalized.slice(0, 120))
 }
 
+function summarizeDisplayText(message: string) {
+  const normalized = String(message || '').replace(/\s+/g, ' ').trim()
+  if (!normalized) {
+    return '当前没有可用回答内容'
+  }
+  if (normalized.length <= 120) {
+    return normalized
+  }
+  return `${normalized.slice(0, 120)}...`
+}
+
+function buildRiskTags(row: any, detail: any) {
+  const tags = []
+  const detailStatus = Number(detail.status ?? row.status)
+  const costTime = Number(detail.costTime ?? row.costTime ?? 0)
+  const answerText = String(detail.assistantMessage || '').trim()
+  const failReason = String(detail.failReason || row.failReason || '').trim()
+
+  if (detailStatus === 0) {
+    tags.push({ key: 'fail', label: '失败记录', tone: 'danger', score: 100 })
+  }
+  if (failReason) {
+    tags.push({ key: 'reason', label: '有失败原因', tone: 'warning', score: 50 })
+  }
+  if (costTime >= 5000) {
+    tags.push({ key: 'slow', label: '慢请求', tone: 'warning', score: 35 })
+  }
+  if (answerText.length >= 200) {
+    tags.push({ key: 'long', label: '长回答', tone: 'info', score: 20 })
+  }
+  if (!answerText) {
+    tags.push({ key: 'empty', label: '空回答', tone: 'danger', score: 80 })
+  }
+
+  return tags
+}
+
 function sanitizeInline(value: any) {
   return String(value ?? '-').replace(/\n/g, ' ').trim() || '-'
 }
@@ -686,6 +805,115 @@ onMounted(() => {
   font-size: 12px;
 }
 
+.priority-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.priority-card {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(64, 158, 255, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 255, 0.95));
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.priority-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.priority-card-title {
+  color: var(--space-text);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.priority-card-id,
+.priority-card-meta,
+.priority-label,
+.empty-review-hint {
+  color: var(--space-text-soft);
+}
+
+.priority-card-id {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.priority-card-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.priority-tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.priority-tag {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.priority-tag--danger {
+  background: rgba(254, 226, 226, 0.95);
+  color: #b42318;
+}
+
+.priority-tag--warning {
+  background: rgba(255, 244, 229, 0.98);
+  color: #b54708;
+}
+
+.priority-tag--info {
+  background: rgba(237, 245, 255, 0.95);
+  color: var(--space-primary-strong);
+}
+
+.priority-block {
+  margin-top: 12px;
+}
+
+.priority-label {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.priority-text {
+  margin-top: 4px;
+  color: var(--space-text);
+  font-size: 13px;
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.priority-text--danger {
+  color: #b42318;
+}
+
+.priority-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.empty-review-hint {
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 .multi-line-ellipsis {
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -732,6 +960,14 @@ onMounted(() => {
   .detail-dialog-copy {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .priority-card-head {
+    flex-direction: column;
+  }
+
+  .priority-tag-group {
+    justify-content: flex-start;
   }
 }
 </style>
