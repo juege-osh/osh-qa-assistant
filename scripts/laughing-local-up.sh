@@ -26,7 +26,7 @@ if [ "${LAUGHING_SKIP_BUILD:-0}" != "1" ]; then
   need_cmd npm
 
   echo "[1/4] Building backend jar"
-  mvn -f "$ROOT_DIR/pom.xml" -pl backend -am package -DskipTests
+  mvn -f "$ROOT_DIR/pom.xml" -pl backend -am clean package -DskipTests
 
   echo "[2/4] Building unified frontend"
   (

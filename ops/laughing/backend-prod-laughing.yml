@@ -6,6 +6,18 @@ spring:
     name: ai-assistant-backend-laughing
   main:
     allow-circular-references: true
+  mail:
+    host: ${AI_ASSISTANT_ALERT_SMTP_HOST:}
+    port: ${AI_ASSISTANT_ALERT_SMTP_PORT:587}
+    username: ${AI_ASSISTANT_ALERT_SMTP_USERNAME:}
+    password: ${AI_ASSISTANT_ALERT_SMTP_PASSWORD:}
+    protocol: ${AI_ASSISTANT_ALERT_SMTP_PROTOCOL:smtp}
+    properties:
+      mail:
+        smtp:
+          auth: ${AI_ASSISTANT_ALERT_SMTP_AUTH:true}
+          starttls:
+            enable: ${AI_ASSISTANT_ALERT_SMTP_STARTTLS:true}
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://${AI_ASSISTANT_DB_HOST}:${AI_ASSISTANT_DB_PORT:3306}/${AI_ASSISTANT_DB_NAME:ai_assistant}?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=${AI_ASSISTANT_DB_USE_SSL:false}&serverTimezone=${AI_ASSISTANT_DB_TIMEZONE:GMT%2B8}
@@ -92,6 +104,21 @@ ai-assistant:
       warn-after-seconds: ${AI_ASSISTANT_QDRANT_PROBE_WARN_AFTER_SECONDS:10}
       check-timeout-seconds: ${AI_ASSISTANT_QDRANT_PROBE_CHECK_TIMEOUT_SECONDS:10}
       retry-interval-seconds: ${AI_ASSISTANT_QDRANT_PROBE_RETRY_INTERVAL_SECONDS:10}
+  alert:
+    enabled: ${AI_ASSISTANT_ALERT_ENABLED:false}
+    subject-prefix: ${AI_ASSISTANT_ALERT_SUBJECT_PREFIX:[OSH QA Assistant]}
+    from: ${AI_ASSISTANT_ALERT_FROM:}
+    recipients: ${AI_ASSISTANT_ALERT_RECIPIENTS:}
+    dedupe-minutes: ${AI_ASSISTANT_ALERT_DEDUPE_MINUTES:30}
+    recovery-enabled: ${AI_ASSISTANT_ALERT_RECOVERY_ENABLED:true}
+    self-check-enabled: ${AI_ASSISTANT_ALERT_SELF_CHECK_ENABLED:false}
+    self-check-allowed-users: ${AI_ASSISTANT_ALERT_SELF_CHECK_ALLOWED_USERS:}
+  db:
+    probe:
+      enabled: ${AI_ASSISTANT_DB_PROBE_ENABLED:true}
+      warn-after-seconds: ${AI_ASSISTANT_DB_PROBE_WARN_AFTER_SECONDS:10}
+      retry-interval-seconds: ${AI_ASSISTANT_DB_PROBE_RETRY_INTERVAL_SECONDS:10}
+      check-timeout-seconds: ${AI_ASSISTANT_DB_PROBE_CHECK_TIMEOUT_SECONDS:5}
 
 mybatis-plus:
   mapper-locations: classpath*:/mybatis/mapper/*Mapper.xml

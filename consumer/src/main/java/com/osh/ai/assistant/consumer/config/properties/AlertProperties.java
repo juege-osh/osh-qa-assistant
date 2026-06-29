@@ -18,6 +18,10 @@ public class AlertProperties {
      */
     private String subjectPrefix = "[OSH QA Assistant]";
     /**
+     * 告警发件人，未配置时默认回退到 spring.mail.username
+     */
+    private String from;
+    /**
      * 接收告警的邮箱列表
      */
     private List<String> recipients = new ArrayList<>();
@@ -29,4 +33,12 @@ public class AlertProperties {
      * 是否发送恢复通知
      */
     private boolean recoveryEnabled = true;
+    /**
+     * 是否允许人工自检触发告警演练
+     */
+    private boolean selfCheckEnabled = false;
+    /**
+     * 允许触发人工自检的用户名白名单
+     */
+    private List<String> selfCheckAllowedUsers = new ArrayList<>();
 }

@@ -35,7 +35,7 @@ need_cmd sshpass
 need_cmd ssh
 
 echo "[1/7] Building backend jar"
-mvn -f "$ROOT_DIR/pom.xml" -pl backend -am package -DskipTests
+mvn -f "$ROOT_DIR/pom.xml" -pl backend -am clean package -DskipTests
 
 echo "[2/7] Building unified frontend"
 (

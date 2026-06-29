@@ -7,11 +7,13 @@ import com.osh.ai.assistant.consumer.service.AlertService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -23,6 +25,9 @@ public class AlertServiceImpl implements AlertService {
     private AlertProperties alertProperties;
 
     private final JavaMailSender mailSender;
+
+    @Value("${spring.mail.username:}")
+    private String springMailUsername;
 
     private final Map<String, Instant> lastNotifyAtMap = new ConcurrentHashMap<>();
     private final Map<String, Boolean> activeAlertMap = new ConcurrentHashMap<>();
@@ -44,7 +49,10 @@ public class AlertServiceImpl implements AlertService {
             activeAlertMap.put(key, Boolean.TRUE);
             return;
         }
-        sendMail(title, body);
+        boolean sent = sendMail(title, body);
+        if (!sent) {
+            return;
+        }
         lastNotifyAtMap.put(key, now);
         activeAlertMap.put(key, Boolean.TRUE);
     }
@@ -57,9 +65,28 @@ public class AlertServiceImpl implements AlertService {
         if (!Boolean.TRUE.equals(activeAlertMap.get(key))) {
             return;
         }
-        sendMail(title, body);
+        boolean sent = sendMail(title, body);
+        if (!sent) {
+            return;
+        }
         activeAlertMap.remove(key);
         lastNotifyAtMap.remove(key);
+    }
+
+    @Override
+    public void sendSelfCheck(String title, String body) {
+        if (!canSendAlert()) {
+            throw new IllegalStateException("当前告警邮件配置不可用");
+        }
+        boolean sent = sendMail(title, body);
+        if (!sent) {
+            throw new IllegalStateException("告警邮件发送失败，请检查 SMTP、发件人和收件人配置");
+        }
+    }
+
+    @Override
+    public boolean canSendAlertNow() {
+        return canSendAlert();
     }
 
     private boolean canSendAlert() {
@@ -70,28 +97,42 @@ public class AlertServiceImpl implements AlertService {
             log.warn("alert service enabled but JavaMailSender is unavailable");
             return false;
         }
-        if (CollUtil.isEmpty(alertProperties.getRecipients())) {
+        List<String> recipients = normalizedRecipients();
+        if (CollUtil.isEmpty(recipients)) {
             log.warn("alert service enabled but recipients are empty");
             return false;
         }
         return true;
     }
 
-    private void sendMail(String title, String body) {
+    private boolean sendMail(String title, String body) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(alertProperties.getRecipients().toArray(String[]::new));
+            String from = StrUtil.blankToDefault(alertProperties.getFrom(), springMailUsername);
+            if (StrUtil.isNotBlank(from)) {
+                message.setFrom(from);
+            }
+            message.setTo(normalizedRecipients().toArray(String[]::new));
             message.setSubject(buildSubject(title));
             message.setText(StrUtil.blankToDefault(body, "无告警详情"));
             mailSender.send(message);
-            log.info("alert mail sent, title={}, recipients={}", title, alertProperties.getRecipients().size());
+            log.info("alert mail sent, title={}, recipients={}", title, normalizedRecipients().size());
+            return true;
         } catch (Exception e) {
             log.error("send alert mail failed, title={}", title, e);
+            return false;
         }
     }
 
     private String buildSubject(String title) {
         String prefix = StrUtil.blankToDefault(alertProperties.getSubjectPrefix(), "[OSH QA Assistant]");
         return prefix + " " + title;
+    }
+
+    private List<String> normalizedRecipients() {
+        return alertProperties.getRecipients().stream()
+            .filter(StrUtil::isNotBlank)
+            .map(String::trim)
+            .toList();
     }
 }

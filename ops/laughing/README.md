@@ -71,6 +71,38 @@ Use the same runtime layout as `.laughing-runtime/` on the server, for example `
 
 The server `.env` should point to the existing MySQL, Redis, Qdrant, embedding, rerank, and storage services. Do not start duplicate stateful services unless the existing service is intentionally retired.
 
+## Alert self-check
+
+The laughing profile now supports a minimal alert self-check so we can verify SMTP and recipient wiring before a real outage.
+
+Required runtime variables:
+
+```bash
+AI_ASSISTANT_ALERT_ENABLED=true
+AI_ASSISTANT_ALERT_RECIPIENTS=owner@example.com,backup@example.com
+AI_ASSISTANT_ALERT_SELF_CHECK_ENABLED=true
+AI_ASSISTANT_ALERT_SELF_CHECK_ALLOWED_USERS=laughing
+AI_ASSISTANT_ALERT_SMTP_HOST=smtp.example.com
+AI_ASSISTANT_ALERT_SMTP_PORT=587
+AI_ASSISTANT_ALERT_SMTP_USERNAME=alert@example.com
+AI_ASSISTANT_ALERT_SMTP_PASSWORD=replace-me
+```
+
+After logging in as an allowed consumer user, trigger:
+
+```bash
+curl -X POST "http://127.0.0.1:19088/consumer/ops/alertSelfCheck" \
+  -H "Authorization: <USER_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"scene":"qdrant","note":"laughing 环境告警链路演练"}'
+```
+
+Expected result:
+
+- API returns `status=SENT`
+- recipients receive the self-check mail
+- backend logs contain `alert self check triggered`
+
 ## Manual deploy script
 
 For the local manual deploy helper:
