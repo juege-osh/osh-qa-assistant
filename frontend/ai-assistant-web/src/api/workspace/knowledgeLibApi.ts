@@ -67,3 +67,53 @@ export function debugKnowledgeLibRecallApi(data:object) {
       data
   })
 }
+
+/**
+ * 保存知识库实验版本
+ */
+export function saveKnowledgeLibExperimentApi(data: object) {
+  return appJsonPost({
+      url: "/consumer/knowledgeLib/experiment/save",
+      data
+  })
+}
+
+/**
+ * 列出知识库实验版本
+ */
+export function listKnowledgeLibExperimentApi(libId: string) {
+  return doGet({
+      url: "/consumer/knowledgeLib/experiment/list",
+      params: { libId }
+  })
+}
+
+/**
+ * 重命名知识库实验版本
+ */
+export function renameKnowledgeLibExperimentApi(data: object) {
+  return appJsonPost({
+      url: "/consumer/knowledgeLib/experiment/rename",
+      data
+  })
+}
+
+/**
+ * 标记推荐实验版本
+ */
+export function recommendKnowledgeLibExperimentApi(data: object) {
+  return appJsonPost({
+      url: "/consumer/knowledgeLib/experiment/recommend",
+      data
+  })
+}
+
+/**
+ * 删除知识库实验版本
+ */
+export function deleteKnowledgeLibExperimentApi(id: string) {
+  return doGet({
+      url: "/consumer/knowledgeLib/experiment/deleteById",
+      params: { id }
+  })
+}

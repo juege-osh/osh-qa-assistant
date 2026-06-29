@@ -287,13 +287,21 @@
 <script setup name='KnowledgeLibManage' lang='ts'>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useTable } from '@/hooks/useTable';
-import { pageKnowledgeLibApi, deleteKnowledgeLibByIdApi, debugKnowledgeLibRecallApi } from '@/api/workspace/knowledgeLibApi';
+import {
+  pageKnowledgeLibApi,
+  deleteKnowledgeLibByIdApi,
+  debugKnowledgeLibRecallApi,
+  saveKnowledgeLibExperimentApi,
+  listKnowledgeLibExperimentApi,
+  renameKnowledgeLibExperimentApi,
+  recommendKnowledgeLibExperimentApi,
+  deleteKnowledgeLibExperimentApi
+} from '@/api/workspace/knowledgeLibApi';
 import AddKnowledgeLib from '@/views/personal/knowledgelib/AddKnowledgeLib.vue';
 import UpdateKnowledgeLib from '@/views/personal/knowledgelib/UpdateKnowledgeLib.vue';
 import { Plus, Folder } from '@element-plus/icons-vue';
 import { useResource } from '@/hooks/useResource';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { getItem, saveItem } from '@/util/storageUtil';
 
 // 添加对话框是否显示
 let addDialogVisible = ref(false)
@@ -316,7 +324,6 @@ const recallDebugForm = reactive({
   topK: 5
 })
 const selectedFollowUpCategory = ref<FollowUpCategory>('knowledge')
-const RECALL_SNAPSHOT_STORAGE_KEY = 'knowledge-lib-recall-snapshots'
 type RecallSnapshot = {
   id: string
   savedAt: string
@@ -421,6 +428,7 @@ function openRecallDebug() {
     recallDebugForm.libId = tableData.rows[0].id
   }
   recallDebugVisible.value = true
+  loadRecallSnapshots()
 }
 
 function runRecallDebug() {
@@ -523,8 +531,8 @@ function saveRecallSnapshot() {
   const rawTop = recallDebugResult.rawHits[0]
   const rerankTop = recallDebugResult.rerankHits[0]
   const snapshot: RecallSnapshot = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    savedAt: new Date().toLocaleString(),
+    id: '',
+    savedAt: '',
     libId: String(recallDebugForm.libId),
     libName: selectedLib?.libName || String(recallDebugForm.libId),
     versionName: '',
@@ -539,15 +547,36 @@ function saveRecallSnapshot() {
     rerankTopSummary: rerankTop ? `${rerankTop.fileName} / ${formatScore(rerankTop.score)}` : '未命中',
     recommended: false
   }
-  const nextSnapshots = [snapshot, ...recallSnapshots.value].slice(0, 20)
-  persistRecallSnapshots(nextSnapshots)
-  ElMessage.success('已保存实验快照')
+  saveKnowledgeLibExperimentApi({
+    libId: snapshot.libId,
+    versionName: snapshot.versionName,
+    queryText: snapshot.query,
+    splitStrategy: snapshot.splitStrategy,
+    rawHitCount: snapshot.rawHitCount,
+    rerankHitCount: snapshot.rerankHitCount,
+    diagnosisTitle: snapshot.diagnosisTitle,
+    categoryCode: snapshot.category,
+    categoryLabel: snapshot.categoryLabel,
+    rawTopSummary: snapshot.rawTopSummary,
+    rerankTopSummary: snapshot.rerankTopSummary,
+    recommended: snapshot.recommended ? 1 : 0
+  }).then((result) => {
+    ElMessage.success(result.msg || '已保存实验快照')
+    loadRecallSnapshots()
+  })
 }
 
 function clearRecallSnapshots() {
-  selectedSnapshotIds.value = []
-  persistRecallSnapshots([])
-  ElMessage.success('已清空实验快照')
+  if (!recallSnapshots.value.length) {
+    ElMessage.success('当前没有需要清空的实验快照')
+    return
+  }
+  Promise.all(recallSnapshots.value.map((snapshot) => deleteKnowledgeLibExperimentApi(snapshot.id)))
+    .then(() => {
+      selectedSnapshotIds.value = []
+      recallSnapshots.value = []
+      ElMessage.success('已清空实验快照')
+    })
 }
 
 function toggleSnapshotSelection(snapshotId: string) {
@@ -616,16 +645,12 @@ async function copySnapshotCompareDraft() {
   }
 }
 
-function persistRecallSnapshots(nextSnapshots: RecallSnapshot[]) {
-  recallSnapshots.value = nextSnapshots
-  saveItem(RECALL_SNAPSHOT_STORAGE_KEY, nextSnapshots)
-}
-
 function removeSnapshot(snapshotId: string) {
-  const nextSnapshots = recallSnapshots.value.filter((item) => item.id !== snapshotId)
-  selectedSnapshotIds.value = selectedSnapshotIds.value.filter((id) => id !== snapshotId)
-  persistRecallSnapshots(nextSnapshots)
-  ElMessage.success('已删除实验快照')
+  deleteKnowledgeLibExperimentApi(snapshotId).then((result) => {
+    selectedSnapshotIds.value = selectedSnapshotIds.value.filter((id) => id !== snapshotId)
+    ElMessage.success(result.msg || '已删除实验快照')
+    loadRecallSnapshots()
+  })
 }
 
 async function renameSnapshot(snapshotId: string) {
@@ -645,13 +670,13 @@ async function renameSnapshot(snapshotId: string) {
         inputErrorMessage: '版本名最多 40 个字符'
       }
     )
-    const nextSnapshots = recallSnapshots.value.map((item) => (
-      item.id === snapshotId
-        ? { ...item, versionName: String(value || '').trim() }
-        : item
-    ))
-    persistRecallSnapshots(nextSnapshots)
-    ElMessage.success('已更新版本名称')
+    renameKnowledgeLibExperimentApi({
+      id: snapshotId,
+      versionName: String(value || '').trim()
+    }).then((result) => {
+      ElMessage.success(result.msg || '已更新版本名称')
+      loadRecallSnapshots()
+    })
   } catch {
     // 用户取消不提示
   }
@@ -663,12 +688,13 @@ function markRecommendedSnapshot() {
     return
   }
   const targetId = selectedSnapshotIds.value[0]
-  const nextSnapshots = recallSnapshots.value.map((item) => ({
-    ...item,
-    recommended: item.id === targetId
-  }))
-  persistRecallSnapshots(nextSnapshots)
-  ElMessage.success('已标记推荐版本')
+  recommendKnowledgeLibExperimentApi({
+    libId: recallDebugForm.libId,
+    id: targetId
+  }).then((result) => {
+    ElMessage.success(result.msg || '已标记推荐版本')
+    loadRecallSnapshots()
+  })
 }
 
 async function copySnapshotExperimentDraft() {
@@ -715,19 +741,36 @@ async function copySnapshotExperimentDraft() {
 }
 
 onMounted(() => {
-  try {
-    const saved = getItem(RECALL_SNAPSHOT_STORAGE_KEY)
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      if (Array.isArray(parsed)) {
-        recallSnapshots.value = parsed
-      }
-    }
-  } catch {
-    recallSnapshots.value = []
-  }
   loadTable()
 })
+
+function loadRecallSnapshots() {
+  if (!recallDebugForm.libId) {
+    recallSnapshots.value = []
+    return
+  }
+  listKnowledgeLibExperimentApi(String(recallDebugForm.libId)).then((result) => {
+    const rows = (result.data || []).map((item: any) => ({
+      id: String(item.id),
+      savedAt: item.createdTime ? new Date(item.createdTime).toLocaleString() : '-',
+      libId: String(item.libId),
+      libName: tableData.rows.find((row: any) => String(row.id) === String(item.libId))?.libName || String(item.libId),
+      versionName: item.versionName || '',
+      query: item.queryText,
+      splitStrategy: item.splitStrategy,
+      rawHitCount: Number(item.rawHitCount || 0),
+      rerankHitCount: Number(item.rerankHitCount || 0),
+      diagnosisTitle: item.diagnosisTitle,
+      category: item.categoryCode as FollowUpCategory,
+      categoryLabel: item.categoryLabel,
+      rawTopSummary: item.rawTopSummary || '未命中',
+      rerankTopSummary: item.rerankTopSummary || '未命中',
+      recommended: Number(item.recommended || 0) === 1
+    }))
+    recallSnapshots.value = rows
+    selectedSnapshotIds.value = selectedSnapshotIds.value.filter((id) => rows.some((item: RecallSnapshot) => item.id === id))
+  })
+}
 </script>
 <style scoped>
 .left {
