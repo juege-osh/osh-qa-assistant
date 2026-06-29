@@ -157,6 +157,47 @@
           </div>
         </section>
 
+        <section class="recall-config-panel" v-if="recallDebugResult.query">
+          <div class="recall-judgement-copy">
+            <div class="recall-judgement-title">当前参数快照</div>
+            <div class="recall-judgement-desc">
+              保存实验版本时，会把这里的切分参数一起存下来，后面回看版本时就能知道当时的策略上下文。
+            </div>
+          </div>
+          <div class="recall-config-grid">
+            <div class="recall-config-card">
+              <span class="recall-config-label">chunk 大小</span>
+              <strong class="recall-config-value">{{ recallDebugResult.splitConfig?.chunkSize ?? '-' }}</strong>
+            </div>
+            <div class="recall-config-card">
+              <span class="recall-config-label">最小 chunk</span>
+              <strong class="recall-config-value">{{ recallDebugResult.splitConfig?.minChunkSizeChars ?? '-' }}</strong>
+            </div>
+            <div class="recall-config-card">
+              <span class="recall-config-label">最小保留长度</span>
+              <strong class="recall-config-value">{{ recallDebugResult.splitConfig?.minChunkLengthToEmbed ?? '-' }}</strong>
+            </div>
+            <div class="recall-config-card">
+              <span class="recall-config-label">语义段上限</span>
+              <strong class="recall-config-value">{{ recallDebugResult.splitConfig?.semanticSectionMaxChars ?? '-' }}</strong>
+            </div>
+          </div>
+          <div class="recall-note-grid">
+            <el-input
+              v-model="experimentDraft.noteText"
+              type="textarea"
+              :rows="2"
+              placeholder="给这次实验写一个备注，例如：关键词更贴近实际问法 / 标题切分更稳定"
+            />
+            <el-input
+              v-model="experimentDraft.recommendReason"
+              type="textarea"
+              :rows="2"
+              placeholder="如果这版更好，可以提前写推荐理由，例如：Top1 命中更稳定、片段更完整"
+            />
+          </div>
+        </section>
+
         <section class="recall-judgement" v-if="recallDebugResult.query">
           <div class="recall-judgement-copy">
             <div class="recall-judgement-title">当前问题判断</div>
@@ -227,11 +268,14 @@
                 <div class="snapshot-card-meta">
                   <span>{{ snapshot.libName }}</span>
                   <span>{{ formatSplitStrategy(snapshot.splitStrategy) }}</span>
+                  <span>TopK {{ snapshot.topK }}</span>
                   <span>原始 {{ snapshot.rawHitCount }}</span>
                   <span>重排 {{ snapshot.rerankHitCount }}</span>
                   <span>{{ snapshot.categoryLabel }}</span>
                   <span v-if="snapshot.recommended" class="snapshot-recommended">推荐版本</span>
                 </div>
+                <div v-if="snapshot.noteText" class="snapshot-card-subtitle">备注：{{ snapshot.noteText }}</div>
+                <div v-if="snapshot.recommendReason" class="snapshot-card-subtitle">推荐理由：{{ snapshot.recommendReason }}</div>
                 <div class="snapshot-card-actions">
                   <el-button text class="workspace-btn workspace-btn--text" @click.prevent="renameSnapshot(snapshot.id)">
                     命名版本
@@ -331,7 +375,9 @@ type RecallSnapshot = {
   libName: string
   versionName: string
   query: string
+  topK: number
   splitStrategy: string
+  splitConfigJson: string
   rawHitCount: number
   rerankHitCount: number
   diagnosisTitle: string
@@ -339,6 +385,8 @@ type RecallSnapshot = {
   categoryLabel: string
   rawTopSummary: string
   rerankTopSummary: string
+  noteText: string
+  recommendReason: string
   recommended: boolean
 }
 const recallDebugResult = reactive({
@@ -347,8 +395,13 @@ const recallDebugResult = reactive({
   rawHitCount: 0,
   rerankHitCount: 0,
   splitStrategy: '',
+  splitConfig: null as null | Record<string, any>,
   rawHits: [] as Array<{ index: number; fileName: string; documentId: string; score?: number; content: string }>,
   rerankHits: [] as Array<{ index: number; fileName: string; documentId: string; score?: number; content: string }>
+})
+const experimentDraft = reactive({
+  noteText: '',
+  recommendReason: ''
 })
 const recallSnapshots = ref<RecallSnapshot[]>([])
 const selectedSnapshotIds = ref<string[]>([])
@@ -441,12 +494,17 @@ function runRecallDebug() {
     return
   }
   recallDebugLoading.value = true
+  const previousQuery = recallDebugResult.query
   debugKnowledgeLibRecallApi({
     libId: recallDebugForm.libId,
     query: recallDebugForm.query,
     topK: recallDebugForm.topK
   }).then(result => {
     Object.assign(recallDebugResult, result.data || {})
+    if (!result.data?.query || result.data.query !== previousQuery) {
+      experimentDraft.noteText = ''
+      experimentDraft.recommendReason = ''
+    }
     selectedFollowUpCategory.value = recallDiagnosis.value.suggestedCategory
   }).finally(() => {
     recallDebugLoading.value = false
@@ -537,7 +595,9 @@ function saveRecallSnapshot() {
     libName: selectedLib?.libName || String(recallDebugForm.libId),
     versionName: '',
     query: recallDebugResult.query,
+    topK: Number(recallDebugResult.topK || 5),
     splitStrategy: recallDebugResult.splitStrategy,
+    splitConfigJson: JSON.stringify(recallDebugResult.splitConfig || {}),
     rawHitCount: Number(recallDebugResult.rawHitCount || 0),
     rerankHitCount: Number(recallDebugResult.rerankHitCount || 0),
     diagnosisTitle: recallDiagnosis.value.title,
@@ -545,13 +605,17 @@ function saveRecallSnapshot() {
     categoryLabel: activeFollowUpLabel.value,
     rawTopSummary: rawTop ? `${rawTop.fileName} / ${formatScore(rawTop.score)}` : '未命中',
     rerankTopSummary: rerankTop ? `${rerankTop.fileName} / ${formatScore(rerankTop.score)}` : '未命中',
+    noteText: experimentDraft.noteText.trim(),
+    recommendReason: experimentDraft.recommendReason.trim(),
     recommended: false
   }
   saveKnowledgeLibExperimentApi({
     libId: snapshot.libId,
     versionName: snapshot.versionName,
     queryText: snapshot.query,
+    topK: snapshot.topK,
     splitStrategy: snapshot.splitStrategy,
+    splitConfigJson: snapshot.splitConfigJson,
     rawHitCount: snapshot.rawHitCount,
     rerankHitCount: snapshot.rerankHitCount,
     diagnosisTitle: snapshot.diagnosisTitle,
@@ -559,6 +623,8 @@ function saveRecallSnapshot() {
     categoryLabel: snapshot.categoryLabel,
     rawTopSummary: snapshot.rawTopSummary,
     rerankTopSummary: snapshot.rerankTopSummary,
+    noteText: snapshot.noteText,
+    recommendReason: snapshot.recommendReason,
     recommended: snapshot.recommended ? 1 : 0
   }).then((result) => {
     ElMessage.success(result.msg || '已保存实验快照')
@@ -688,9 +754,15 @@ function markRecommendedSnapshot() {
     return
   }
   const targetId = selectedSnapshotIds.value[0]
+  const targetSnapshot = recallSnapshots.value.find((item) => item.id === targetId)
+  if (!targetSnapshot) {
+    ElMessage.warning('未找到对应的实验快照，请刷新后重试')
+    return
+  }
   recommendKnowledgeLibExperimentApi({
     libId: recallDebugForm.libId,
-    id: targetId
+    id: targetId,
+    recommendReason: targetSnapshot?.recommendReason || experimentDraft.recommendReason.trim()
   }).then((result) => {
     ElMessage.success(result.msg || '已标记推荐版本')
     loadRecallSnapshots()
@@ -716,13 +788,17 @@ async function copySnapshotExperimentDraft() {
       `- 保存时间：${snapshot.savedAt}`,
       `- 知识库：${snapshot.libName}`,
       `- 调试问题：${snapshot.query}`,
+      `- TopK：${snapshot.topK}`,
       `- 切分策略：${formatSplitStrategy(snapshot.splitStrategy)}`,
+      `- 切分参数：${snapshot.splitConfigJson || '{}'}`,
       `- 原始召回：${snapshot.rawHitCount}`,
       `- 重排后：${snapshot.rerankHitCount}`,
       `- 建议归类：${snapshot.categoryLabel}`,
       `- 诊断结论：${snapshot.diagnosisTitle}`,
       `- 原始 Top1：${snapshot.rawTopSummary}`,
       `- 重排 Top1：${snapshot.rerankTopSummary}`,
+      `- 实验备注：${snapshot.noteText || '无'}`,
+      `- 推荐理由：${snapshot.recommendReason || '无'}`,
       ''
     ]),
     '## 结论建议',
@@ -757,7 +833,9 @@ function loadRecallSnapshots() {
       libName: tableData.rows.find((row: any) => String(row.id) === String(item.libId))?.libName || String(item.libId),
       versionName: item.versionName || '',
       query: item.queryText,
+      topK: Number(item.topK || 5),
       splitStrategy: item.splitStrategy,
+      splitConfigJson: item.splitConfigJson || '{}',
       rawHitCount: Number(item.rawHitCount || 0),
       rerankHitCount: Number(item.rerankHitCount || 0),
       diagnosisTitle: item.diagnosisTitle,
@@ -765,6 +843,8 @@ function loadRecallSnapshots() {
       categoryLabel: item.categoryLabel,
       rawTopSummary: item.rawTopSummary || '未命中',
       rerankTopSummary: item.rerankTopSummary || '未命中',
+      noteText: item.noteText || '',
+      recommendReason: item.recommendReason || '',
       recommended: Number(item.recommended || 0) === 1
     }))
     recallSnapshots.value = rows
@@ -896,6 +976,48 @@ function loadRecallSnapshots() {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+.recall-config-panel {
+  padding: 18px;
+  border: 1px solid rgba(64, 158, 255, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.recall-config-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.recall-config-card {
+  padding: 14px 16px;
+  border: 1px solid rgba(64, 158, 255, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(239, 246, 255, 0.98));
+}
+
+.recall-config-label {
+  display: block;
+  color: var(--space-text-soft);
+  font-size: 12px;
+}
+
+.recall-config-value {
+  display: block;
+  margin-top: 8px;
+  color: var(--space-primary-strong);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.recall-note-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .recall-snapshot-section {
@@ -1125,6 +1247,11 @@ function loadRecallSnapshots() {
   }
 
   .recall-judgement-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recall-config-grid,
+  .recall-note-grid {
     grid-template-columns: 1fr;
   }
 

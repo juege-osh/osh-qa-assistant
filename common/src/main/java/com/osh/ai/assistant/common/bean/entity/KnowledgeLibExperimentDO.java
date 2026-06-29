@@ -27,9 +27,17 @@ public class KnowledgeLibExperimentDO {
      */
     private String queryText;
     /**
+     * 调试 topK
+     */
+    private Integer topK;
+    /**
      * 切分策略
      */
     private String splitStrategy;
+    /**
+     * 切分参数快照
+     */
+    private String splitConfigJson;
     /**
      * 原始召回数
      */
@@ -58,6 +66,14 @@ public class KnowledgeLibExperimentDO {
      * 重排 top1 摘要
      */
     private String rerankTopSummary;
+    /**
+     * 实验备注
+     */
+    private String noteText;
+    /**
+     * 推荐理由
+     */
+    private String recommendReason;
     /**
      * 是否推荐
      */

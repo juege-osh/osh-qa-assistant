@@ -10,7 +10,9 @@ public class KnowledgeLibExperimentVO {
     private Long libId;
     private String versionName;
     private String queryText;
+    private Integer topK;
     private String splitStrategy;
+    private String splitConfigJson;
     private Integer rawHitCount;
     private Integer rerankHitCount;
     private String diagnosisTitle;
@@ -18,6 +20,8 @@ public class KnowledgeLibExperimentVO {
     private String categoryLabel;
     private String rawTopSummary;
     private String rerankTopSummary;
+    private String noteText;
+    private String recommendReason;
     private Integer recommended;
     private Date createdTime;
     private Date modifiedTime;

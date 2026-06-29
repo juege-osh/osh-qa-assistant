@@ -9,4 +9,5 @@ public class KnowledgeLibExperimentRecommendReq {
     private Long libId;
     @NotNull(message = "实验版本不能为空")
     private Long id;
+    private String recommendReason;
 }

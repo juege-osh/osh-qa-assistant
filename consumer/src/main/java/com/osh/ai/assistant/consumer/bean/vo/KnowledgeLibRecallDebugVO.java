@@ -23,6 +23,10 @@ public class KnowledgeLibRecallDebugVO {
      */
     private Integer rerankHitCount;
     /**
+     * 当前切分参数快照
+     */
+    private RagSplitConfigVO splitConfig;
+    /**
      * 当前切分策略
      */
     private String splitStrategy;

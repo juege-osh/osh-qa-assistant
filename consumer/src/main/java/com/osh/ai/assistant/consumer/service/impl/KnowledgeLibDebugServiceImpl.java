@@ -7,6 +7,7 @@ import com.osh.ai.assistant.common.constants.CommonConstants;
 import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibRecallDebugReq;
 import com.osh.ai.assistant.consumer.bean.vo.KnowledgeLibRecallChunkVO;
 import com.osh.ai.assistant.consumer.bean.vo.KnowledgeLibRecallDebugVO;
+import com.osh.ai.assistant.consumer.elt.RagDocumentSplitService;
 import com.osh.ai.assistant.consumer.config.properties.RagSplitProperties;
 import com.osh.ai.assistant.consumer.service.KnowledgeLibDebugService;
 import com.osh.ai.assistant.consumer.service.KnowledgeLibService;
@@ -38,6 +39,8 @@ public class KnowledgeLibDebugServiceImpl implements KnowledgeLibDebugService {
     private AiChatServiceImpl aiChatService;
     @Resource
     private RagSplitProperties ragSplitProperties;
+    @Resource
+    private RagDocumentSplitService ragDocumentSplitService;
 
     @Override
     public KnowledgeLibRecallDebugVO debugRecall(KnowledgeLibRecallDebugReq req) {
@@ -56,6 +59,7 @@ public class KnowledgeLibDebugServiceImpl implements KnowledgeLibDebugService {
         ret.setRawHitCount(rawDocuments == null ? 0 : rawDocuments.size());
         ret.setRerankHitCount(rerankDocuments == null ? 0 : rerankDocuments.size());
         ret.setSplitStrategy(ragSplitProperties.getStrategy());
+        ret.setSplitConfig(ragDocumentSplitService.getSplitConfig());
         ret.setRawHits(buildChunkVos(rawDocuments));
         ret.setRerankHits(buildChunkVos(rerankDocuments));
         return ret;

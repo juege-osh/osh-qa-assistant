@@ -66,6 +66,7 @@ public class KnowledgeLibExperimentServiceImpl implements KnowledgeLibExperiment
         }
         clearRecommended(req.getLibId());
         entity.setRecommended(1);
+        entity.setRecommendReason(req.getRecommendReason());
         knowledgeLibExperimentMapper.updateById(entity);
     }
 
