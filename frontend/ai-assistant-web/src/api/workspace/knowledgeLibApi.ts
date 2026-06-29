@@ -57,3 +57,13 @@ export function listAvailableLibApi(appId?:string) {
       params:{appId}
   })
 }
+
+/**
+ * 调试知识库召回结果
+ */
+export function debugKnowledgeLibRecallApi(data:object) {
+  return appJsonPost({
+      url: "/consumer/knowledgeLib/debugRecall",
+      data
+  })
+}

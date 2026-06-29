@@ -10,8 +10,11 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibPageReq;
 import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibAddReq;
+import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibRecallDebugReq;
 import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibUpdateReq;
+import com.osh.ai.assistant.consumer.bean.vo.KnowledgeLibRecallDebugVO;
 import com.osh.ai.assistant.consumer.bean.vo.KnowledgeLibVO;
+import com.osh.ai.assistant.consumer.service.KnowledgeLibDebugService;
 import com.osh.ai.assistant.consumer.service.KnowledgeLibService;
 
 /**
@@ -27,6 +30,7 @@ import com.osh.ai.assistant.consumer.service.KnowledgeLibService;
 public class KnowledgeLibController {
 
     private final KnowledgeLibService knowledgeLibService;
+    private final KnowledgeLibDebugService knowledgeLibDebugService;
 
     /**
      * 知识库新增
@@ -77,5 +81,13 @@ public class KnowledgeLibController {
     @GetMapping("/listAvailableLib")
     public Result<List<KnowledgeLibVO>> listAvailableLib(@RequestParam(value = "appId", required = false) Long appId) {
         return Result.buildSuccess(knowledgeLibService.listAvailableLib(appId));
+    }
+
+    /**
+     * 调试知识库召回结果
+     */
+    @PostMapping("/debugRecall")
+    public Result<KnowledgeLibRecallDebugVO> debugRecall(@RequestBody @Validated KnowledgeLibRecallDebugReq req) {
+        return Result.buildSuccess(knowledgeLibDebugService.debugRecall(req));
     }
 }
