@@ -443,7 +443,13 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
     }
 
     private String evaluateGrounded(boolean invokeSuccess, String answer, String hitConclusion, boolean saysNoEnoughEvidence) {
-        if (!invokeSuccess || StrUtil.isBlank(answer)) {
+        if (StrUtil.isBlank(answer)) {
+            return "不通过";
+        }
+        if (!invokeSuccess && saysNoEnoughEvidence) {
+            return "通过";
+        }
+        if (!invokeSuccess) {
             return "不通过";
         }
         if (saysNoEnoughEvidence || containsAny(answer, "参考来源", "依据", "根据知识库", "上下文")) {
@@ -473,6 +479,9 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         if (containsStackWords) {
             return "不通过";
         }
+        if (!invokeSuccess && saysNoEnoughEvidence && saysRetryOrEscalate(answer)) {
+            return "通过";
+        }
         if (!invokeSuccess) {
             return containsAny(answer, "稍后重试", "更明确的问题", "暂时不可用") ? "通过" : "待确认";
         }
@@ -498,6 +507,9 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
 
     private String resolveFollowUpCategory(AcceptanceQuestionTemplate template, boolean invokeSuccess, String hitConclusion,
                                            String groundedConclusion, String readableConclusion, String gracefulFailureConclusion) {
+        if (!invokeSuccess && "通过".equals(gracefulFailureConclusion) && "通过".equals(groundedConclusion)) {
+            return "";
+        }
         if (!invokeSuccess) {
             return "observe";
         }

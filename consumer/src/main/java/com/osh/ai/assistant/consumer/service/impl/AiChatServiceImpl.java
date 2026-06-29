@@ -50,6 +50,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -104,6 +105,7 @@ public class AiChatServiceImpl implements AiChatService {
     private static final String WEAK_MATCH_FAIL_REASON = "仅召回弱相关内容，无法支撑可靠回答";
     private static final String HIGH_RISK_NO_ANSWER = "当前知识库里没有直接依据，而且这个问题涉及外部高风险信息，暂时不适合在无依据情况下直接作答。建议你补充明确的制度名称、流程来源，或联系对应专业负责人确认后再处理。";
     private static final String HIGH_RISK_NO_ANSWER_FAIL_REASON = "高风险外部问题缺少知识依据";
+    private static final double HIGH_RISK_RAW_SCORE_THRESHOLD = 0.42D;
 
     private record ChatResponsePlan(Flux<ChatResponse> response, String failReason, String referencesMarkdown) {
         private static ChatResponsePlan ok(Flux<ChatResponse> response) {
@@ -292,23 +294,24 @@ public class AiChatServiceImpl implements AiChatService {
         List<Document> documents = retrievalResult.documents();
         List<Document> rawDocuments = retrievalResult.rawDocuments();
         boolean knowledgeBound = app.getLibId() != null;
+        boolean highRiskOutOfKnowledgeQuestion = knowledgeBound && isHighRiskOutOfKnowledgeQuestion(chatDTO.getUserInput());
         ChatClient.ChatClientRequestSpec chatClientRequestSpec = chatClient
             .prompt()
             // 系统提示词
-            .system(getSystemPrompt(app, knowledgeBound, CollUtil.isNotEmpty(documents), CollUtil.isNotEmpty(rawDocuments)))
+            .system(getSystemPrompt(app, knowledgeBound, CollUtil.isNotEmpty(documents), CollUtil.isNotEmpty(rawDocuments), highRiskOutOfKnowledgeQuestion))
             // 用户提示词
             .user(chatDTO.getUserInput());
         applyAppChatOptions(chatClientRequestSpec, app);
+        if (highRiskOutOfKnowledgeQuestion && shouldBlockHighRiskAnswer(documents, rawDocuments)) {
+            return ChatResponsePlan.failWithReferences(
+                HIGH_RISK_NO_ANSWER,
+                HIGH_RISK_NO_ANSWER_FAIL_REASON,
+                buildPossibleReferencesMarkdown(rawDocuments)
+            );
+        }
         if (CollUtil.isEmpty(documents)) {
             // 超出知识库范围了
             if (YesNoEnum.Y.getCode().equals(app.getOutLibEnable())) {
-                if (knowledgeBound && isHighRiskOutOfKnowledgeQuestion(chatDTO.getUserInput())) {
-                    return ChatResponsePlan.failWithReferences(
-                        HIGH_RISK_NO_ANSWER,
-                        HIGH_RISK_NO_ANSWER_FAIL_REASON,
-                        buildPossibleReferencesMarkdown(rawDocuments)
-                    );
-                }
                 // 宽松模式
                 // 设置会话id,用于记忆对话
                 chatClientRequestSpec.advisors(advisorSpec -> advisorSpec.param(ChatMemory.CONVERSATION_ID,chatDTO.getConversationId()));
@@ -333,7 +336,8 @@ public class AiChatServiceImpl implements AiChatService {
         return ChatResponsePlan.okWithReferences(chatClientRequestSpec.stream().chatResponse(), buildReferencesMarkdown(documents));
     }
 
-    private String getSystemPrompt(AppDO app, boolean knowledgeBound, boolean hasReliableDocs, boolean hasWeakMatch) {
+    private String getSystemPrompt(AppDO app, boolean knowledgeBound, boolean hasReliableDocs, boolean hasWeakMatch,
+                                   boolean highRiskOutOfKnowledgeQuestion) {
         String rule;
         boolean allowOutOfLib = YesNoEnum.Y.getCode().equals(app.getOutLibEnable());
         if (!allowOutOfLib) {
@@ -356,6 +360,15 @@ public class AiChatServiceImpl implements AiChatService {
                 如果问题是“从哪里开始”“下一步怎么做”“先看什么”,优先给出最小可执行建议或步骤。
                 如果问题涉及明确事实、规则、日期、金额等确定性结论,请不要把不确定内容说成已确认事实,
                 需要把不确定性直接说明。
+                """;
+        } else if (highRiskOutOfKnowledgeQuestion) {
+            rule = """
+                当前问题涉及外部高风险信息。
+                只有在上下文里有直接、明确、可支撑的知识依据时，才可以回答。
+                如果没有直接依据，或者只召回到弱相关资料，必须明确说明“当前知识库没有足够依据支持这个回答”，
+                并建议用户补充明确制度名称、流程来源，或联系对应专业负责人确认。
+                不要补充外部机构、官网、法律、税务、医疗、投资等泛化建议，
+                也不要把常识性建议包装成当前知识库已确认的结论。
                 """;
         } else if (hasReliableDocs) {
             rule = """
@@ -534,6 +547,22 @@ public class AiChatServiceImpl implements AiChatService {
             "报税", "税务", "纳税", "所得税", "法律", "合同", "仲裁", "诉讼",
             "医疗", "诊断", "处方", "药物", "投资", "理财", "证券", "股票", "基金",
             "贷款", "利率", "签证", "移民", "处罚", "合规");
+    }
+
+    private boolean shouldBlockHighRiskAnswer(List<Document> documents, List<Document> rawDocuments) {
+        if (CollUtil.isEmpty(documents)) {
+            return true;
+        }
+        if (CollUtil.isEmpty(rawDocuments)) {
+            return true;
+        }
+        double bestRawScore = rawDocuments.stream()
+            .filter(Objects::nonNull)
+            .map(Document::getScore)
+            .filter(Objects::nonNull)
+            .max(Double::compareTo)
+            .orElse(0D);
+        return bestRawScore < HIGH_RISK_RAW_SCORE_THRESHOLD;
     }
 
     private boolean containsAnyIgnoreCase(String text, String... keywords) {
