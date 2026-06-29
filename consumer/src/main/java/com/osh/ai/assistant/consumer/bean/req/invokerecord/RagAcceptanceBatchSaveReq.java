@@ -9,6 +9,8 @@ import java.util.List;
 @Data
 public class RagAcceptanceBatchSaveReq {
     private Long id;
+    private Long appId;
+    private Long libId;
     @NotBlank(message = "验收批次名称不能为空")
     private String batchName;
     private String appName;
@@ -16,6 +18,9 @@ public class RagAcceptanceBatchSaveReq {
     private String knowledgeScope;
     private String releaseVersion;
     private String experimentVersion;
+    private Long activeExperimentId;
+    private String activeExperimentName;
+    private String activeSplitStrategy;
     private String versionRemark;
     private String quickView;
     private String quickViewDesc;

@@ -173,6 +173,12 @@ public class AiChatServiceImpl implements AiChatService {
         return retSb.toString();
     }
 
+    @Override
+    public String doChatSilently(AppDO app, InvokeRecordBuilder builder) {
+        SseEmitter emitter = new SseEmitter(0L);
+        return doChat(emitter, app, builder, true);
+    }
+
     private InvokeRecordDetailBuilder initDetailBuilder4llm(InvokeRecordBuilder builder) {
         return InvokeRecordDetailBuilder.builder()
             .setInvokeRecordId(builder.getId())

@@ -13,12 +13,17 @@ public class RagAcceptanceBatchDO {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private Long userId;
+    private Long appId;
+    private Long libId;
     private String batchName;
     private String appName;
     private String sceneType;
     private String knowledgeScope;
     private String releaseVersion;
     private String experimentVersion;
+    private Long activeExperimentId;
+    private String activeExperimentName;
+    private String activeSplitStrategy;
     private String versionRemark;
     private String quickView;
     private String quickViewDesc;

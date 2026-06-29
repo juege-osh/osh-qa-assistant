@@ -2,6 +2,7 @@ package com.osh.ai.assistant.consumer.controller;
 
 import com.osh.ai.assistant.common.bean.res.Result;
 import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceBatchSaveReq;
+import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceRunDefaultBatchReq;
 import com.osh.ai.assistant.consumer.bean.vo.RagAcceptanceBatchVO;
 import com.osh.ai.assistant.consumer.service.RagAcceptanceService;
 import jakarta.validation.Valid;
@@ -28,6 +29,11 @@ public class RagAcceptanceController {
     @PostMapping("/saveBatch")
     public Result<Long> saveBatch(@RequestBody @Valid RagAcceptanceBatchSaveReq req) {
         return Result.buildSuccess(ragAcceptanceService.saveBatch(req));
+    }
+
+    @PostMapping("/runDefaultBatch")
+    public Result<Long> runDefaultBatch(@RequestBody @Valid RagAcceptanceRunDefaultBatchReq req) {
+        return Result.buildSuccess(ragAcceptanceService.runDefaultBatch(req));
     }
 
     @GetMapping("/listMine")

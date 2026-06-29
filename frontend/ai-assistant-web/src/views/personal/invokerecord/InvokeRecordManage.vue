@@ -752,6 +752,42 @@
         </div>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="defaultBatchRunnerVisible" class="record-detail-dialog" title="执行默认问题集跑测" width="760px">
+      <el-form :model="defaultBatchRunnerForm" label-width="110px" class="acceptance-batch-form">
+        <el-form-item label="选择应用">
+          <el-select v-model="defaultBatchRunnerForm.appId" placeholder="选择要跑测的应用" style="width: 100%">
+            <el-option v-for="app in availableApps" :key="app.id" :label="app.appName" :value="app.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="批次名称">
+          <el-input v-model="defaultBatchRunnerForm.batchName" placeholder="例如：2026-06-30 默认问题集首轮正式验收" />
+        </el-form-item>
+        <el-form-item label="场景类型">
+          <el-input v-model="defaultBatchRunnerForm.sceneType" placeholder="内部知识问答 / 任务指导" />
+        </el-form-item>
+        <el-form-item label="验收人">
+          <el-input v-model="defaultBatchRunnerForm.testerName" placeholder="填写本轮验收人" />
+        </el-form-item>
+        <el-form-item label="汇总结论">
+          <el-input v-model="defaultBatchRunnerForm.summaryConclusion" type="textarea" :rows="3" placeholder="可以先留空，跑完后再补齐结论。" />
+        </el-form-item>
+        <el-form-item label="后续动作">
+          <el-input v-model="defaultBatchRunnerForm.nextAction" type="textarea" :rows="3" placeholder="例如：跑完后重点检查失败体面与补切分问题。" />
+        </el-form-item>
+      </el-form>
+      <div class="detail-dialog-tip">
+        这一步会直接对当前应用执行默认问题集，生成真实调用记录、真实回答，并自动落成正式验收批次。
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button class="workspace-btn workspace-btn--ghost" @click="defaultBatchRunnerVisible = false">取消</el-button>
+          <el-button class="workspace-btn workspace-btn--primary" :loading="defaultBatchRunning" @click="runDefaultAcceptanceBatch">
+            开始真实跑测
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 <script setup name='InvokeRecordManage' lang='ts'>
@@ -763,8 +799,10 @@ import {
   pageInvokeRecordApi,
   queryInvokeRecordOverviewApi,
   queryRagAcceptanceBatchDetailApi,
+  runDefaultRagAcceptanceBatchApi,
   saveRagAcceptanceBatchApi
 } from '@/api/workspace/invokeRecordApi';
+import { pageAppApi } from '@/api/workspace/appApi';
 import { getItem, saveItem } from '@/util/storageUtil';
 let searchFormData = reactive({
   appName: "",
@@ -793,12 +831,23 @@ const taskSuggestionContent = ref('')
 const acceptanceBatchDialogVisible = ref(false)
 const acceptanceBatchDialogTitle = ref('保存验收批次')
 const acceptanceCompareDialogVisible = ref(false)
+const defaultBatchRunnerVisible = ref(false)
+const defaultBatchRunning = ref(false)
 const followUpCategoryView = ref<FollowUpCategory | ''>('')
 const savedAcceptanceBatches = ref<any[]>([])
 const selectedAcceptanceBatchIds = ref<Array<string | number>>([])
+const availableApps = ref<any[]>([])
 const acceptanceCompareState = reactive<{ left: any | null; right: any | null }>({
   left: null,
   right: null
+})
+const defaultBatchRunnerForm = reactive({
+  appId: '',
+  batchName: '',
+  sceneType: '内部知识问答',
+  testerName: '',
+  summaryConclusion: '',
+  nextAction: ''
 })
 const acceptanceBatchForm = reactive<any>({
   id: null,
@@ -1030,6 +1079,16 @@ function loadSavedAcceptanceBatches() {
   })
 }
 
+function loadAvailableApps() {
+  pageAppApi({
+    pageNow: 1,
+    pageSize: 100,
+    appName: ''
+  }).then(result => {
+    availableApps.value = result.data || []
+  })
+}
+
 async function copyText(text: string, label: string) {
   try {
     await navigator.clipboard.writeText(String(text || ''))
@@ -1192,40 +1251,42 @@ function openSaveAcceptanceBatchDialog() {
 }
 
 function openTemplateAcceptanceBatchDialog() {
-  resetAcceptanceBatchForm()
-  acceptanceBatchDialogTitle.value = '从默认问题集建立正式验收批次'
-  acceptanceBatchForm.batchName = `${new Date().toLocaleDateString()} 默认问题集验收`
-  acceptanceBatchForm.quickView = 'template'
-  acceptanceBatchForm.quickViewDesc = '基于开发文档里的默认问题池，先建立一轮正式验收批次，再补齐真实回答和结论。'
-  acceptanceBatchForm.items = defaultAcceptanceQuestionPool.map((item, index) => ({
-    localKey: `template-${index + 1}`,
-    id: null,
-    invokeRecordId: 0,
-    invokeRecordDetailId: null,
-    testCaseNo: item.testCaseNo,
-    questionType: item.questionType,
-    userQuestion: item.userQuestion,
-    expectedKnowledge: item.expectedKnowledge,
-    actualAnswerSummary: '',
-    actualAnswer: '',
-    failReason: '',
-    hitConclusion: '',
-    groundedConclusion: '',
-    readableConclusion: '',
-    gracefulFailureConclusion: '',
-    hitRateConclusion: '',
-    completenessConclusion: '',
-    followUpCategory: '',
-    followUpAction: '',
-    remark: '',
-    invokeStatus: '待补录',
-    modelName: '',
-    appName: '',
-    libName: '',
-    costTime: null,
-    costToken: null
-  }))
-  acceptanceBatchDialogVisible.value = true
+  defaultBatchRunnerForm.appId = availableApps.value[0]?.id || ''
+  defaultBatchRunnerForm.batchName = `${new Date().toLocaleDateString()} 默认问题集验收`
+  defaultBatchRunnerForm.sceneType = '内部知识问答'
+  defaultBatchRunnerForm.testerName = ''
+  defaultBatchRunnerForm.summaryConclusion = ''
+  defaultBatchRunnerForm.nextAction = ''
+  defaultBatchRunnerVisible.value = true
+}
+
+function runDefaultAcceptanceBatch() {
+  if (!defaultBatchRunnerForm.appId) {
+    ElMessage.warning('请先选择应用')
+    return
+  }
+  if (!String(defaultBatchRunnerForm.batchName || '').trim()) {
+    ElMessage.warning('请先填写验收批次名称')
+    return
+  }
+  defaultBatchRunning.value = true
+  runDefaultRagAcceptanceBatchApi({
+    appId: defaultBatchRunnerForm.appId,
+    batchName: defaultBatchRunnerForm.batchName,
+    sceneType: defaultBatchRunnerForm.sceneType,
+    testerName: defaultBatchRunnerForm.testerName,
+    summaryConclusion: defaultBatchRunnerForm.summaryConclusion,
+    nextAction: defaultBatchRunnerForm.nextAction
+  }).then((result) => {
+    ElMessage.success('已完成默认问题集真实跑测，并生成正式验收批次')
+    defaultBatchRunnerVisible.value = false
+    loadSavedAcceptanceBatches()
+    if (result.data) {
+      openSavedAcceptanceBatch(result.data)
+    }
+  }).finally(() => {
+    defaultBatchRunning.value = false
+  })
 }
 
 function buildAcceptanceBatchItems() {
@@ -1360,6 +1421,9 @@ function openSavedAcceptanceBatch(id: string | number) {
       knowledgeScope: data.knowledgeScope || '',
       releaseVersion: data.releaseVersion || '',
       experimentVersion: data.experimentVersion || '',
+      activeExperimentId: data.activeExperimentId || null,
+      activeExperimentName: data.activeExperimentName || '',
+      activeSplitStrategy: data.activeSplitStrategy || '',
       versionRemark: data.versionRemark || '',
       quickView: data.quickView || '',
       quickViewDesc: data.quickViewDesc || '',
@@ -1460,6 +1524,9 @@ function buildAcceptanceBatchMarkdown(batch: any) {
     `- 知识库范围：${batch.knowledgeScope || '-'}`,
     `- 发布版本：${batch.releaseVersion || '-'}`,
     `- 实验版本：${batch.experimentVersion || '-'}`,
+    `- 生效实验版本ID：${batch.activeExperimentId || '-'}`,
+    `- 生效实验版本名称：${batch.activeExperimentName || '-'}`,
+    `- 生效切分策略：${batch.activeSplitStrategy || '-'}`,
     `- 版本说明：${batch.versionRemark || '-'}`,
     '',
     '## 2. 调用记录转验收表',
@@ -1801,10 +1868,12 @@ function buildAcceptanceCompareMarkdown(left: any, right: any) {
     `- A 批次：${left.batchName}`,
     `  发布版本：${left.releaseVersion || '-'}`,
     `  实验版本：${left.experimentVersion || '-'}`,
+    `  生效实验版本：${left.activeExperimentName || '-'} (${left.activeSplitStrategy || '-'})`,
     `  汇总结论：${left.summaryConclusion || '-'}`,
     `- B 批次：${right.batchName}`,
     `  发布版本：${right.releaseVersion || '-'}`,
     `  实验版本：${right.experimentVersion || '-'}`,
+    `  生效实验版本：${right.activeExperimentName || '-'} (${right.activeSplitStrategy || '-'})`,
     `  汇总结论：${right.summaryConclusion || '-'}`,
     '',
     '## 结果对比',
@@ -1855,6 +1924,7 @@ function buildAcceptanceRepairDraft(batch: any) {
     `- 验收批次：${batch.batchName || '-'}`,
     `- 发布版本：${batch.releaseVersion || '-'}`,
     `- 实验版本：${batch.experimentVersion || '-'}`,
+    `- 生效实验版本：${batch.activeExperimentName || '-'} (${batch.activeSplitStrategy || '-'})`,
     `- 生成时间：${new Date().toLocaleString()}`,
     '',
     '## 修复方向汇总',
@@ -1951,6 +2021,7 @@ onMounted(() => {
   loadTable()
   loadOverview()
   loadSavedAcceptanceBatches()
+  loadAvailableApps()
 })
 </script>
 <style scoped>

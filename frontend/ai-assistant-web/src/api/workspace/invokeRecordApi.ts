@@ -35,3 +35,10 @@ export function queryRagAcceptanceBatchDetailApi(id: string | number) {
     params: { id }
   })
 }
+
+export function runDefaultRagAcceptanceBatchApi(data: object) {
+  return appJsonPost({
+    url: "/consumer/ragAcceptance/runDefaultBatch",
+    data
+  })
+}

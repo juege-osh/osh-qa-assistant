@@ -8,12 +8,17 @@ import java.util.List;
 @Data
 public class RagAcceptanceBatchVO {
     private Long id;
+    private Long appId;
+    private Long libId;
     private String batchName;
     private String appName;
     private String sceneType;
     private String knowledgeScope;
     private String releaseVersion;
     private String experimentVersion;
+    private Long activeExperimentId;
+    private String activeExperimentName;
+    private String activeSplitStrategy;
     private String versionRemark;
     private String quickView;
     private String quickViewDesc;

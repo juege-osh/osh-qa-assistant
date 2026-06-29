@@ -17,4 +17,9 @@ public interface AiChatService {
      * @return ai最终的完整结果
      */
     String doChat(SseEmitter sseEmitter, AppDO app, InvokeRecordBuilder builder, boolean closeOnComplete);
+
+    /**
+     * 同步执行一次聊天，不向客户端输出 SSE，适合批量验收和内部跑测。
+     */
+    String doChatSilently(AppDO app, InvokeRecordBuilder builder);
 }
