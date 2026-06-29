@@ -140,6 +140,42 @@
           </div>
         </section>
 
+        <section class="preview-playground">
+          <div class="preview-playground-copy">
+            <div class="preview-summary-title">切分试算</div>
+            <div class="preview-summary-desc">
+              这里的修改只影响当前预览，不会直接改数据库。确认效果后，再使用“重建索引”把新规则真正应用到知识库。
+            </div>
+          </div>
+          <div class="preview-playground-grid">
+            <el-select v-model="previewDraft.strategy" style="width: 140px">
+              <el-option label="语义优先" value="semantic" />
+              <el-option label="纯 Token" value="token" />
+            </el-select>
+            <el-input-number v-model="previewDraft.chunkSize" :min="100" :max="4000" :step="50" controls-position="right" />
+            <el-input-number v-model="previewDraft.minChunkSizeChars" :min="50" :max="2000" :step="50" controls-position="right" />
+            <el-input-number v-model="previewDraft.semanticSectionMaxChars" :min="100" :max="5000" :step="100" controls-position="right" />
+            <el-input-number v-model="previewDraft.previewChunkLimit" :min="1" :max="30" controls-position="right" />
+            <el-switch v-model="previewDraft.keepSeparator" inline-prompt active-text="保留分隔符" inactive-text="移除分隔符" />
+          </div>
+          <div class="preview-playground-labels">
+            <span>策略</span>
+            <span>chunk 大小</span>
+            <span>最小 chunk</span>
+            <span>语义段上限</span>
+            <span>预览条数</span>
+            <span>分隔符</span>
+          </div>
+          <div class="preview-playground-actions">
+            <el-button class="workspace-btn workspace-btn--ghost" @click="resetPreviewDraft">
+              恢复当前规则
+            </el-button>
+            <el-button type="primary" class="workspace-btn workspace-btn--primary" :loading="previewSplitLoading" @click="previewSplit">
+              试算切分
+            </el-button>
+          </div>
+        </section>
+
         <section class="preview-tabbar">
           <el-segmented v-model="previewTab" :options="previewTabOptions" />
         </section>
@@ -168,7 +204,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useTable } from '@/hooks/useTable';
 import { pageUploadFileApi,deleteUploadFileByIdApi, updateUploadFileStatusApi, rebuildUploadFileByIdApi, rebuildUploadFileByLibIdApi } from '@/api/workspace/uploadFileApi';
-import { previewFileApi } from '@/api/workspace/filePreviewApi';
+import { previewFileApi, previewFileSplitApi } from '@/api/workspace/filePreviewApi';
 import { pageKnowledgeLibApi } from '@/api/workspace/knowledgeLibApi';
 import { useRoute } from 'vue-router';
 import { Plus, Delete } from '@element-plus/icons-vue';
@@ -197,6 +233,8 @@ let {
 let route = useRoute()
 const previewDialogVisible = ref(false)
 const previewTab = ref('chunks')
+const previewSplitLoading = ref(false)
+const previewTargetId = ref('')
 const previewData = reactive({
   fileName: '',
   charCount: 0,
@@ -215,6 +253,16 @@ const previewData = reactive({
     previewChunkLimit: 0
   },
   chunks: [] as Array<{ index: number; length: number; content: string }>
+})
+const previewDraft = reactive({
+  strategy: 'semantic',
+  chunkSize: 800,
+  minChunkSizeChars: 350,
+  minChunkLengthToEmbed: 5,
+  maxNumChunks: 10000,
+  keepSeparator: true,
+  semanticSectionMaxChars: 1200,
+  previewChunkLimit: 8
 })
 
 // 是否已选中知识库
@@ -268,8 +316,39 @@ function updateStatus(fileId:string,status:number) {
 function openPreview(row: { id: string }) {
   previewFileApi(row.id).then(result => {
     Object.assign(previewData, result.data || {})
+    previewTargetId.value = row.id
+    resetPreviewDraft()
     previewTab.value = 'chunks'
     previewDialogVisible.value = true
+  })
+}
+
+function resetPreviewDraft() {
+  previewDraft.strategy = previewData.splitConfig?.strategy || 'semantic'
+  previewDraft.chunkSize = previewData.splitConfig?.chunkSize || 800
+  previewDraft.minChunkSizeChars = previewData.splitConfig?.minChunkSizeChars || 350
+  previewDraft.minChunkLengthToEmbed = previewData.splitConfig?.minChunkLengthToEmbed || 5
+  previewDraft.maxNumChunks = previewData.splitConfig?.maxNumChunks || 10000
+  previewDraft.keepSeparator = previewData.splitConfig?.keepSeparator ?? true
+  previewDraft.semanticSectionMaxChars = previewData.splitConfig?.semanticSectionMaxChars || 1200
+  previewDraft.previewChunkLimit = previewData.splitConfig?.previewChunkLimit || 8
+}
+
+function previewSplit() {
+  if (!previewTargetId.value) {
+    ElMessage.warning('请先选择要预览的文件')
+    return
+  }
+  previewSplitLoading.value = true
+  previewFileSplitApi({
+    id: previewTargetId.value,
+    ...previewDraft
+  }).then(result => {
+    Object.assign(previewData, result.data || {})
+    previewTab.value = 'chunks'
+    ElMessage.success('已按试算规则更新切分预览')
+  }).finally(() => {
+    previewSplitLoading.value = false
   })
 }
 
@@ -432,6 +511,38 @@ onMounted(() => {
   justify-content: flex-start;
 }
 
+.preview-playground {
+  padding: 18px;
+  border: 1px solid rgba(64, 158, 255, 0.14);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.preview-playground-grid,
+.preview-playground-labels {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  align-items: center;
+}
+
+.preview-playground-grid {
+  margin-top: 14px;
+}
+
+.preview-playground-labels {
+  margin-top: 8px;
+  color: var(--space-text-soft);
+  font-size: 12px;
+}
+
+.preview-playground-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 :deep(.file-preview-dialog .el-dialog__body) {
   padding-top: 12px;
 }
@@ -531,6 +642,11 @@ onMounted(() => {
   }
 
   .preview-config-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .preview-playground-grid,
+  .preview-playground-labels {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

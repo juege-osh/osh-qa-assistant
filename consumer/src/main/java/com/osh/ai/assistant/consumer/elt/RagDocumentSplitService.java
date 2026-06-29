@@ -38,52 +38,56 @@ public class RagDocumentSplitService {
     }
 
     public List<Document> splitDocuments(List<Document> documents) {
+        return splitDocuments(documents, buildCurrentConfig());
+    }
+
+    public List<Document> splitDocuments(List<Document> documents, RagSplitRuntimeConfig config) {
         if (CollUtil.isEmpty(documents)) {
             return Collections.emptyList();
         }
-        if (!useSemanticSplit()) {
-            return buildTokenTextSplitter().split(documents);
+        if (!useSemanticSplit(config)) {
+            return buildTokenTextSplitter(config).split(documents);
         }
         List<Document> splitDocuments = new ArrayList<>();
         for (Document document : documents) {
-            splitDocuments.addAll(splitDocumentBySemanticSections(document));
-            if (splitDocuments.size() >= ragSplitProperties.getMaxNumChunks()) {
+            splitDocuments.addAll(splitDocumentBySemanticSections(document, config));
+            if (splitDocuments.size() >= config.getMaxNumChunks()) {
                 break;
             }
         }
-        if (splitDocuments.size() > ragSplitProperties.getMaxNumChunks()) {
-            return new ArrayList<>(splitDocuments.subList(0, ragSplitProperties.getMaxNumChunks()));
+        if (splitDocuments.size() > config.getMaxNumChunks()) {
+            return new ArrayList<>(splitDocuments.subList(0, config.getMaxNumChunks()));
         }
         return splitDocuments;
     }
 
-    private List<Document> splitDocumentBySemanticSections(Document document) {
+    private List<Document> splitDocumentBySemanticSections(Document document, RagSplitRuntimeConfig config) {
         if (document == null || StrUtil.isBlank(document.getText())) {
             return Collections.emptyList();
         }
         String normalizedText = normalizeText(document.getText());
-        List<String> sections = buildSemanticSections(normalizedText);
+        List<String> sections = buildSemanticSections(normalizedText, config);
         if (CollUtil.isEmpty(sections)) {
-            return splitWithTokenSplitter(normalizedText, document.getMetadata());
+            return splitWithTokenSplitter(normalizedText, document.getMetadata(), config);
         }
         List<Document> ret = new ArrayList<>();
         for (String section : sections) {
             if (StrUtil.isBlank(section)) {
                 continue;
             }
-            if (StrUtil.length(section) > ragSplitProperties.getSemanticSectionMaxChars()) {
-                ret.addAll(splitWithTokenSplitter(section, document.getMetadata()));
+            if (StrUtil.length(section) > config.getSemanticSectionMaxChars()) {
+                ret.addAll(splitWithTokenSplitter(section, document.getMetadata(), config));
             } else {
                 ret.add(new Document(section, copyMetadata(document.getMetadata())));
             }
-            if (ret.size() >= ragSplitProperties.getMaxNumChunks()) {
+            if (ret.size() >= config.getMaxNumChunks()) {
                 break;
             }
         }
         return ret;
     }
 
-    private List<String> buildSemanticSections(String text) {
+    private List<String> buildSemanticSections(String text, RagSplitRuntimeConfig config) {
         List<String> blocks = extractBlocks(text);
         if (CollUtil.isEmpty(blocks)) {
             return Collections.emptyList();
@@ -99,7 +103,7 @@ public class RagDocumentSplitService {
                 continue;
             }
             appendParagraph(currentBody, block);
-            if (currentBody.length() >= ragSplitProperties.getSemanticSectionMaxChars()) {
+            if (currentBody.length() >= config.getSemanticSectionMaxChars()) {
                 flushSection(sections, currentHeading, currentBody);
                 currentBody.setLength(0);
             }
@@ -199,11 +203,11 @@ public class RagDocumentSplitService {
         return normalized.trim();
     }
 
-    private List<Document> splitWithTokenSplitter(String text, Map<String, Object> metadata) {
+    private List<Document> splitWithTokenSplitter(String text, Map<String, Object> metadata, RagSplitRuntimeConfig config) {
         if (StrUtil.isBlank(text)) {
             return Collections.emptyList();
         }
-        return buildTokenTextSplitter().split(List.of(new Document(text, copyMetadata(metadata))));
+        return buildTokenTextSplitter(config).split(List.of(new Document(text, copyMetadata(metadata))));
     }
 
     private Map<String, Object> copyMetadata(Map<String, Object> metadata) {
@@ -213,39 +217,98 @@ public class RagDocumentSplitService {
         return new LinkedHashMap<>(metadata);
     }
 
-    private boolean useSemanticSplit() {
-        return "semantic".equalsIgnoreCase(ragSplitProperties.getStrategy());
+    private boolean useSemanticSplit(RagSplitRuntimeConfig config) {
+        return "semantic".equalsIgnoreCase(config.getStrategy());
     }
 
-    private TokenTextSplitter buildTokenTextSplitter() {
+    private TokenTextSplitter buildTokenTextSplitter(RagSplitRuntimeConfig config) {
         TokenTextSplitter tokenTextSplitter = new TokenTextSplitter(
-            ragSplitProperties.getChunkSize(),
-            ragSplitProperties.getMinChunkSizeChars(),
-            ragSplitProperties.getMinChunkLengthToEmbed(),
-            ragSplitProperties.getMaxNumChunks(),
-            ragSplitProperties.isKeepSeparator()
+            config.getChunkSize(),
+            config.getMinChunkSizeChars(),
+            config.getMinChunkLengthToEmbed(),
+            config.getMaxNumChunks(),
+            config.isKeepSeparator()
         );
         return tokenTextSplitter;
     }
 
     public RagSplitConfigVO getSplitConfig() {
+        return toConfigVO(buildCurrentConfig());
+    }
+
+    public RagSplitRuntimeConfig buildCurrentConfig() {
+        RagSplitRuntimeConfig config = new RagSplitRuntimeConfig();
+        config.setStrategy(ragSplitProperties.getStrategy());
+        config.setChunkSize(ragSplitProperties.getChunkSize());
+        config.setMinChunkSizeChars(ragSplitProperties.getMinChunkSizeChars());
+        config.setMinChunkLengthToEmbed(ragSplitProperties.getMinChunkLengthToEmbed());
+        config.setMaxNumChunks(ragSplitProperties.getMaxNumChunks());
+        config.setKeepSeparator(ragSplitProperties.isKeepSeparator());
+        config.setSemanticSectionMaxChars(ragSplitProperties.getSemanticSectionMaxChars());
+        config.setPreviewChunkLimit(ragSplitProperties.getPreviewChunkLimit());
+        return config;
+    }
+
+    public RagSplitRuntimeConfig mergePreviewConfig(
+        String strategy,
+        Integer chunkSize,
+        Integer minChunkSizeChars,
+        Integer minChunkLengthToEmbed,
+        Integer maxNumChunks,
+        Boolean keepSeparator,
+        Integer semanticSectionMaxChars,
+        Integer previewChunkLimit
+    ) {
+        RagSplitRuntimeConfig config = buildCurrentConfig();
+        if (StrUtil.isNotBlank(strategy)) {
+            config.setStrategy(strategy.trim());
+        }
+        if (chunkSize != null) {
+            config.setChunkSize(chunkSize);
+        }
+        if (minChunkSizeChars != null) {
+            config.setMinChunkSizeChars(minChunkSizeChars);
+        }
+        if (minChunkLengthToEmbed != null) {
+            config.setMinChunkLengthToEmbed(minChunkLengthToEmbed);
+        }
+        if (maxNumChunks != null) {
+            config.setMaxNumChunks(maxNumChunks);
+        }
+        if (keepSeparator != null) {
+            config.setKeepSeparator(keepSeparator);
+        }
+        if (semanticSectionMaxChars != null) {
+            config.setSemanticSectionMaxChars(semanticSectionMaxChars);
+        }
+        if (previewChunkLimit != null) {
+            config.setPreviewChunkLimit(previewChunkLimit);
+        }
+        return config;
+    }
+
+    public RagSplitConfigVO toConfigVO(RagSplitRuntimeConfig runtimeConfig) {
         RagSplitConfigVO configVO = new RagSplitConfigVO();
-        configVO.setStrategy(ragSplitProperties.getStrategy());
-        configVO.setChunkSize(ragSplitProperties.getChunkSize());
-        configVO.setMinChunkSizeChars(ragSplitProperties.getMinChunkSizeChars());
-        configVO.setMinChunkLengthToEmbed(ragSplitProperties.getMinChunkLengthToEmbed());
-        configVO.setMaxNumChunks(ragSplitProperties.getMaxNumChunks());
-        configVO.setKeepSeparator(ragSplitProperties.isKeepSeparator());
-        configVO.setSemanticSectionMaxChars(ragSplitProperties.getSemanticSectionMaxChars());
-        configVO.setPreviewChunkLimit(ragSplitProperties.getPreviewChunkLimit());
+        configVO.setStrategy(runtimeConfig.getStrategy());
+        configVO.setChunkSize(runtimeConfig.getChunkSize());
+        configVO.setMinChunkSizeChars(runtimeConfig.getMinChunkSizeChars());
+        configVO.setMinChunkLengthToEmbed(runtimeConfig.getMinChunkLengthToEmbed());
+        configVO.setMaxNumChunks(runtimeConfig.getMaxNumChunks());
+        configVO.setKeepSeparator(runtimeConfig.isKeepSeparator());
+        configVO.setSemanticSectionMaxChars(runtimeConfig.getSemanticSectionMaxChars());
+        configVO.setPreviewChunkLimit(runtimeConfig.getPreviewChunkLimit());
         return configVO;
     }
 
     public List<RagSplitChunkVO> buildChunkPreview(List<Document> splitDocuments) {
+        return buildChunkPreview(splitDocuments, buildCurrentConfig());
+    }
+
+    public List<RagSplitChunkVO> buildChunkPreview(List<Document> splitDocuments, RagSplitRuntimeConfig config) {
         if (CollUtil.isEmpty(splitDocuments)) {
             return Collections.emptyList();
         }
-        int limit = Math.max(ragSplitProperties.getPreviewChunkLimit(), 0);
+        int limit = Math.max(config.getPreviewChunkLimit(), 0);
         return IntStream.range(0, Math.min(splitDocuments.size(), limit))
             .mapToObj(index -> toChunkVO(index, splitDocuments.get(index)))
             .toList();
