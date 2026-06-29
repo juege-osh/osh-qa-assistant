@@ -1,5 +1,6 @@
 package com.osh.ai.assistant.consumer.config;
 
+import com.osh.ai.assistant.consumer.service.AlertService;
 import io.qdrant.client.QdrantClient;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -15,9 +16,11 @@ import java.util.concurrent.TimeUnit;
 @Component
 @Slf4j
 public class QdrantStartupProbe {
+    private static final String ALERT_KEY = "startup-qdrant-unreachable";
 
     private final QdrantClient qdrantClient;
     private final ExecutorService executorService;
+    private final AlertService alertService;
 
     @Value("${spring.ai.vectorstore.qdrant.host:127.0.0.1}")
     private String qdrantHost;
@@ -42,9 +45,10 @@ public class QdrantStartupProbe {
 
     private volatile boolean running;
 
-    public QdrantStartupProbe(QdrantClient qdrantClient, ExecutorService executorService) {
+    public QdrantStartupProbe(QdrantClient qdrantClient, ExecutorService executorService, AlertService alertService) {
         this.qdrantClient = qdrantClient;
         this.executorService = executorService;
+        this.alertService = alertService;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -73,6 +77,11 @@ public class QdrantStartupProbe {
                 long elapsedSeconds = TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - startNanos);
                 log.info("Qdrant connection is ready, host={}, port={}, collection={}, elapsed={}s",
                     qdrantHost, qdrantPort, collectionName, elapsedSeconds);
+                alertService.notifyResolved(ALERT_KEY, "Qdrant 向量库连接已恢复",
+                    "Qdrant 启动探针已恢复正常。\nHost: " + qdrantHost
+                        + "\nPort: " + qdrantPort
+                        + "\nCollection: " + collectionName
+                        + "\n恢复耗时: " + elapsedSeconds + "s");
                 return;
             }
             catch (InterruptedException e) {
@@ -83,13 +92,21 @@ public class QdrantStartupProbe {
             catch (Exception e) {
                 long elapsedNanos = System.nanoTime() - startNanos;
                 if (elapsedNanos >= warnAfterNanos) {
+                    long elapsedSeconds = TimeUnit.NANOSECONDS.toSeconds(elapsedNanos);
                     log.error("Qdrant is still unreachable after {}s, host={}, port={}, collection={}, nextRetry={}s",
-                        TimeUnit.NANOSECONDS.toSeconds(elapsedNanos),
+                        elapsedSeconds,
                         qdrantHost,
                         qdrantPort,
                         collectionName,
                         retryIntervalSeconds,
                         e);
+                    alertService.notifyOnce(ALERT_KEY, "Qdrant 向量库连接不可用",
+                        "Qdrant 启动探针检测到连接不可用。\nHost: " + qdrantHost
+                            + "\nPort: " + qdrantPort
+                            + "\nCollection: " + collectionName
+                            + "\n持续时长: " + elapsedSeconds + "s"
+                            + "\n下次重试间隔: " + retryIntervalSeconds + "s"
+                            + "\n异常: " + e.getClass().getSimpleName() + ": " + e.getMessage());
                 }
             }
 

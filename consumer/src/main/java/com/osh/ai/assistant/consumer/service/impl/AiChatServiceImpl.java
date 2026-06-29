@@ -19,6 +19,7 @@ import com.osh.ai.assistant.consumer.builder.InvokeRecordDetailBuilder;
 import com.osh.ai.assistant.consumer.constants.ConsumerConstants;
 import com.osh.ai.assistant.consumer.context.InvokeRecordContext;
 import com.osh.ai.assistant.consumer.service.AiChatService;
+import com.osh.ai.assistant.consumer.service.AlertService;
 import com.osh.ai.assistant.consumer.service.InvokeRecordDetailService;
 import com.osh.ai.assistant.consumer.service.InvokeRecordService;
 import com.osh.ai.assistant.consumer.service.UploadFileService;
@@ -73,6 +74,9 @@ public class AiChatServiceImpl implements AiChatService {
 
     @Resource
     private InvokeRecordService invokeRecordService;
+
+    @Resource
+    private AlertService alertService;
 
     @Value("${ai-assistant.chat.model:${spring.ai.dashscope.chat.options.model}}")
     private String chatModelName;
@@ -275,6 +279,13 @@ public class AiChatServiceImpl implements AiChatService {
             String failReason = buildKnowledgeRetrievalFailReason(e);
             log.error("knowledge retrieval unavailable, requestId={}, appId={}, libId={}, userInput={}",
                 chatDTO.getRequestId(), app.getId(), app.getLibId(), chatDTO.getUserInput(), e);
+            alertService.notifyOnce("knowledge-retrieval-unavailable-" + app.getLibId(),
+                "知识库检索链路异常",
+                "请求期知识库检索失败。\n请求ID: " + chatDTO.getRequestId()
+                    + "\n应用ID: " + app.getId()
+                    + "\n知识库ID: " + app.getLibId()
+                    + "\n用户问题: " + chatDTO.getUserInput()
+                    + "\n异常: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             return ChatResponsePlan.fail(KNOWLEDGE_TEMP_UNAVAILABLE, failReason);
         }
         List<Document> documents = retrievalResult.documents();

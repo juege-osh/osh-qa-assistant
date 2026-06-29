@@ -3,6 +3,8 @@ package com.osh.ai.assistant.consumer.config;
 import com.osh.ai.assistant.common.config.*;
 import com.osh.ai.assistant.common.config.properties.AuthorizationProperties;
 import com.osh.ai.assistant.common.config.properties.EnvProperties;
+import com.osh.ai.assistant.consumer.config.properties.AlertProperties;
+import com.osh.ai.assistant.consumer.config.properties.DbProbeProperties;
 import com.osh.ai.assistant.consumer.config.properties.RagSplitProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -19,7 +21,8 @@ import org.springframework.context.annotation.Import;
         , StorageConfig.class
         , WebMvcConfig.class
 })
-@EnableConfigurationProperties({AuthorizationProperties.class, EnvProperties.class, RagSplitProperties.class})
+@EnableConfigurationProperties({AuthorizationProperties.class, EnvProperties.class, RagSplitProperties.class,
+    AlertProperties.class, DbProbeProperties.class})
 public class CommonConfig {
 
 }

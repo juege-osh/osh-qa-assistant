@@ -101,6 +101,18 @@ env:
   base-resource-url: http://localhost:9000/consumer/
 
 ai-assistant:
+  alert:
+    enabled: ${AI_ASSISTANT_ALERT_ENABLED:false}
+    subject-prefix: ${AI_ASSISTANT_ALERT_SUBJECT_PREFIX:[OSH QA Assistant]}
+    recipients: ${AI_ASSISTANT_ALERT_RECIPIENTS:}
+    dedupe-minutes: ${AI_ASSISTANT_ALERT_DEDUPE_MINUTES:30}
+    recovery-enabled: ${AI_ASSISTANT_ALERT_RECOVERY_ENABLED:true}
+  db:
+    probe:
+      enabled: ${AI_ASSISTANT_DB_PROBE_ENABLED:true}
+      warn-after-seconds: ${AI_ASSISTANT_DB_PROBE_WARN_AFTER_SECONDS:10}
+      retry-interval-seconds: ${AI_ASSISTANT_DB_PROBE_RETRY_INTERVAL_SECONDS:10}
+      check-timeout-seconds: ${AI_ASSISTANT_DB_PROBE_CHECK_TIMEOUT_SECONDS:5}
   qdrant:
     probe:
       enabled: ${AI_ASSISTANT_QDRANT_PROBE_ENABLED:true}
