@@ -245,6 +245,9 @@
             <el-button class="workspace-btn workspace-btn--ghost" :disabled="selectedSnapshotIds.length !== 1" @click="markRecommendedSnapshot">
               标记推荐版本
             </el-button>
+            <el-button class="workspace-btn workspace-btn--ghost" :disabled="selectedSnapshotIds.length !== 1" @click="publishSnapshot">
+              发布为生效版本
+            </el-button>
             <el-button class="workspace-btn workspace-btn--ghost" :disabled="!recallSnapshots.length" @click="copySnapshotExperimentDraft">
               复制实验记录
             </el-button>
@@ -273,6 +276,7 @@
                   <span>重排 {{ snapshot.rerankHitCount }}</span>
                   <span>{{ snapshot.categoryLabel }}</span>
                   <span v-if="snapshot.recommended" class="snapshot-recommended">推荐版本</span>
+                  <span v-if="snapshot.active" class="snapshot-active">当前生效版本</span>
                 </div>
                 <div v-if="snapshot.noteText" class="snapshot-card-subtitle">备注：{{ snapshot.noteText }}</div>
                 <div v-if="snapshot.recommendReason" class="snapshot-card-subtitle">推荐理由：{{ snapshot.recommendReason }}</div>
@@ -339,6 +343,7 @@ import {
   listKnowledgeLibExperimentApi,
   renameKnowledgeLibExperimentApi,
   recommendKnowledgeLibExperimentApi,
+  publishKnowledgeLibExperimentApi,
   deleteKnowledgeLibExperimentApi
 } from '@/api/workspace/knowledgeLibApi';
 import AddKnowledgeLib from '@/views/personal/knowledgelib/AddKnowledgeLib.vue';
@@ -388,6 +393,7 @@ type RecallSnapshot = {
   noteText: string
   recommendReason: string
   recommended: boolean
+  active: boolean
 }
 const recallDebugResult = reactive({
   query: '',
@@ -607,7 +613,8 @@ function saveRecallSnapshot() {
     rerankTopSummary: rerankTop ? `${rerankTop.fileName} / ${formatScore(rerankTop.score)}` : '未命中',
     noteText: experimentDraft.noteText.trim(),
     recommendReason: experimentDraft.recommendReason.trim(),
-    recommended: false
+    recommended: false,
+    active: false
   }
   saveKnowledgeLibExperimentApi({
     libId: snapshot.libId,
@@ -769,6 +776,21 @@ function markRecommendedSnapshot() {
   })
 }
 
+function publishSnapshot() {
+  if (selectedSnapshotIds.value.length !== 1) {
+    ElMessage.warning('请先勾选一条实验快照')
+    return
+  }
+  publishKnowledgeLibExperimentApi({
+    libId: recallDebugForm.libId,
+    id: selectedSnapshotIds.value[0]
+  }).then((result) => {
+    ElMessage.success(result.msg || '已发布为当前生效切分版本')
+    loadRecallSnapshots()
+    loadTable()
+  })
+}
+
 async function copySnapshotExperimentDraft() {
   if (!recallSnapshots.value.length) {
     ElMessage.warning('当前没有可导出的实验快照')
@@ -845,7 +867,8 @@ function loadRecallSnapshots() {
       rerankTopSummary: item.rerankTopSummary || '未命中',
       noteText: item.noteText || '',
       recommendReason: item.recommendReason || '',
-      recommended: Number(item.recommended || 0) === 1
+      recommended: Number(item.recommended || 0) === 1,
+      active: Number(item.active || 0) === 1
     }))
     recallSnapshots.value = rows
     selectedSnapshotIds.value = selectedSnapshotIds.value.filter((id) => rows.some((item: RecallSnapshot) => item.id === id))
@@ -1092,6 +1115,11 @@ function loadRecallSnapshots() {
 
 .snapshot-recommended {
   color: #0f766e;
+  font-weight: 700;
+}
+
+.snapshot-active {
+  color: #1d4ed8;
   font-weight: 700;
 }
 

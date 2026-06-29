@@ -23,7 +23,12 @@ public class VectorStorage implements Storage{
     private VectorStore vectorStore;
     @Override
     public StoreResultDTO store(String storePath, Long libId) {
-        List<Document> documents = ragDocumentSplitService.split(storePath);
+        return store(storePath, libId, ragDocumentSplitService.buildCurrentConfig());
+    }
+
+    @Override
+    public StoreResultDTO store(String storePath, Long libId, RagSplitRuntimeConfig config) {
+        List<Document> documents = ragDocumentSplitService.split(storePath, config);
         List<String> docIds = new ArrayList<>();
         long charCount = 0L;
         // 为每个文档添加元数据

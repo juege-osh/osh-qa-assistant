@@ -37,6 +37,10 @@ public class RagDocumentSplitService {
         return splitDocuments(read(storePath));
     }
 
+    public List<Document> split(String storePath, RagSplitRuntimeConfig config) {
+        return splitDocuments(read(storePath), config);
+    }
+
     public List<Document> splitDocuments(List<Document> documents) {
         return splitDocuments(documents, buildCurrentConfig());
     }
@@ -283,6 +287,43 @@ public class RagDocumentSplitService {
         }
         if (previewChunkLimit != null) {
             config.setPreviewChunkLimit(previewChunkLimit);
+        }
+        return config;
+    }
+
+    public RagSplitRuntimeConfig buildConfigFromSnapshot(String strategy, String splitConfigJson) {
+        RagSplitRuntimeConfig config = buildCurrentConfig();
+        if (StrUtil.isNotBlank(splitConfigJson)) {
+            RagSplitConfigVO configVO = cn.hutool.json.JSONUtil.toBean(splitConfigJson, RagSplitConfigVO.class);
+            if (configVO != null) {
+                if (StrUtil.isNotBlank(configVO.getStrategy())) {
+                    config.setStrategy(configVO.getStrategy());
+                }
+                if (configVO.getChunkSize() != null) {
+                    config.setChunkSize(configVO.getChunkSize());
+                }
+                if (configVO.getMinChunkSizeChars() != null) {
+                    config.setMinChunkSizeChars(configVO.getMinChunkSizeChars());
+                }
+                if (configVO.getMinChunkLengthToEmbed() != null) {
+                    config.setMinChunkLengthToEmbed(configVO.getMinChunkLengthToEmbed());
+                }
+                if (configVO.getMaxNumChunks() != null) {
+                    config.setMaxNumChunks(configVO.getMaxNumChunks());
+                }
+                if (configVO.getKeepSeparator() != null) {
+                    config.setKeepSeparator(configVO.getKeepSeparator());
+                }
+                if (configVO.getSemanticSectionMaxChars() != null) {
+                    config.setSemanticSectionMaxChars(configVO.getSemanticSectionMaxChars());
+                }
+                if (configVO.getPreviewChunkLimit() != null) {
+                    config.setPreviewChunkLimit(configVO.getPreviewChunkLimit());
+                }
+            }
+        }
+        if (StrUtil.isNotBlank(strategy)) {
+            config.setStrategy(strategy.trim());
         }
         return config;
     }

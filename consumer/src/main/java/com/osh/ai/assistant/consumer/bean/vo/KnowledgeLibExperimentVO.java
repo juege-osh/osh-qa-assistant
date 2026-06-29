@@ -23,6 +23,7 @@ public class KnowledgeLibExperimentVO {
     private String noteText;
     private String recommendReason;
     private Integer recommended;
+    private Integer active;
     private Date createdTime;
     private Date modifiedTime;
 }

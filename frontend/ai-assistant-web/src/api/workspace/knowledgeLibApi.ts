@@ -108,6 +108,13 @@ export function recommendKnowledgeLibExperimentApi(data: object) {
   })
 }
 
+export function publishKnowledgeLibExperimentApi(data: object) {
+  return appJsonPost({
+      url: "/consumer/knowledgeLib/experiment/publish",
+      data
+  })
+}
+
 /**
  * 删除知识库实验版本
  */

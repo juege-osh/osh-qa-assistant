@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibPageReq;
 import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibAddReq;
 import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibExperimentRecommendReq;
+import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibExperimentPublishReq;
 import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibExperimentRenameReq;
 import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibExperimentSaveReq;
 import com.osh.ai.assistant.consumer.bean.req.knowledgelib.KnowledgeLibRecallDebugReq;
@@ -130,6 +131,15 @@ public class KnowledgeLibController {
     public Result<Void> recommendExperiment(@RequestBody @Validated KnowledgeLibExperimentRecommendReq req) {
         knowledgeLibExperimentService.markRecommended(req);
         return Result.buildSuccessMsg("已标记推荐版本");
+    }
+
+    /**
+     * 发布实验版本为当前生效切分版本
+     */
+    @PostMapping("/experiment/publish")
+    public Result<Void> publishExperiment(@RequestBody @Validated KnowledgeLibExperimentPublishReq req) {
+        knowledgeLibExperimentService.publish(req);
+        return Result.buildSuccessMsg("已发布为当前生效切分版本，并触发索引重建");
     }
 
     /**

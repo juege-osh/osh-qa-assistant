@@ -9,6 +9,7 @@ import com.osh.ai.assistant.consumer.bean.req.uploadfile.FileSplitPreviewReq;
 import com.osh.ai.assistant.consumer.bean.vo.FilePreviewVO;
 import com.osh.ai.assistant.consumer.elt.RagSplitRuntimeConfig;
 import com.osh.ai.assistant.consumer.elt.RagDocumentSplitService;
+import com.osh.ai.assistant.consumer.service.KnowledgeLibService;
 import com.osh.ai.assistant.consumer.service.UploadFileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ public class FilePreviewController {
 
     private final UploadFileService uploadFileService;
     private final RagDocumentSplitService ragDocumentSplitService;
+    private final KnowledgeLibService knowledgeLibService;
 
     /**
      * 预览文件内容（返回前1000行或前50KB）
@@ -35,7 +37,7 @@ public class FilePreviewController {
     @GetMapping("/preview")
     public Result<FilePreviewVO> preview(@RequestParam("id") Long id) {
         UploadFileDO file = uploadFileService.requireOwnedEntity(id);
-        return Result.buildSuccess(buildPreview(file, ragDocumentSplitService.buildCurrentConfig()));
+        return Result.buildSuccess(buildPreview(file, resolveLibRuntimeConfig(file)));
     }
 
     /**
@@ -55,6 +57,11 @@ public class FilePreviewController {
             req.getPreviewChunkLimit()
         );
         return Result.buildSuccess(buildPreview(file, runtimeConfig));
+    }
+
+    private RagSplitRuntimeConfig resolveLibRuntimeConfig(UploadFileDO file) {
+        com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO lib = knowledgeLibService.requireOwnedEntity(file.getLibId());
+        return ragDocumentSplitService.buildConfigFromSnapshot(lib.getActiveSplitStrategy(), lib.getActiveSplitConfigJson());
     }
 
     private FilePreviewVO buildPreview(UploadFileDO file, RagSplitRuntimeConfig runtimeConfig) {

@@ -16,6 +16,8 @@ import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFileAddReq;
 import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFilePageReq;
 import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFileUpdateStatusReq;
 import com.osh.ai.assistant.consumer.bean.vo.UploadFileVO;
+import com.osh.ai.assistant.consumer.elt.RagDocumentSplitService;
+import com.osh.ai.assistant.consumer.elt.RagSplitRuntimeConfig;
 import com.osh.ai.assistant.consumer.elt.Storage;
 import com.osh.ai.assistant.consumer.mapper.KnowledgeLibMapper;
 import com.osh.ai.assistant.consumer.mapper.UploadFileMapper;
@@ -49,14 +51,17 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
     private Storage storage;
     @Resource
     private KnowledgeLibMapper knowledgeLibMapper;
+    @Resource
+    private RagDocumentSplitService ragDocumentSplitService;
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void add(UploadFileAddReq addReq) {
         UploadFileDO entity = ConvertUtil.convert(addReq,UploadFileDO.class);
         entity.setFileName(addReq.getOriginalFileName());
         entity.setStatus(UploadFileStatusEnum.ENABLED.getCode());
+        RagSplitRuntimeConfig splitConfig = resolveLibSplitConfig(addReq.getLibId());
         // 存储到向量数据库中
-        StoreResultDTO storeResultDTO = storage.store(addReq.getStorePath(), addReq.getLibId());
+        StoreResultDTO storeResultDTO = storage.store(addReq.getStorePath(), addReq.getLibId(), splitConfig);
         entity.setCharCount(storeResultDTO.getCharCount());
         entity.setDocIds(JSONUtil.toJsonStr(storeResultDTO.getDocIds()));
         save(entity);
@@ -159,8 +164,9 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
             uploadFileDO.setCharCount(0L);
             uploadFileDO.setDocIds(null);
         }else {
+            RagSplitRuntimeConfig splitConfig = resolveLibSplitConfig(uploadFileDO.getLibId());
             // 重新生成后更新
-            StoreResultDTO storeResultDTO = storage.store(uploadFileDO.getStorePath(), uploadFileDO.getLibId());
+            StoreResultDTO storeResultDTO = storage.store(uploadFileDO.getStorePath(), uploadFileDO.getLibId(), splitConfig);
             uploadFileDO.setCharCount(storeResultDTO.getCharCount());
             uploadFileDO.setDocIds(JSONUtil.toJsonStr(storeResultDTO.getDocIds()));
         }
@@ -204,6 +210,12 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int rebuildByLibId(Long libId) {
+        return rebuildByLibId(libId, resolveLibSplitConfig(libId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int rebuildByLibId(Long libId, RagSplitRuntimeConfig config) {
         assertLibOwned(libId);
         LambdaQueryWrapper<UploadFileDO> lqw = Wrappers.<UploadFileDO>lambdaQuery()
             .eq(UploadFileDO::getLibId, libId)
@@ -211,19 +223,31 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
             .orderByAsc(UploadFileDO::getId);
         List<UploadFileDO> enabledFiles = list(lqw);
         for (UploadFileDO uploadFileDO : enabledFiles) {
-            rebuildIndex(uploadFileDO);
+            rebuildIndex(uploadFileDO, config);
         }
         return enabledFiles.size();
     }
 
     private void rebuildIndex(UploadFileDO uploadFileDO) {
+        rebuildIndex(uploadFileDO, resolveLibSplitConfig(uploadFileDO.getLibId()));
+    }
+
+    private void rebuildIndex(UploadFileDO uploadFileDO, RagSplitRuntimeConfig config) {
         storage.deleteByIds(uploadFileDO.getDocIds());
-        StoreResultDTO storeResultDTO = storage.store(uploadFileDO.getStorePath(), uploadFileDO.getLibId());
+        StoreResultDTO storeResultDTO = storage.store(uploadFileDO.getStorePath(), uploadFileDO.getLibId(), config);
         LambdaUpdateWrapper<UploadFileDO> luw = new LambdaUpdateWrapper<>();
         luw.set(UploadFileDO::getCharCount, storeResultDTO.getCharCount())
             .set(UploadFileDO::getDocIds, JSONUtil.toJsonStr(storeResultDTO.getDocIds()))
             .eq(UploadFileDO::getId, uploadFileDO.getId());
         update(new UploadFileDO(), luw);
+    }
+
+    private RagSplitRuntimeConfig resolveLibSplitConfig(Long libId) {
+        com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO lib = knowledgeLibMapper.selectById(libId);
+        if (lib == null) {
+            throw new BizEx("知识库不存在");
+        }
+        return ragDocumentSplitService.buildConfigFromSnapshot(lib.getActiveSplitStrategy(), lib.getActiveSplitConfigJson());
     }
 
     private void assertLibOwned(Long libId) {

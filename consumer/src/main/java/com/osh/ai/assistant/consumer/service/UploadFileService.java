@@ -7,6 +7,7 @@ import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFilePageReq;
 import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFileUpdateStatusReq;
 import com.osh.ai.assistant.consumer.bean.vo.UploadFileVO;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.osh.ai.assistant.consumer.elt.RagSplitRuntimeConfig;
 
 import java.util.List;
 
@@ -61,4 +62,6 @@ public interface UploadFileService extends IService<UploadFileDO> {
     void rebuildById(Long id);
 
     int rebuildByLibId(Long libId);
+
+    int rebuildByLibId(Long libId, RagSplitRuntimeConfig config);
 }

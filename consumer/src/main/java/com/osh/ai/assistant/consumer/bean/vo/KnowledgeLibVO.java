@@ -43,6 +43,22 @@ public class KnowledgeLibVO {
      */
     private String iconPath;
     /**
+     * 当前生效切分策略
+     */
+    private String activeSplitStrategy;
+    /**
+     * 当前生效切分参数快照
+     */
+    private String activeSplitConfigJson;
+    /**
+     * 当前生效实验版本id
+     */
+    private Long activeExperimentId;
+    /**
+     * 当前生效实验版本名称
+     */
+    private String activeExperimentName;
+    /**
      * 创建时间
      */
     private Date createdTime;

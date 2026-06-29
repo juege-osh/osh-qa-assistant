@@ -13,7 +13,11 @@
     (select ifnull(sum(char_count),0) from upload_file where lib_id = knowledgeLib.id) charCount,
     <!--一对一的字段-->
     app.id as app_id,
-    app.app_name
+    app.app_name,
+    knowledgeLib.active_split_strategy,
+    knowledgeLib.active_split_config_json,
+    knowledgeLib.active_experiment_id,
+    knowledgeLib.active_experiment_name
   </sql>
   <sql id="pageAdditionalTable">
     left join app app on knowledgeLib.id = app.lib_id
@@ -40,6 +44,14 @@
     <include refid="pageWhere"></include>
     order by knowledgeLib.id desc
     limit #{start},#{pageSize}
+  </select>
+  <select id="queryDetail" resultMap="knowledgeLibMap">
+    <include refid="pageColumn"/>
+    from knowledge_lib knowledgeLib
+    <include refid="pageAdditionalTable"/>
+    where knowledgeLib.id = #{id}
+      and knowledgeLib.user_id = #{userId}
+    limit 1
   </select>
     <select id="listUnUsed" resultType="com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO">
       select knowledgeLib.* from knowledge_lib knowledgeLib
