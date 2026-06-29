@@ -83,8 +83,11 @@ public class AiChatServiceImpl implements AiChatService {
 			### 所有的回答只能使用中文。
 			""");
     private static final String NO_ANSWER = "当前未在知识库中找到足够相关依据，暂时无法可靠回答这个问题。建议你换一种更具体的问法，补充关键词、制度名称或流程名称后再试；如果这是一个应该能回答的问题，请联系知识库维护人补充内容。";
+    private static final String WEAK_MATCH_NO_ANSWER = "当前找到了少量可能相关的资料，但还不足以支撑可靠回答。建议你补充更明确的制度名称、功能名称、流程节点或报错关键词后再试；如果这是知识库本应覆盖的问题，请联系知识库维护人补充内容。";
     private static final String KNOWLEDGE_TEMP_UNAVAILABLE = "当前知识库检索暂时不可用，无法基于可靠依据完成回答。建议你稍后重试；如果问题比较具体，也可以换一种更明确的问法后再试。";
     private static final String STREAM_INTERRUPTED = "当前回答因服务异常中断，以上内容可能不完整。建议你稍后重试，或换一种更具体的问法继续提问。";
+    private static final String NO_ANSWER_FAIL_REASON = "未找到足够相关知识依据";
+    private static final String WEAK_MATCH_FAIL_REASON = "仅召回弱相关内容，无法支撑可靠回答";
 
     private record ChatResponsePlan(Flux<ChatResponse> response, String failReason, String referencesMarkdown) {
         private static ChatResponsePlan ok(Flux<ChatResponse> response) {
@@ -97,6 +100,10 @@ public class AiChatServiceImpl implements AiChatService {
 
         private static ChatResponsePlan fail(String message, String failReason) {
             return new ChatResponsePlan(singleMessageResponse(message), failReason, null);
+        }
+
+        private static ChatResponsePlan failWithReferences(String message, String failReason, String referencesMarkdown) {
+            return new ChatResponsePlan(singleMessageResponse(message), failReason, referencesMarkdown);
         }
 
         private static ChatResponsePlan okWithReferences(Flux<ChatResponse> response, String referencesMarkdown) {
@@ -187,6 +194,7 @@ public class AiChatServiceImpl implements AiChatService {
         }else if (StrUtil.isNotBlank(failReason)) {
             detailBuilder4llm.setStatus(InvokeStatusEnum.FAIL.getCode());
             detailBuilder4llm.setFailReason(failReason);
+            appendReferencesIfPresent(sseEmitter, retSb, referencesMarkdown);
         }else {
             Usage usage = lastResponse.getMetadata().getUsage();
             detailBuilder4llm.setStatus(InvokeStatusEnum.SUCCESS.getCode());
@@ -249,15 +257,17 @@ public class AiChatServiceImpl implements AiChatService {
             .system(getSystemPrompt(app))
             // 用户提示词
             .user(chatDTO.getUserInput());
-        List<Document> documents;
+        RetrievalResult retrievalResult;
         try {
-            documents = obtainDocuments(chatDTO.getUserInput(), app,builder);
+            retrievalResult = obtainDocuments(chatDTO.getUserInput(), app, builder);
         } catch (Exception e) {
             String failReason = buildKnowledgeRetrievalFailReason(e);
             log.error("knowledge retrieval unavailable, requestId={}, appId={}, libId={}, userInput={}",
                 chatDTO.getRequestId(), app.getId(), app.getLibId(), chatDTO.getUserInput(), e);
             return ChatResponsePlan.fail(KNOWLEDGE_TEMP_UNAVAILABLE, failReason);
         }
+        List<Document> documents = retrievalResult.documents();
+        List<Document> rawDocuments = retrievalResult.rawDocuments();
         if (CollUtil.isEmpty(documents)) {
             // 超出知识库范围了
             if (YesNoEnum.Y.getCode().equals(app.getOutLibEnable())) {
@@ -266,8 +276,10 @@ public class AiChatServiceImpl implements AiChatService {
                 chatClientRequestSpec.advisors(advisorSpec -> advisorSpec.param(ChatMemory.CONVERSATION_ID,chatDTO.getConversationId()));
             }else {
                 // 严格模式
-                // 返回只包含一个元素的Flux对象
-                return ChatResponsePlan.message(NO_ANSWER);
+                String visibleMessage = CollUtil.isNotEmpty(rawDocuments) ? WEAK_MATCH_NO_ANSWER : NO_ANSWER;
+                String failReason = CollUtil.isNotEmpty(rawDocuments) ? WEAK_MATCH_FAIL_REASON : NO_ANSWER_FAIL_REASON;
+                String referencesMarkdown = buildPossibleReferencesMarkdown(rawDocuments);
+                return ChatResponsePlan.failWithReferences(visibleMessage, failReason, referencesMarkdown);
             }
         }else {
             // 有结果,通过自定义advisor放到上下文中
@@ -284,21 +296,29 @@ public class AiChatServiceImpl implements AiChatService {
     private String getSystemPrompt(AppDO app) {
         String rule;
         if (YesNoEnum.Y.getCode().equals(app.getOutLibEnable())) {
-            rule = "优先从上下文中返回答案,如果上下文中找不到,就自行搜索资料后回答";
+            rule = """
+                优先基于上下文返回答案。
+                如果上下文中已有依据,先给出简短结论,再补充对应依据或关键步骤。
+                如果上下文中没有依据而需要自行补充,请明确说明以下内容属于通用建议,不是来自当前知识库的直接依据。
+                """;
         }else {
             rule = """
                 如果上下文信息中没有足够依据,请明确说明当前未在知识库中找到足够相关依据,
                 暂时无法可靠回答,并建议用户换一种更具体的问法或联系知识库维护人。
                 不要编造答案,不要假装已经从知识库中找到了依据。
+                如果上下文中有依据,优先按下面结构回答:
+                1. 先用 1 到 2 句话给出直接结论。
+                2. 再列出支撑该结论的依据、规则或关键步骤。
+                3. 如果问题本身信息不足,指出还缺什么信息才能更准确回答。
                 """;
         }
         Map<String,Object> promptParam = Map.of("rule",rule);
         return SYSTEM_PROMPT_TEMPLATE.render(promptParam);
     }
 
-    private List<Document> obtainDocuments(String userInput, AppDO app, InvokeRecordBuilder invokeRecordBuilder) {
+    private RetrievalResult obtainDocuments(String userInput, AppDO app, InvokeRecordBuilder invokeRecordBuilder) {
         if (app.getLibId() == null) {
-            return List.of();
+            return new RetrievalResult(List.of(), List.of());
         }
         InvokeRecordContext.set(invokeRecordBuilder);
         try {
@@ -309,14 +329,12 @@ public class AiChatServiceImpl implements AiChatService {
                 // 只查当前应用绑定的知识库的文档
                 .filterExpression(CommonConstants.LIB_ID_STR_KEY + " == '" + app.getLibId() +"'")
                 .build();
-            List<Document> documents = vectorStore.similaritySearch(searchRequest);
-            documents = doRerank(userInput,documents);
-            return documents;
+            List<Document> rawDocuments = vectorStore.similaritySearch(searchRequest);
+            List<Document> documents = doRerank(userInput, rawDocuments);
+            return new RetrievalResult(documents, rawDocuments);
         }finally {
             InvokeRecordContext.remove();
         }
-
-
     }
 
     private String buildKnowledgeRetrievalFailReason(Exception e) {
@@ -340,6 +358,27 @@ public class AiChatServiceImpl implements AiChatService {
             return null;
         }
         StringBuilder builder = new StringBuilder("---\n**参考来源**\n");
+        int limit = Math.min(uploadFiles.size(), 3);
+        for (int i = 0; i < limit; i++) {
+            UploadFileDO uploadFileDO = uploadFiles.get(i);
+            builder.append(i + 1)
+                .append(". ")
+                .append(uploadFileDO.getFileName())
+                .append("\n");
+        }
+        return builder.toString();
+    }
+
+    private String buildPossibleReferencesMarkdown(List<Document> documents) {
+        if (CollUtil.isEmpty(documents)) {
+            return null;
+        }
+        List<UploadFileDO> uploadFiles = uploadFileService.selectByDocIds(documents.stream().map(Document::getId).toList());
+        if (CollUtil.isEmpty(uploadFiles)) {
+            return null;
+        }
+        StringBuilder builder = new StringBuilder("---\n**可补充核对的资料**\n");
+        builder.append("以下资料与当前问题可能接近,但暂不足以支撑可靠回答:\n");
         int limit = Math.min(uploadFiles.size(), 3);
         for (int i = 0; i < limit; i++) {
             UploadFileDO uploadFileDO = uploadFiles.get(i);
@@ -405,6 +444,9 @@ public class AiChatServiceImpl implements AiChatService {
             log.warn("rerank failed, fallback to vector search results", e);
             return documents;
         }
+    }
+
+    private record RetrievalResult(List<Document> documents, List<Document> rawDocuments) {
     }
 
 }
