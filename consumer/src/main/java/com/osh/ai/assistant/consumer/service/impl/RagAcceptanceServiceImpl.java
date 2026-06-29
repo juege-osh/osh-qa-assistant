@@ -13,6 +13,7 @@ import com.osh.ai.assistant.common.bean.entity.RagAcceptanceBatchDO;
 import com.osh.ai.assistant.common.bean.entity.RagAcceptanceItemDO;
 import com.osh.ai.assistant.common.bean.entity.UserDO;
 import com.osh.ai.assistant.common.context.UserContext;
+import com.osh.ai.assistant.common.enums.InvokeStatusEnum;
 import com.osh.ai.assistant.common.ex.BizEx;
 import com.osh.ai.assistant.common.util.ConvertUtil;
 import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceBatchSaveReq;
@@ -128,6 +129,7 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         List<RagAcceptanceItemSaveReq> items = new ArrayList<>();
         for (DefaultQuestionTemplate template : DEFAULT_QUESTION_TEMPLATES) {
             ExecutionSnapshot snapshot = executeQuestion(app, currentUser, template);
+            AcceptanceEvaluation evaluation = evaluateAcceptance(template, snapshot);
             RagAcceptanceItemSaveReq item = new RagAcceptanceItemSaveReq();
             item.setInvokeRecordId(snapshot.invokeRecordId());
             item.setInvokeRecordDetailId(snapshot.invokeRecordDetailId());
@@ -145,9 +147,24 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
             item.setLibName(knowledgeLib == null ? "" : knowledgeLib.getLibName());
             item.setCostTime(snapshot.costTime());
             item.setCostToken(snapshot.costToken());
+            item.setHitConclusion(evaluation.hitConclusion());
+            item.setGroundedConclusion(evaluation.groundedConclusion());
+            item.setReadableConclusion(evaluation.readableConclusion());
+            item.setGracefulFailureConclusion(evaluation.gracefulFailureConclusion());
+            item.setHitRateConclusion(evaluation.hitRateConclusion());
+            item.setCompletenessConclusion(evaluation.completenessConclusion());
+            item.setFollowUpCategory(evaluation.followUpCategory());
+            item.setFollowUpAction(evaluation.followUpAction());
+            item.setRemark(evaluation.remark());
             items.add(item);
         }
         saveReq.setItems(items);
+        if (StrUtil.isBlank(saveReq.getSummaryConclusion())) {
+            saveReq.setSummaryConclusion(buildSummaryConclusion(items));
+        }
+        if (StrUtil.isBlank(saveReq.getNextAction())) {
+            saveReq.setNextAction(buildNextAction(items));
+        }
         return saveBatch(saveReq);
     }
 
@@ -294,10 +311,245 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
             + "，切分策略=" + StrUtil.blankToDefault(knowledgeLib.getActiveSplitStrategy(), "未设置");
     }
 
+    private AcceptanceEvaluation evaluateAcceptance(DefaultQuestionTemplate template, ExecutionSnapshot snapshot) {
+        String answer = normalize(snapshot.answer());
+        boolean invokeSuccess = InvokeStatusEnum.SUCCESS.getCode().toString().equals(snapshot.invokeStatus());
+        boolean saysNoEnoughEvidence = containsAny(answer, "没有足够依据", "暂时无法可靠回答", "资料不足以支撑", "暂无法提供可靠答案");
+        boolean asksMoreDetail = containsAny(answer, "请补充", "具体", "制度名称", "流程名称", "任务名称");
+        boolean saysRetryLater = containsAny(answer, "稍后重试", "更明确的问题", "换一个更具体", "联系知识库运营", "联系维护人");
+        boolean containsStackWords = containsAny(answer, "exception", "sqlsyntaxerror", "stack", "trace", "nullpointer");
+
+        String hitConclusion = evaluateHit(template, invokeSuccess, answer, asksMoreDetail, saysNoEnoughEvidence);
+        String groundedConclusion = evaluateGrounded(invokeSuccess, answer, hitConclusion, saysNoEnoughEvidence);
+        String readableConclusion = evaluateReadable(answer);
+        String gracefulFailureConclusion = evaluateGraceful(template, invokeSuccess, answer, saysNoEnoughEvidence, saysRetryLater, containsStackWords);
+        String hitRateConclusion = "通过".equals(hitConclusion) ? "通过" : "待确认";
+        String completenessConclusion = evaluateCompleteness(template, answer, hitConclusion);
+        String followUpCategory = resolveFollowUpCategory(template, invokeSuccess, hitConclusion, groundedConclusion, readableConclusion, gracefulFailureConclusion);
+        String followUpAction = buildFollowUpAction(template, followUpCategory, invokeSuccess, answer);
+        String remark = buildAcceptanceRemark(template, hitConclusion, groundedConclusion, gracefulFailureConclusion);
+        return new AcceptanceEvaluation(
+            hitConclusion,
+            groundedConclusion,
+            readableConclusion,
+            gracefulFailureConclusion,
+            hitRateConclusion,
+            completenessConclusion,
+            followUpCategory,
+            followUpAction,
+            remark
+        );
+    }
+
+    private String evaluateHit(DefaultQuestionTemplate template, boolean invokeSuccess, String answer,
+                               boolean asksMoreDetail, boolean saysNoEnoughEvidence) {
+        if (!invokeSuccess || StrUtil.isBlank(answer)) {
+            return "不通过";
+        }
+        return switch (template.testCaseNo()) {
+            case "TC-01" -> hasCoverageTopics(answer) ? "通过" : "不通过";
+            case "TC-02" -> asksMoreDetail || containsAny(answer, "核心结论", "关键规则", "直接结论") ? "通过" : "待确认";
+            case "TC-03" -> containsCountAtLeast(answer, 2, "确认目标任务名称", "所属知识库", "生效切分版本", "发布策略", "第一步") ? "通过" : "不通过";
+            case "TC-04" -> containsCountAtLeast(answer, 3, "准备文档", "上传到知识库", "发布为当前生效版本", "重建索引", "运行默认问题集") ? "通过" : "不通过";
+            case "TC-05" -> asksMoreDetail && containsAny(answer, "模糊", "任务名称", "流程名称", "制度名称") ? "通过" : "不通过";
+            case "TC-06" -> containsAny(answer, "先看", "优先阅读", "确认目标任务名称", "所属知识库", "生效版本", "最小起步") ? "通过" : "不通过";
+            case "TC-07" -> saysNoEnoughEvidence && saysRetryOrEscalate(answer) ? "通过" : "不通过";
+            case "TC-08" -> containsAny(answer, "信息不足", "补充") && containsAny(answer, "具体", "任务名称", "流程名称", "制度名称") ? "通过" : "不通过";
+            case "TC-09" -> saysNoEnoughEvidence && saysRetryOrEscalate(answer) ? "通过" : "不通过";
+            case "TC-10" -> containsAny(answer, "检索暂时不可用") && containsAny(answer, "稍后重试", "更明确的问题") ? "通过" : "不通过";
+            default -> "待确认";
+        };
+    }
+
+    private String evaluateGrounded(boolean invokeSuccess, String answer, String hitConclusion, boolean saysNoEnoughEvidence) {
+        if (!invokeSuccess || StrUtil.isBlank(answer)) {
+            return "不通过";
+        }
+        if (saysNoEnoughEvidence || containsAny(answer, "参考来源", "依据", "根据知识库", "上下文")) {
+            return "通过";
+        }
+        if ("通过".equals(hitConclusion)) {
+            return "通过";
+        }
+        return "待确认";
+    }
+
+    private String evaluateReadable(String answer) {
+        if (StrUtil.isBlank(answer)) {
+            return "不通过";
+        }
+        if (answer.length() > 1600) {
+            return "待确认";
+        }
+        if (containsAny(answer, "\n", "1.", "2.", "建议", "请", "如下", "步骤")) {
+            return "通过";
+        }
+        return answer.length() >= 20 ? "通过" : "待确认";
+    }
+
+    private String evaluateGraceful(DefaultQuestionTemplate template, boolean invokeSuccess, String answer,
+                                    boolean saysNoEnoughEvidence, boolean saysRetryLater, boolean containsStackWords) {
+        if (containsStackWords) {
+            return "不通过";
+        }
+        if (!invokeSuccess) {
+            return containsAny(answer, "稍后重试", "更明确的问题", "暂时不可用") ? "通过" : "待确认";
+        }
+        if ("失败场景".equals(template.questionType()) || "未命中知识".equals(template.questionType())) {
+            return (saysNoEnoughEvidence || containsAny(answer, "检索暂时不可用")) && saysRetryLater ? "通过" : "不通过";
+        }
+        if (saysNoEnoughEvidence) {
+            return saysRetryLater || containsAny(answer, "请补充", "具体") ? "通过" : "待确认";
+        }
+        return "通过";
+    }
+
+    private String evaluateCompleteness(DefaultQuestionTemplate template, String answer, String hitConclusion) {
+        if (!"通过".equals(hitConclusion)) {
+            return "待确认";
+        }
+        return switch (template.testCaseNo()) {
+            case "TC-03", "TC-04" -> containsCountAtLeast(answer, 2, "1.", "2.", "步骤", "建议", "先", "然后", "最后") ? "通过" : "待确认";
+            case "TC-07", "TC-09", "TC-10" -> containsAny(answer, "建议", "稍后重试", "联系") ? "通过" : "待确认";
+            default -> answer.length() >= 30 ? "通过" : "待确认";
+        };
+    }
+
+    private String resolveFollowUpCategory(DefaultQuestionTemplate template, boolean invokeSuccess, String hitConclusion,
+                                           String groundedConclusion, String readableConclusion, String gracefulFailureConclusion) {
+        if (!invokeSuccess) {
+            return "observe";
+        }
+        if ("不通过".equals(groundedConclusion)) {
+            return "knowledge";
+        }
+        if ("不通过".equals(gracefulFailureConclusion) || "不通过".equals(readableConclusion)) {
+            return "prompt";
+        }
+        if ("不通过".equals(hitConclusion) && ("标准知识问答".equals(template.questionType()) || "任务指导".equals(template.questionType()))) {
+            return "chunking";
+        }
+        return "";
+    }
+
+    private String buildFollowUpAction(DefaultQuestionTemplate template, String followUpCategory,
+                                       boolean invokeSuccess, String answer) {
+        if (StrUtil.isBlank(followUpCategory)) {
+            return "";
+        }
+        if (!invokeSuccess) {
+            return "检查调用记录、数据库/向量库链路和异常告警，先恢复稳定可用性。";
+        }
+        return switch (followUpCategory) {
+            case "knowledge" -> "补充该问题对应的制度、流程或任务说明，确保知识库里有可直接支撑回答的原文依据。";
+            case "chunking" -> "对照当前生效切分版本检查召回片段是否切散、断裂或遗漏，优先比较不同切分版本的命中差异。";
+            case "prompt" -> "继续收紧提示词，让失败反馈更体面，或让任务指导类回答更直接、更像可执行步骤。";
+            case "observe" -> "补齐运行链路观测，记录失败原因和恢复手段，避免再次只能看到数据库异常。";
+            default -> "结合该条回答继续人工复盘。";
+        };
+    }
+
+    private String buildAcceptanceRemark(DefaultQuestionTemplate template, String hitConclusion,
+                                         String groundedConclusion, String gracefulFailureConclusion) {
+        if ("不通过".equals(hitConclusion) && "标准知识问答".equals(template.questionType())) {
+            return "当前回答没有直接命中问题本身，需要继续比较知识切分和召回效果。";
+        }
+        if ("不通过".equals(gracefulFailureConclusion)) {
+            return "失败反馈还不够体面，需要继续优化提示词和用户可见文案。";
+        }
+        if ("待确认".equals(groundedConclusion)) {
+            return "建议人工复核引用依据与回答结论是否完全对齐。";
+        }
+        return "";
+    }
+
+    private String buildSummaryConclusion(List<RagAcceptanceItemSaveReq> items) {
+        long passCount = items.stream().filter(this::isPassSaveItem).count();
+        long chunkingCount = items.stream().filter(item -> "chunking".equals(item.getFollowUpCategory())).count();
+        long promptCount = items.stream().filter(item -> "prompt".equals(item.getFollowUpCategory())).count();
+        long observeCount = items.stream().filter(item -> "observe".equals(item.getFollowUpCategory())).count();
+        return "默认问题集自动跑测共 " + items.size() + " 条，当前全部通过 " + passCount + " 条；"
+            + "主要待修复方向为切分=" + chunkingCount + "，提示词=" + promptCount + "，观测=" + observeCount + "。";
+    }
+
+    private String buildNextAction(List<RagAcceptanceItemSaveReq> items) {
+        if (items.stream().anyMatch(item -> "chunking".equals(item.getFollowUpCategory()))) {
+            return "优先比较不同切分版本在标准知识问答和任务指导场景下的命中差异，再决定当前生效版本。";
+        }
+        if (items.stream().anyMatch(item -> "prompt".equals(item.getFollowUpCategory()))) {
+            return "继续优化提示词和失败反馈文案，再重跑默认问题集确认体验改善。";
+        }
+        if (items.stream().anyMatch(item -> "observe".equals(item.getFollowUpCategory()))) {
+            return "补齐运行链路观测与故障恢复信息，再重新执行默认问题集跑测。";
+        }
+        return "继续扩充真实问题集，并基于正式批次结果持续复盘。";
+    }
+
+    private boolean hasCoverageTopics(String answer) {
+        int topicHit = 0;
+        if (containsAny(answer, "内部文档知识问答")) {
+            topicHit++;
+        }
+        if (containsAny(answer, "训练测试任务")) {
+            topicHit++;
+        }
+        if (containsAny(answer, "体面反馈", "失败时的体面反馈")) {
+            topicHit++;
+        }
+        return containsAny(answer, "三个主题", "3个主题", "主要覆盖") || topicHit >= 2;
+    }
+
+    private boolean isPassSaveItem(RagAcceptanceItemSaveReq item) {
+        return isPass(item.getHitConclusion())
+            && isPass(item.getGroundedConclusion())
+            && isPass(item.getReadableConclusion())
+            && isPass(item.getGracefulFailureConclusion());
+    }
+
+    private boolean saysRetryOrEscalate(String answer) {
+        return containsAny(answer, "更具体", "联系知识库运营", "联系维护人", "补充相关内容", "稍后重试");
+    }
+
+    private boolean containsCountAtLeast(String answer, int threshold, String... tokens) {
+        int count = 0;
+        for (String token : tokens) {
+            if (StrUtil.contains(answer, token)) {
+                count++;
+            }
+            if (count >= threshold) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsAny(String answer, String... tokens) {
+        if (StrUtil.isBlank(answer)) {
+            return false;
+        }
+        String normalized = answer.toLowerCase();
+        for (String token : tokens) {
+            if (normalized.contains(token.toLowerCase())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalize(String text) {
+        return StrUtil.blankToDefault(text, "").replace("\r\n", "\n").trim();
+    }
+
     private record DefaultQuestionTemplate(String testCaseNo, String questionType, String userQuestion, String expectedKnowledge) {
     }
 
     private record ExecutionSnapshot(Long invokeRecordId, Long invokeRecordDetailId, String answer, String failReason,
                                      String invokeStatus, String modelName, Integer costTime, Long costToken) {
+    }
+
+    private record AcceptanceEvaluation(String hitConclusion, String groundedConclusion, String readableConclusion,
+                                        String gracefulFailureConclusion, String hitRateConclusion,
+                                        String completenessConclusion, String followUpCategory,
+                                        String followUpAction, String remark) {
     }
 }

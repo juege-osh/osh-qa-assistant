@@ -359,9 +359,7 @@ def run_batch(experiment, suffix):
         "appId": app["id"],
         "batchName": batch_name,
         "sceneType": "内部知识问答",
-        "testerName": "codex",
-        "summaryConclusion": "脚本自动执行默认问题集真实跑测",
-        "nextAction": "根据批次结果继续修补知识、切分与提示词"
+        "testerName": "codex"
     }, token)
     if run_resp.get("code") != 200:
         raise RuntimeError(f"run default batch failed: {run_resp}")
