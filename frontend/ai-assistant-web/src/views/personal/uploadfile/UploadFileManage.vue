@@ -78,13 +78,71 @@
       </el-pagination>
     </section>
 
-    <el-dialog v-model="previewDialogVisible" title="文件预览" width="860px">
-      <section class="preview-meta">
-        <div class="preview-chip">文件：{{ previewData.fileName || '-' }}</div>
-        <div class="preview-chip">字符数：{{ previewData.charCount ?? '-' }}</div>
-        <div class="preview-chip">状态：{{ previewData.statusDesc || previewData.status || '-' }}</div>
+    <el-dialog v-model="previewDialogVisible" title="文件预览" width="920px" class="file-preview-dialog">
+      <section class="preview-shell">
+        <section class="preview-meta">
+          <div class="preview-chip">文件：{{ previewData.fileName || '-' }}</div>
+          <div class="preview-chip">字符数：{{ previewData.charCount ?? '-' }}</div>
+          <div class="preview-chip">状态：{{ previewData.statusDesc || previewData.status || '-' }}</div>
+          <div class="preview-chip">切分后 chunk：{{ previewData.chunkCount ?? 0 }}</div>
+        </section>
+
+        <section class="preview-summary">
+          <div class="preview-summary-copy">
+            <div class="preview-summary-title">当前切分规则</div>
+            <div class="preview-summary-desc">
+              现在入库前会按同一套规则完成切分。你可以先看前几个 chunk 的长度和内容，再决定是否需要调整 chunk 大小或切分策略。
+            </div>
+          </div>
+          <div class="preview-config-grid">
+            <div class="preview-config-card">
+              <span class="preview-config-label">chunk 大小</span>
+              <strong class="preview-config-value">{{ previewData.splitConfig?.chunkSize ?? '-' }}</strong>
+            </div>
+            <div class="preview-config-card">
+              <span class="preview-config-label">最小 chunk</span>
+              <strong class="preview-config-value">{{ previewData.splitConfig?.minChunkSizeChars ?? '-' }}</strong>
+            </div>
+            <div class="preview-config-card">
+              <span class="preview-config-label">最小保留长度</span>
+              <strong class="preview-config-value">{{ previewData.splitConfig?.minChunkLengthToEmbed ?? '-' }}</strong>
+            </div>
+            <div class="preview-config-card">
+              <span class="preview-config-label">最大 chunk 数</span>
+              <strong class="preview-config-value">{{ previewData.splitConfig?.maxNumChunks ?? '-' }}</strong>
+            </div>
+            <div class="preview-config-card">
+              <span class="preview-config-label">保留分隔符</span>
+              <strong class="preview-config-value">{{ previewData.splitConfig?.keepSeparator ? '是' : '否' }}</strong>
+            </div>
+            <div class="preview-config-card">
+              <span class="preview-config-label">预览 chunk 数</span>
+              <strong class="preview-config-value">{{ previewData.splitConfig?.previewChunkLimit ?? '-' }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="preview-tabbar">
+          <el-segmented v-model="previewTab" :options="previewTabOptions" />
+        </section>
+
+        <section v-if="previewTab === 'content'">
+          <pre class="preview-content">{{ previewData.content || '暂无内容' }}</pre>
+        </section>
+
+        <section v-else class="chunk-list">
+          <article v-for="chunk in previewData.chunks" :key="chunk.index" class="chunk-card">
+            <div class="chunk-card-head">
+              <div class="chunk-card-title">Chunk {{ chunk.index }}</div>
+              <div class="chunk-card-meta">{{ chunk.length }} 字</div>
+            </div>
+            <pre class="chunk-card-content">{{ chunk.content || '暂无内容' }}</pre>
+          </article>
+          <div v-if="!previewData.chunks.length" class="chunk-empty-state">
+            当前没有可预览的切分结果，请先确认文件是否已成功读取。
+          </div>
+        </section>
       </section>
-      <pre class="preview-content">{{ previewData.content || '暂无内容' }}</pre>
     </el-dialog>
   </div>
 </template>
@@ -95,11 +153,15 @@ import { pageUploadFileApi,deleteUploadFileByIdApi, updateUploadFileStatusApi } 
 import { previewFileApi } from '@/api/workspace/filePreviewApi';
 import { pageKnowledgeLibApi } from '@/api/workspace/knowledgeLibApi';
 import { useRoute } from 'vue-router';
-import { Plus, Edit, Delete } from '@element-plus/icons-vue';
+import { Plus, Delete } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { saveItem, getItem } from '@/util/storageUtil';
 
 const STORAGE_LAST_LIB_ID_KEY = 'last-selected-lib-id'
+const previewTabOptions = [
+  { label: '原文预览', value: 'content' },
+  { label: '切分预览', value: 'chunks' }
+]
 
 let searchFormData = reactive({
   fileName: '',
@@ -116,12 +178,23 @@ let {
 } = useTable({ searchFormData, loadTableApi: pageUploadFileApi,deleteByIdApi: deleteUploadFileByIdApi })
 let route = useRoute()
 const previewDialogVisible = ref(false)
+const previewTab = ref('chunks')
 const previewData = reactive({
   fileName: '',
   charCount: 0,
   status: '',
   statusDesc: '',
-  content: ''
+  content: '',
+  chunkCount: 0,
+  splitConfig: {
+    chunkSize: 0,
+    minChunkSizeChars: 0,
+    minChunkLengthToEmbed: 0,
+    maxNumChunks: 0,
+    keepSeparator: true,
+    previewChunkLimit: 0
+  },
+  chunks: [] as Array<{ index: number; length: number; content: string }>
 })
 
 // 是否已选中知识库
@@ -175,6 +248,7 @@ function updateStatus(fileId:string,status:number) {
 function openPreview(row: { id: string }) {
   previewFileApi(row.id).then(result => {
     Object.assign(previewData, result.data || {})
+    previewTab.value = 'chunks'
     previewDialogVisible.value = true
   })
 }
@@ -217,7 +291,13 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+}
+
+.preview-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .preview-chip {
@@ -226,10 +306,87 @@ onMounted(() => {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--space-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.preview-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.8fr);
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid rgba(64, 158, 255, 0.14);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.preview-summary-title {
+  color: var(--space-text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.preview-summary-desc {
+  margin-top: 8px;
+  color: var(--space-text-soft);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.preview-config-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.preview-config-card {
+  padding: 14px;
+  border: 1px solid rgba(64, 158, 255, 0.12);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(239, 246, 255, 0.98));
+}
+
+.preview-config-label {
+  display: block;
+  color: var(--space-text-soft);
+  font-size: 12px;
+}
+
+.preview-config-value {
+  display: block;
+  margin-top: 8px;
+  color: var(--space-primary-strong);
+  font-size: 19px;
+  line-height: 1.1;
+}
+
+.preview-tabbar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+:deep(.file-preview-dialog .el-dialog__body) {
+  padding-top: 12px;
+}
+
+:deep(.preview-tabbar .el-segmented) {
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.82);
+}
+
+:deep(.preview-tabbar .el-segmented__item) {
+  min-width: 112px;
+  font-weight: 600;
+}
+
+:deep(.preview-tabbar .el-segmented__item.is-selected) {
+  color: #fff;
+  background: linear-gradient(135deg, var(--space-primary-strong), #0f766e);
 }
 
 .preview-content {
-  max-height: 56vh;
+  max-height: 42vh;
   overflow: auto;
   padding: 16px;
   border: 1px solid var(--space-border);
@@ -240,5 +397,74 @@ onMounted(() => {
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.chunk-list {
+  display: grid;
+  gap: 12px;
+  max-height: 42vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.chunk-card {
+  border: 1px solid rgba(64, 158, 255, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.98);
+  overflow: hidden;
+}
+
+.chunk-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(64, 158, 255, 0.1);
+  background: linear-gradient(180deg, rgba(247, 250, 255, 0.95), rgba(241, 245, 249, 0.95));
+}
+
+.chunk-card-title {
+  color: var(--space-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.chunk-card-meta {
+  color: var(--space-text-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chunk-card-content {
+  margin: 0;
+  padding: 16px;
+  max-height: 180px;
+  overflow: auto;
+  color: var(--space-text);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.chunk-empty-state {
+  padding: 24px 18px;
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+  border-radius: 18px;
+  color: var(--space-text-soft);
+  text-align: center;
+  background: rgba(248, 250, 252, 0.9);
+}
+
+@media (max-width: 900px) {
+  .preview-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-config-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>
