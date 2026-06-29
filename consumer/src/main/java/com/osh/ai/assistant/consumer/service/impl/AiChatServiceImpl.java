@@ -102,6 +102,8 @@ public class AiChatServiceImpl implements AiChatService {
     private static final String STREAM_INTERRUPTED = "当前回答因服务异常中断，以上内容可能不完整。建议你稍后重试，或换一种更具体的问法继续提问。";
     private static final String NO_ANSWER_FAIL_REASON = "未找到足够相关知识依据";
     private static final String WEAK_MATCH_FAIL_REASON = "仅召回弱相关内容，无法支撑可靠回答";
+    private static final String HIGH_RISK_NO_ANSWER = "当前知识库里没有直接依据，而且这个问题涉及外部高风险信息，暂时不适合在无依据情况下直接作答。建议你补充明确的制度名称、流程来源，或联系对应专业负责人确认后再处理。";
+    private static final String HIGH_RISK_NO_ANSWER_FAIL_REASON = "高风险外部问题缺少知识依据";
 
     private record ChatResponsePlan(Flux<ChatResponse> response, String failReason, String referencesMarkdown) {
         private static ChatResponsePlan ok(Flux<ChatResponse> response) {
@@ -271,13 +273,6 @@ public class AiChatServiceImpl implements AiChatService {
      */
     private ChatResponsePlan obtainResponse(InvokeRecordBuilder builder, AppDO app) {
         ChatDTO chatDTO = builder.getChatDto();
-        ChatClient.ChatClientRequestSpec chatClientRequestSpec = chatClient
-            .prompt()
-            // 系统提示词
-            .system(getSystemPrompt(app))
-            // 用户提示词
-            .user(chatDTO.getUserInput());
-        applyAppChatOptions(chatClientRequestSpec, app);
         RetrievalResult retrievalResult;
         try {
             retrievalResult = obtainDocuments(chatDTO.getUserInput(), app, builder);
@@ -296,12 +291,29 @@ public class AiChatServiceImpl implements AiChatService {
         }
         List<Document> documents = retrievalResult.documents();
         List<Document> rawDocuments = retrievalResult.rawDocuments();
+        boolean knowledgeBound = app.getLibId() != null;
+        ChatClient.ChatClientRequestSpec chatClientRequestSpec = chatClient
+            .prompt()
+            // 系统提示词
+            .system(getSystemPrompt(app, knowledgeBound, CollUtil.isNotEmpty(documents), CollUtil.isNotEmpty(rawDocuments)))
+            // 用户提示词
+            .user(chatDTO.getUserInput());
+        applyAppChatOptions(chatClientRequestSpec, app);
         if (CollUtil.isEmpty(documents)) {
             // 超出知识库范围了
             if (YesNoEnum.Y.getCode().equals(app.getOutLibEnable())) {
+                if (knowledgeBound && isHighRiskOutOfKnowledgeQuestion(chatDTO.getUserInput())) {
+                    return ChatResponsePlan.failWithReferences(
+                        HIGH_RISK_NO_ANSWER,
+                        HIGH_RISK_NO_ANSWER_FAIL_REASON,
+                        buildPossibleReferencesMarkdown(rawDocuments)
+                    );
+                }
                 // 宽松模式
                 // 设置会话id,用于记忆对话
                 chatClientRequestSpec.advisors(advisorSpec -> advisorSpec.param(ChatMemory.CONVERSATION_ID,chatDTO.getConversationId()));
+                String referencesMarkdown = knowledgeBound ? buildPossibleReferencesMarkdown(rawDocuments) : null;
+                return ChatResponsePlan.okWithReferences(chatClientRequestSpec.stream().chatResponse(), referencesMarkdown);
             }else {
                 // 严格模式
                 String visibleMessage = CollUtil.isNotEmpty(rawDocuments) ? WEAK_MATCH_NO_ANSWER : NO_ANSWER;
@@ -321,15 +333,10 @@ public class AiChatServiceImpl implements AiChatService {
         return ChatResponsePlan.okWithReferences(chatClientRequestSpec.stream().chatResponse(), buildReferencesMarkdown(documents));
     }
 
-    private String getSystemPrompt(AppDO app) {
+    private String getSystemPrompt(AppDO app, boolean knowledgeBound, boolean hasReliableDocs, boolean hasWeakMatch) {
         String rule;
-        if (YesNoEnum.Y.getCode().equals(app.getOutLibEnable())) {
-            rule = """
-                优先基于上下文返回答案。
-                如果上下文中已有依据,先给出简短结论,再补充对应依据或关键步骤。
-                如果上下文中没有依据而需要自行补充,请明确说明以下内容属于通用建议,不是来自当前知识库的直接依据。
-                """;
-        }else {
+        boolean allowOutOfLib = YesNoEnum.Y.getCode().equals(app.getOutLibEnable());
+        if (!allowOutOfLib) {
             rule = """
                 如果上下文信息中没有足够依据,请明确说明当前未在知识库中找到足够相关依据,
                 暂时无法可靠回答,并建议用户换一种更具体的问法或联系知识库维护人。
@@ -342,6 +349,40 @@ public class AiChatServiceImpl implements AiChatService {
                 请先直接给出最小可执行建议或步骤,再补充还需要用户确认的信息,不要只回复“问题太模糊”。
                 如果用户问的是知识库覆盖范围、主要主题、当前能回答什么,而上下文里已经有覆盖范围说明,
                 请直接概括覆盖主题,不要因为问题宽泛就拒答。
+                """;
+        } else if (!knowledgeBound) {
+            rule = """
+                当前应用未绑定知识库,可以直接给出通用帮助。
+                如果问题是“从哪里开始”“下一步怎么做”“先看什么”,优先给出最小可执行建议或步骤。
+                如果问题涉及明确事实、规则、日期、金额等确定性结论,请不要把不确定内容说成已确认事实,
+                需要把不确定性直接说明。
+                """;
+        } else if (hasReliableDocs) {
+            rule = """
+                优先基于上下文返回答案。
+                如果上下文中已有依据,先给出简短结论,再补充对应依据、关键步骤或注意事项。
+                如果用户问的是知识库覆盖范围、主要主题、当前能回答什么,请直接概括当前知识库覆盖内容。
+                如果用户问的是“从哪里开始”“下一步怎么做”“先看什么”,请优先给出最小可执行建议或步骤。
+                如果确实需要补充通用建议,请明确说明哪些内容属于通用建议,不是当前知识库的直接依据。
+                不要把通用建议伪装成知识库已经明确给出的结论。
+                """;
+        } else if (hasWeakMatch) {
+            rule = """
+                当前只找到了少量可能相关但不足以支撑结论的资料。
+                你可以继续提供帮助,但必须先明确说明“下面属于通用建议,不是来自当前知识库的直接依据”。
+                如果问题是任务起步、流程梳理、排查方向这类问题,先给最小可执行建议,再提醒用户补充更明确关键词。
+                如果问题需要明确制度结论、外部事实、规则口径、日期金额等确定依据,不要给出看似确定的答案,
+                而要说明当前缺少可靠依据,建议用户补充制度名称、流程名称、报错关键词或联系知识库维护人。
+                不要把弱相关资料说成已经足够支撑结论。
+                """;
+        }else {
+            rule = """
+                当前这次提问没有命中到足够可靠的知识依据。
+                你可以继续提供帮助,但必须先明确说明“下面属于通用建议,不是来自当前知识库的直接依据”。
+                如果问题是“从哪里开始”“下一步怎么做”“先看什么”这类任务指导,请先给最小可执行建议或步骤。
+                如果问题是制度结论、外部事实、规则口径、日期金额等需要明确依据的内容,不要给出确定答案,
+                而要说明当前缺少可靠依据,建议用户补充更具体的制度名称、流程名称或联系知识库维护人。
+                不要把通用建议写成知识库已经确认的结论。
                 """;
         }
         String basePrompt = SYSTEM_PROMPT_TEMPLATE.render(Map.of("rule", rule));
@@ -483,6 +524,25 @@ public class AiChatServiceImpl implements AiChatService {
             return normalized;
         }
         return normalized.substring(0, REFERENCE_SNIPPET_LIMIT) + "...";
+    }
+
+    private boolean isHighRiskOutOfKnowledgeQuestion(String userInput) {
+        if (StrUtil.isBlank(userInput)) {
+            return false;
+        }
+        return containsAnyIgnoreCase(userInput,
+            "报税", "税务", "纳税", "所得税", "法律", "合同", "仲裁", "诉讼",
+            "医疗", "诊断", "处方", "药物", "投资", "理财", "证券", "股票", "基金",
+            "贷款", "利率", "签证", "移民", "处罚", "合规");
+    }
+
+    private boolean containsAnyIgnoreCase(String text, String... keywords) {
+        for (String keyword : keywords) {
+            if (StrUtil.containsIgnoreCase(text, keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void appendReferencesIfPresent(SseEmitter sseEmitter, StringBuilder retSb, String referencesMarkdown) {
