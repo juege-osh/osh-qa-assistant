@@ -323,6 +323,7 @@
           <div class="saved-batch-text">{{ batch.summaryConclusion || '当前还没有填写汇总结论。' }}</div>
           <div class="priority-actions">
             <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="openSavedAcceptanceBatch(batch.id)">查看并编辑</el-button>
+            <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="rerunAcceptanceBatch(batch.id)">按当前生效版本复跑</el-button>
             <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="exportSavedAcceptanceBatch(batch)">导出 Markdown</el-button>
             <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="openAcceptanceRepairTaskDialog(batch.id)">查看任务池</el-button>
             <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="exportAcceptanceRepairDraft(batch.id)">导出修复建议</el-button>
@@ -1690,6 +1691,66 @@ function exportAcceptanceRepairDraft(batchId: string | number) {
     downloadMarkdown(content, buildRepairTaskFilename(batch))
     ElMessage.success('已导出修复建议')
   })
+}
+
+async function rerunAcceptanceBatch(batchId: string | number) {
+  const result = await queryRagAcceptanceBatchDetailApi(batchId)
+  const batch = result.data || {}
+  const items = Array.isArray(batch.items) ? batch.items : []
+  if (!batch.appId) {
+    ElMessage.warning('当前批次缺少应用信息，无法直接复跑')
+    return
+  }
+  if (!items.length) {
+    ElMessage.warning('当前批次没有可复跑的问题条目')
+    return
+  }
+  const questions = items
+    .map((item: any, index: number) => ({
+      testCaseNo: String(item.testCaseNo || `RQ-${String(index + 1).padStart(2, '0')}`).trim(),
+      questionType: String(item.questionType || '真实业务问题').trim(),
+      userQuestion: String(item.userQuestion || '').trim(),
+      expectedKnowledge: String(item.expectedKnowledge || '').trim()
+    }))
+    .filter((item: any) => item.userQuestion)
+  if (!questions.length) {
+    ElMessage.warning('当前批次缺少可复跑的用户问题')
+    return
+  }
+
+  realBatchRunning.value = true
+  try {
+    const rerunResult = await runRagAcceptanceBatchApi({
+      appId: batch.appId,
+      batchName: buildRerunBatchName(batch),
+      sceneType: batch.sceneType || '真实业务问题',
+      testerName: batch.testerName || 'codex',
+      summaryConclusion: '',
+      nextAction: `基于批次 ${batch.batchName || batch.id} 按当前生效版本重新复跑，准备与上一轮正式验收直接对比。`,
+      questions
+    })
+    ElMessage.success('已按当前生效版本完成复跑，并生成新的正式验收批次')
+    loadSavedAcceptanceBatches()
+    const newBatchId = rerunResult.data
+    if (newBatchId) {
+      const nextSelectedIds = [batch.id, newBatchId].filter(Boolean)
+      selectedAcceptanceBatchIds.value = nextSelectedIds.slice(-2)
+      await openAcceptanceCompareDialog()
+    }
+  } finally {
+    realBatchRunning.value = false
+  }
+}
+
+function buildRerunBatchName(batch: any) {
+  const baseName = String(batch.batchName || '正式验收批次').trim()
+  const now = new Date()
+  const dateText = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0')
+  ].join('-')
+  return `${dateText} ${baseName} 当前生效版本复跑`
 }
 
 function openAcceptanceRepairTaskDialog(batchId: string | number) {
