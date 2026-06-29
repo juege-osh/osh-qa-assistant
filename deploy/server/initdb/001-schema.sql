@@ -160,3 +160,61 @@ CREATE TABLE IF NOT EXISTS `chat_message`
   PRIMARY KEY (`id`),
   KEY `idx_chat_id` (`chat_id`)
 ) ENGINE=InnoDB COMMENT='聊天消息';
+
+CREATE TABLE IF NOT EXISTS `rag_acceptance_batch`
+(
+  `id`                 bigint       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id`            bigint       NOT NULL COMMENT 'user表的主键',
+  `batch_name`         varchar(150) NOT NULL COMMENT '验收批次名称',
+  `app_name`           varchar(150) DEFAULT NULL COMMENT '应用名称',
+  `scene_type`         varchar(100) DEFAULT NULL COMMENT '场景类型',
+  `knowledge_scope`    varchar(300) DEFAULT NULL COMMENT '知识库范围',
+  `release_version`    varchar(100) DEFAULT NULL COMMENT '发布版本',
+  `experiment_version` varchar(100) DEFAULT NULL COMMENT '实验版本',
+  `version_remark`     varchar(500) DEFAULT NULL COMMENT '版本说明',
+  `quick_view`         varchar(50)  DEFAULT NULL COMMENT '聚焦视图',
+  `quick_view_desc`    varchar(500) DEFAULT NULL COMMENT '聚焦说明',
+  `tester_name`        varchar(100) DEFAULT NULL COMMENT '验收人',
+  `test_date`          datetime     DEFAULT NULL COMMENT '验收日期',
+  `summary_conclusion` text         DEFAULT NULL COMMENT '汇总结论',
+  `next_action`        text         DEFAULT NULL COMMENT '后续动作',
+  `created_time`       datetime     NOT NULL DEFAULT current_timestamp() COMMENT '创建时间',
+  `modified_time`      datetime     NOT NULL DEFAULT current_timestamp() COMMENT '修改时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB COMMENT='RAG验收批次';
+
+CREATE TABLE IF NOT EXISTS `rag_acceptance_item`
+(
+  `id`                          bigint       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `batch_id`                    bigint       NOT NULL COMMENT 'rag_acceptance_batch表的主键',
+  `invoke_record_id`            bigint       NOT NULL COMMENT 'invoke_record表的主键',
+  `invoke_record_detail_id`     bigint       DEFAULT NULL COMMENT 'invoke_record_detail表的主键',
+  `test_case_no`                varchar(100) NOT NULL COMMENT '测试编号',
+  `question_type`               varchar(100) DEFAULT NULL COMMENT '问题类型',
+  `user_question`               text         DEFAULT NULL COMMENT '用户问题',
+  `expected_knowledge`          text         DEFAULT NULL COMMENT '期望知识点或期望行为',
+  `actual_answer_summary`       text         DEFAULT NULL COMMENT '实际回答摘要',
+  `actual_answer`               text         DEFAULT NULL COMMENT '实际回答全文',
+  `fail_reason`                 varchar(500) DEFAULT NULL COMMENT '失败原因',
+  `hit_conclusion`              varchar(50)  DEFAULT NULL COMMENT '命中问题结论',
+  `grounded_conclusion`         varchar(50)  DEFAULT NULL COMMENT '可信结论',
+  `readable_conclusion`         varchar(50)  DEFAULT NULL COMMENT '易懂结论',
+  `graceful_failure_conclusion` varchar(50)  DEFAULT NULL COMMENT '失败体面结论',
+  `hit_rate_conclusion`         varchar(50)  DEFAULT NULL COMMENT 'HitRate结论',
+  `completeness_conclusion`     varchar(50)  DEFAULT NULL COMMENT '完整性结论',
+  `follow_up_category`          varchar(50)  DEFAULT NULL COMMENT '跟进分类',
+  `follow_up_action`            varchar(500) DEFAULT NULL COMMENT '跟进动作',
+  `remark`                      varchar(500) DEFAULT NULL COMMENT '备注',
+  `invoke_status`               varchar(50)  DEFAULT NULL COMMENT '调用状态',
+  `model_name`                  varchar(150) DEFAULT NULL COMMENT '模型名称',
+  `app_name`                    varchar(150) DEFAULT NULL COMMENT '应用名称',
+  `lib_name`                    varchar(150) DEFAULT NULL COMMENT '知识库名称',
+  `cost_time`                   int          DEFAULT NULL COMMENT '耗时毫秒',
+  `cost_token`                  bigint       DEFAULT NULL COMMENT 'token数',
+  `created_time`                datetime     NOT NULL DEFAULT current_timestamp() COMMENT '创建时间',
+  `modified_time`               datetime     NOT NULL DEFAULT current_timestamp() COMMENT '修改时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_batch_id` (`batch_id`),
+  KEY `idx_invoke_record_id` (`invoke_record_id`)
+) ENGINE=InnoDB COMMENT='RAG验收条目';

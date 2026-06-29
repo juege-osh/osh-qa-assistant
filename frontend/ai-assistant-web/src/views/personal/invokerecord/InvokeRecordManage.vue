@@ -73,6 +73,9 @@
           <el-form-item>
             <el-button class="workspace-btn workspace-btn--ghost" @click="exportAcceptanceDraft">导出验收草稿</el-button>
           </el-form-item>
+          <el-form-item>
+            <el-button class="workspace-btn workspace-btn--ghost" @click="openSaveAcceptanceBatchDialog">保存验收批次</el-button>
+          </el-form-item>
         </el-form>
       </div>
     </section>
@@ -261,6 +264,43 @@
       </div>
       <div v-else class="empty-review-hint">
         当前还没有待跟进分类，先把某些明细标记为待跟进，再选择对应原因分类。
+      </div>
+    </section>
+
+    <section class="glass-panel review-panel">
+      <div class="review-header">
+        <div>
+          <div class="review-title">已保存验收批次</div>
+          <div class="review-desc">这里保存每次真实跑测后的验收批次，便于回看结论、继续补充问题单和再次导出。</div>
+        </div>
+        <div class="review-badges">
+          <span class="review-badge">批次数：{{ savedAcceptanceBatches.length }}</span>
+        </div>
+      </div>
+      <div v-if="savedAcceptanceBatches.length" class="saved-batch-grid">
+        <article v-for="batch in savedAcceptanceBatches" :key="batch.id" class="saved-batch-card">
+          <div class="saved-batch-head">
+            <div>
+              <div class="saved-batch-title">{{ batch.batchName }}</div>
+              <div class="saved-batch-meta">
+                {{ batch.appName || '未填写应用' }} · {{ batch.sceneType || '未填写场景' }} · {{ formatDateTime(batch.testDate || batch.createdTime) }}
+              </div>
+            </div>
+            <div class="saved-batch-count">{{ batch.itemCount || 0 }} 条</div>
+          </div>
+          <div class="saved-batch-summary">
+            <span>通过：{{ batch.passCount || 0 }}</span>
+            <span>待跟进：{{ batch.followUpCount || 0 }}</span>
+          </div>
+          <div class="saved-batch-text">{{ batch.summaryConclusion || '当前还没有填写汇总结论。' }}</div>
+          <div class="priority-actions">
+            <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="openSavedAcceptanceBatch(batch.id)">查看并编辑</el-button>
+            <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="exportSavedAcceptanceBatch(batch)">导出 Markdown</el-button>
+          </div>
+        </article>
+      </div>
+      <div v-else class="empty-review-hint">
+        还没有保存过验收批次。建议先从当前筛选结果生成一轮真实验收批次，再逐条补齐结论。
       </div>
     </section>
 
@@ -479,13 +519,161 @@
       </div>
       <pre class="detail-dialog-content">{{ taskSuggestionContent }}</pre>
     </el-dialog>
+
+    <el-dialog v-model="acceptanceBatchDialogVisible" class="record-detail-dialog acceptance-batch-dialog" :title="acceptanceBatchDialogTitle" width="1120px">
+      <div class="acceptance-batch-layout">
+        <section class="acceptance-batch-section">
+          <div class="acceptance-batch-section-title">批次信息</div>
+          <el-form :model="acceptanceBatchForm" label-width="100px" class="acceptance-batch-form">
+            <div class="acceptance-batch-grid">
+              <el-form-item label="批次名称">
+                <el-input v-model="acceptanceBatchForm.batchName" placeholder="例如：2026-06-29 内部知识问答首轮验收" />
+              </el-form-item>
+              <el-form-item label="应用名称">
+                <el-input v-model="acceptanceBatchForm.appName" placeholder="应用名称" />
+              </el-form-item>
+              <el-form-item label="场景类型">
+                <el-input v-model="acceptanceBatchForm.sceneType" placeholder="内部知识问答 / 任务指导" />
+              </el-form-item>
+              <el-form-item label="验收日期">
+                <el-date-picker
+                  v-model="acceptanceBatchForm.testDate"
+                  type="datetime"
+                  value-format="YYYY-MM-DD HH:mm:ss"
+                  format="YYYY-MM-DD HH:mm:ss"
+                  placeholder="选择验收日期"
+                  style="width: 100%"
+                />
+              </el-form-item>
+              <el-form-item label="知识库范围">
+                <el-input v-model="acceptanceBatchForm.knowledgeScope" placeholder="本轮验收覆盖的知识库范围" />
+              </el-form-item>
+              <el-form-item label="发布版本">
+                <el-input v-model="acceptanceBatchForm.releaseVersion" placeholder="例如：v0.1.3" />
+              </el-form-item>
+              <el-form-item label="实验版本">
+                <el-input v-model="acceptanceBatchForm.experimentVersion" placeholder="例如：semantic-20260629" />
+              </el-form-item>
+              <el-form-item label="验收人">
+                <el-input v-model="acceptanceBatchForm.testerName" placeholder="验收人" />
+              </el-form-item>
+            </div>
+            <el-form-item label="版本说明">
+              <el-input v-model="acceptanceBatchForm.versionRemark" type="textarea" :rows="2" placeholder="补充本轮版本说明" />
+            </el-form-item>
+            <el-form-item label="汇总结论">
+              <el-input v-model="acceptanceBatchForm.summaryConclusion" type="textarea" :rows="3" placeholder="填写本轮验收的整体判断" />
+            </el-form-item>
+            <el-form-item label="后续动作">
+              <el-input v-model="acceptanceBatchForm.nextAction" type="textarea" :rows="3" placeholder="例如：补知识、补提示词、补失败反馈" />
+            </el-form-item>
+          </el-form>
+        </section>
+
+        <section class="acceptance-batch-section">
+          <div class="acceptance-batch-section-head">
+            <div class="acceptance-batch-section-title">验收条目</div>
+            <div class="detail-dialog-tip">共 {{ acceptanceBatchForm.items.length }} 条，可逐条填写四项结论和后续动作。</div>
+          </div>
+          <div class="acceptance-item-list">
+            <article v-for="item in acceptanceBatchForm.items" :key="item.localKey" class="acceptance-item-card">
+              <div class="acceptance-item-head">
+                <div>
+                  <div class="acceptance-item-title">{{ item.testCaseNo }}</div>
+                  <div class="saved-batch-meta">
+                    {{ item.appName || '-' }} · {{ item.libName || '-' }} · {{ item.modelName || '未知模型' }} · {{ item.costTime ?? '-' }}ms
+                  </div>
+                </div>
+                <div class="priority-tag-group">
+                  <span class="priority-tag priority-tag--info">{{ item.invokeStatus || '-' }}</span>
+                  <span v-if="item.followUpCategory" class="priority-tag priority-tag--warning">{{ getFollowUpLabel(item.followUpCategory) }}</span>
+                </div>
+              </div>
+              <div class="acceptance-item-block">
+                <div class="priority-label">用户问题</div>
+                <div class="priority-text">{{ item.userQuestion || '-' }}</div>
+              </div>
+              <div class="acceptance-item-block">
+                <div class="priority-label">回答摘要</div>
+                <div class="priority-text">{{ item.actualAnswerSummary || '-' }}</div>
+              </div>
+              <div class="acceptance-item-block" v-if="item.failReason">
+                <div class="priority-label">失败原因</div>
+                <div class="priority-text priority-text--danger">{{ item.failReason }}</div>
+              </div>
+              <el-form :model="item" label-width="112px" class="acceptance-item-form">
+                <el-form-item label="期望知识点">
+                  <el-input v-model="item.expectedKnowledge" type="textarea" :rows="2" placeholder="人工补充期望知识点或期望行为" />
+                </el-form-item>
+                <div class="acceptance-item-grid">
+                  <el-form-item label="命中问题">
+                    <el-select v-model="item.hitConclusion" placeholder="选择结论">
+                      <el-option v-for="option in conclusionOptions" :key="option" :label="option" :value="option" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="可信">
+                    <el-select v-model="item.groundedConclusion" placeholder="选择结论">
+                      <el-option v-for="option in conclusionOptions" :key="option" :label="option" :value="option" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="易懂">
+                    <el-select v-model="item.readableConclusion" placeholder="选择结论">
+                      <el-option v-for="option in conclusionOptions" :key="option" :label="option" :value="option" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="失败体面">
+                    <el-select v-model="item.gracefulFailureConclusion" placeholder="选择结论">
+                      <el-option v-for="option in conclusionOptions" :key="option" :label="option" :value="option" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="HitRate@5">
+                    <el-select v-model="item.hitRateConclusion" placeholder="选择结论">
+                      <el-option v-for="option in conclusionOptions" :key="option" :label="option" :value="option" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="Completeness">
+                    <el-select v-model="item.completenessConclusion" placeholder="选择结论">
+                      <el-option v-for="option in conclusionOptions" :key="option" :label="option" :value="option" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="跟进分类">
+                    <el-select v-model="item.followUpCategory" clearable placeholder="选择分类">
+                      <el-option v-for="option in followUpCategoryOptions" :key="option.value" :label="option.label" :value="option.value" />
+                    </el-select>
+                  </el-form-item>
+                </div>
+                <el-form-item label="跟进动作">
+                  <el-input v-model="item.followUpAction" type="textarea" :rows="2" placeholder="例如：补充制度文档、优化切分参数、补失败反馈" />
+                </el-form-item>
+                <el-form-item label="备注">
+                  <el-input v-model="item.remark" type="textarea" :rows="2" placeholder="补充人工判断、风险说明或复现信息" />
+                </el-form-item>
+              </el-form>
+            </article>
+          </div>
+        </section>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button class="workspace-btn workspace-btn--ghost" @click="exportAcceptanceBatchDialog">导出 Markdown</el-button>
+          <el-button class="workspace-btn workspace-btn--ghost" @click="acceptanceBatchDialogVisible = false">关闭</el-button>
+          <el-button class="workspace-btn workspace-btn--primary" @click="saveAcceptanceBatch">保存批次</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 <script setup name='InvokeRecordManage' lang='ts'>
 import { computed, reactive, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useTable } from '@/hooks/useTable';
-import { pageInvokeRecordApi, queryInvokeRecordOverviewApi } from '@/api/workspace/invokeRecordApi';
+import {
+  listRagAcceptanceBatchApi,
+  pageInvokeRecordApi,
+  queryInvokeRecordOverviewApi,
+  queryRagAcceptanceBatchDetailApi,
+  saveRagAcceptanceBatchApi
+} from '@/api/workspace/invokeRecordApi';
 import { getItem, saveItem } from '@/util/storageUtil';
 let searchFormData = reactive({
   appName: "",
@@ -511,7 +699,28 @@ const acceptanceDialogVisible = ref(false)
 const acceptanceDialogContent = ref('')
 const taskSuggestionDialogVisible = ref(false)
 const taskSuggestionContent = ref('')
+const acceptanceBatchDialogVisible = ref(false)
+const acceptanceBatchDialogTitle = ref('保存验收批次')
 const followUpCategoryView = ref<FollowUpCategory | ''>('')
+const savedAcceptanceBatches = ref<any[]>([])
+const acceptanceBatchForm = reactive<any>({
+  id: null,
+  batchName: '',
+  appName: '',
+  sceneType: '内部知识问答',
+  knowledgeScope: '',
+  releaseVersion: '',
+  experimentVersion: '',
+  versionRemark: '',
+  quickView: '',
+  quickViewDesc: '',
+  testerName: '',
+  testDate: '',
+  summaryConclusion: '',
+  nextAction: '',
+  items: []
+})
+const conclusionOptions = ['通过', '不通过', '待确认']
 const reviewStatusStoreKey = 'invoke-record-review-status'
 const followUpCategoryStoreKey = 'invoke-record-follow-up-category'
 const reviewStatusMap = ref<Record<string, ReviewStatus>>(loadReviewStatusMap())
@@ -679,6 +888,12 @@ function loadOverview() {
   })
 }
 
+function loadSavedAcceptanceBatches() {
+  listRagAcceptanceBatchApi().then(result => {
+    savedAcceptanceBatches.value = result.data || []
+  })
+}
+
 async function copyText(text: string, label: string) {
   try {
     await navigator.clipboard.writeText(String(text || ''))
@@ -823,6 +1038,211 @@ function exportAcceptanceDraft() {
 
   downloadMarkdown(lines.join('\n'), `rag-mvp-acceptance-draft-${Date.now()}.md`)
   ElMessage.success('已导出验收草稿')
+}
+
+function openSaveAcceptanceBatchDialog() {
+  const items = buildAcceptanceBatchItems()
+  if (!items.length) {
+    ElMessage.warning('当前没有可保存的验收记录')
+    return
+  }
+  resetAcceptanceBatchForm()
+  acceptanceBatchDialogTitle.value = '保存验收批次'
+  acceptanceBatchForm.quickView = quickView.value
+  acceptanceBatchForm.quickViewDesc = currentQuickViewDesc.value
+  acceptanceBatchForm.batchName = `${new Date().toLocaleDateString()} 验收批次`
+  acceptanceBatchForm.items = items
+  acceptanceBatchDialogVisible.value = true
+}
+
+function buildAcceptanceBatchItems() {
+  return filteredRows.value.flatMap((row: any) => {
+    const detailList = row.detailList || []
+    return detailList.map((detail: any, index: number) => {
+      const key = buildReviewKey(row, detail)
+      return {
+        localKey: key,
+        id: null,
+        invokeRecordId: row.id,
+        invokeRecordDetailId: detail.id,
+        testCaseNo: `TC-${row.id}-${index + 1}`,
+        questionType: '',
+        userQuestion: detail.userInput || '',
+        expectedKnowledge: '',
+        actualAnswerSummary: buildAnswerSummary(detail.assistantMessage),
+        actualAnswer: detail.assistantMessage || '',
+        failReason: detail.failReason || row.failReason || '',
+        hitConclusion: '',
+        groundedConclusion: '',
+        readableConclusion: '',
+        gracefulFailureConclusion: Number(detail.status) === 0 ? '待确认' : '',
+        hitRateConclusion: '',
+        completenessConclusion: '',
+        followUpCategory: getFollowUpCategory(key) || '',
+        followUpAction: '',
+        remark: '',
+        invokeStatus: detail.statusDesc || row.statusDesc || '',
+        modelName: detail.modelName || '',
+        appName: row.appName || '',
+        libName: row.libName || '',
+        costTime: detail.costTime ?? row.costTime ?? null,
+        costToken: detail.costToken ?? null
+      }
+    })
+  })
+}
+
+function resetAcceptanceBatchForm() {
+  Object.assign(acceptanceBatchForm, {
+    id: null,
+    batchName: '',
+    appName: '',
+    sceneType: '内部知识问答',
+    knowledgeScope: '',
+    releaseVersion: '',
+    experimentVersion: '',
+    versionRemark: '',
+    quickView: '',
+    quickViewDesc: '',
+    testerName: '',
+    testDate: '',
+    summaryConclusion: '',
+    nextAction: '',
+    items: []
+  })
+}
+
+function saveAcceptanceBatch() {
+  if (!String(acceptanceBatchForm.batchName || '').trim()) {
+    ElMessage.warning('请先填写验收批次名称')
+    return
+  }
+  if (!acceptanceBatchForm.items.length) {
+    ElMessage.warning('当前没有可保存的验收条目')
+    return
+  }
+  const payload = {
+    ...acceptanceBatchForm,
+    items: acceptanceBatchForm.items.map((item: any) => ({
+      id: item.id || null,
+      invokeRecordId: item.invokeRecordId,
+      invokeRecordDetailId: item.invokeRecordDetailId,
+      testCaseNo: item.testCaseNo,
+      questionType: item.questionType,
+      userQuestion: item.userQuestion,
+      expectedKnowledge: item.expectedKnowledge,
+      actualAnswerSummary: item.actualAnswerSummary,
+      actualAnswer: item.actualAnswer,
+      failReason: item.failReason,
+      hitConclusion: item.hitConclusion,
+      groundedConclusion: item.groundedConclusion,
+      readableConclusion: item.readableConclusion,
+      gracefulFailureConclusion: item.gracefulFailureConclusion,
+      hitRateConclusion: item.hitRateConclusion,
+      completenessConclusion: item.completenessConclusion,
+      followUpCategory: item.followUpCategory,
+      followUpAction: item.followUpAction,
+      remark: item.remark,
+      invokeStatus: item.invokeStatus,
+      modelName: item.modelName,
+      appName: item.appName,
+      libName: item.libName,
+      costTime: item.costTime,
+      costToken: item.costToken
+    }))
+  }
+  saveRagAcceptanceBatchApi(payload).then(() => {
+    ElMessage.success('已保存验收批次')
+    acceptanceBatchDialogVisible.value = false
+    loadSavedAcceptanceBatches()
+  })
+}
+
+function openSavedAcceptanceBatch(id: string | number) {
+  queryRagAcceptanceBatchDetailApi(id).then(result => {
+    const data = result.data || {}
+    resetAcceptanceBatchForm()
+    acceptanceBatchDialogTitle.value = '查看并编辑验收批次'
+    Object.assign(acceptanceBatchForm, {
+      id: data.id || null,
+      batchName: data.batchName || '',
+      appName: data.appName || '',
+      sceneType: data.sceneType || '',
+      knowledgeScope: data.knowledgeScope || '',
+      releaseVersion: data.releaseVersion || '',
+      experimentVersion: data.experimentVersion || '',
+      versionRemark: data.versionRemark || '',
+      quickView: data.quickView || '',
+      quickViewDesc: data.quickViewDesc || '',
+      testerName: data.testerName || '',
+      testDate: data.testDate ? formatDateForPicker(data.testDate) : '',
+      summaryConclusion: data.summaryConclusion || '',
+      nextAction: data.nextAction || '',
+      items: (data.items || []).map((item: any, index: number) => ({
+        ...item,
+        localKey: item.id || `${data.id}-${index + 1}`
+      }))
+    })
+    acceptanceBatchDialogVisible.value = true
+  })
+}
+
+function exportSavedAcceptanceBatch(batch: any) {
+  queryRagAcceptanceBatchDetailApi(batch.id).then(result => {
+    downloadMarkdown(buildAcceptanceBatchMarkdown(result.data || {}), `rag-acceptance-batch-${batch.id}.md`)
+    ElMessage.success('已导出验收批次')
+  })
+}
+
+function exportAcceptanceBatchDialog() {
+  if (!acceptanceBatchForm.items.length) {
+    ElMessage.warning('当前没有可导出的验收条目')
+    return
+  }
+  downloadMarkdown(buildAcceptanceBatchMarkdown(acceptanceBatchForm), `rag-acceptance-batch-${Date.now()}.md`)
+  ElMessage.success('已导出验收批次')
+}
+
+function buildAcceptanceBatchMarkdown(batch: any) {
+  const lines = [
+    '# RAG MVP 测试问题集与效果记录',
+    '',
+    '## 1. 当前版本信息',
+    '',
+    `- 验收批次：${batch.batchName || '-'}`,
+    `- 测试日期：${batch.testDate ? formatDateTime(batch.testDate) : '-'}`,
+    `- 测试人：${batch.testerName || '-'}`,
+    `- 应用名称：${batch.appName || '-'}`,
+    `- 场景类型：${batch.sceneType || '-'}`,
+    `- 知识库范围：${batch.knowledgeScope || '-'}`,
+    `- 发布版本：${batch.releaseVersion || '-'}`,
+    `- 实验版本：${batch.experimentVersion || '-'}`,
+    `- 版本说明：${batch.versionRemark || '-'}`,
+    '',
+    '## 2. 调用记录转验收表',
+    '',
+    '| 编号 | 问题类型 | 用户问题 | 期望知识点 / 期望行为 | 实际回答摘要 | 命中问题 | 可信 | 易懂 | 失败体面 | HitRate@5 | Completeness | 备注 |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |'
+  ]
+  ;(batch.items || []).forEach((item: any) => {
+    lines.push(`| ${sanitizeTableCell(item.testCaseNo)} | ${sanitizeTableCell(item.questionType || '待分类')} | ${sanitizeTableCell(item.userQuestion)} | ${sanitizeTableCell(item.expectedKnowledge || '待补充')} | ${sanitizeTableCell(item.actualAnswerSummary || '-')} | ${sanitizeTableCell(item.hitConclusion || '待确认')} | ${sanitizeTableCell(item.groundedConclusion || '待确认')} | ${sanitizeTableCell(item.readableConclusion || '待确认')} | ${sanitizeTableCell(item.gracefulFailureConclusion || '待确认')} | ${sanitizeTableCell(item.hitRateConclusion || '待确认')} | ${sanitizeTableCell(item.completenessConclusion || '待确认')} | ${sanitizeTableCell(item.remark || '-')} |`)
+    lines.push('')
+    lines.push('补充信息：')
+    lines.push(`- 原始失败原因：${sanitizeInline(item.failReason || '无')}`)
+    lines.push(`- 模型：${sanitizeInline(item.modelName || '未知模型')}`)
+    lines.push(`- Token：${item.costToken ?? '-'}`)
+    lines.push(`- 跟进分类：${sanitizeInline(getFollowUpLabel(item.followUpCategory))}`)
+    lines.push(`- 跟进动作：${sanitizeInline(item.followUpAction || '-')}`)
+    lines.push('```text')
+    lines.push(String(item.actualAnswer || ''))
+    lines.push('```')
+    lines.push('')
+  })
+  lines.push('## 3. 汇总结论')
+  lines.push('')
+  lines.push(`- 汇总结论：${batch.summaryConclusion || '-'}`)
+  lines.push(`- 后续动作：${batch.nextAction || '-'}`)
+  return lines.join('\n')
 }
 
 function exportFollowUpTaskDraft() {
@@ -1078,6 +1498,13 @@ function getFollowUpCategoryLabel(key: string) {
   return followUpCategoryLabelMap[category]
 }
 
+function getFollowUpLabel(category: FollowUpCategory | '' | undefined) {
+  if (!category) {
+    return ''
+  }
+  return followUpCategoryLabelMap[category]
+}
+
 function updateFollowUpCategory(key: string, category: FollowUpCategory) {
   if (getReviewStatus(key) !== 'followUp') {
     ElMessage.warning('只有待跟进记录才能设置分类')
@@ -1123,12 +1550,29 @@ function downloadMarkdown(content: string, fileName: string) {
   URL.revokeObjectURL(url)
 }
 
+function formatDateTime(value: string | Date) {
+  if (!value) {
+    return '-'
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return String(value)
+  }
+  const pad = (num: number) => String(num).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
+function formatDateForPicker(value: string | Date) {
+  return formatDateTime(value)
+}
+
 type ReviewStatus = 'pending' | 'reviewed' | 'followUp'
 type FollowUpCategory = 'knowledge' | 'chunking' | 'prompt' | 'ui' | 'observe' | 'other'
 
 onMounted(() => {
   loadTable()
   loadOverview()
+  loadSavedAcceptanceBatches()
 })
 </script>
 <style scoped>
@@ -1372,6 +1816,133 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.saved-batch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.saved-batch-card {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(64, 158, 255, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.saved-batch-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.saved-batch-title,
+.acceptance-batch-section-title,
+.acceptance-item-title {
+  color: var(--space-text);
+  font-weight: 700;
+}
+
+.saved-batch-title,
+.acceptance-item-title {
+  font-size: 15px;
+}
+
+.saved-batch-meta {
+  margin-top: 4px;
+  color: var(--space-text-soft);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.saved-batch-count {
+  color: var(--space-primary-strong);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.saved-batch-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--space-primary-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.saved-batch-text {
+  margin-top: 10px;
+  color: var(--space-text);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.acceptance-batch-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.acceptance-batch-section {
+  padding: 18px;
+  border-radius: 18px;
+  background: #f8fbff;
+  border: 1px solid rgba(64, 158, 255, 0.12);
+}
+
+.acceptance-batch-section-title {
+  font-size: 16px;
+}
+
+.acceptance-batch-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.acceptance-batch-form,
+.acceptance-item-form {
+  margin-top: 14px;
+}
+
+.acceptance-batch-grid,
+.acceptance-item-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+}
+
+.acceptance-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+  max-height: 55vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.acceptance-item-card {
+  padding: 16px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(64, 158, 255, 0.1);
+}
+
+.acceptance-item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.acceptance-item-block {
+  margin-top: 10px;
+}
+
 .priority-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1438,6 +2009,18 @@ onMounted(() => {
 
   .priority-tag-group {
     justify-content: flex-start;
+  }
+
+  .saved-batch-head,
+  .acceptance-item-head,
+  .acceptance-batch-section-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .acceptance-batch-grid,
+  .acceptance-item-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

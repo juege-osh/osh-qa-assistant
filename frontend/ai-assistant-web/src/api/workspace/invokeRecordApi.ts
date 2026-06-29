@@ -15,3 +15,23 @@ export function queryInvokeRecordOverviewApi() {
       url: "/consumer/invokeRecord/queryOverview"
   })
 }
+
+export function saveRagAcceptanceBatchApi(data: object) {
+  return appJsonPost({
+    url: "/consumer/ragAcceptance/saveBatch",
+    data
+  })
+}
+
+export function listRagAcceptanceBatchApi() {
+  return doGet({
+    url: "/consumer/ragAcceptance/listMine"
+  })
+}
+
+export function queryRagAcceptanceBatchDetailApi(id: string | number) {
+  return doGet({
+    url: "/consumer/ragAcceptance/detail",
+    params: { id }
+  })
+}
