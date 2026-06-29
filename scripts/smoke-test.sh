@@ -19,8 +19,6 @@ need_cmd() {
 
 need_cmd curl
 need_cmd python3
-need_cmd redis-cli
-
 json_get() {
   local file="$1"
   local expr="$2"
@@ -42,15 +40,62 @@ PY
 
 read_captcha_code() {
   local captcha_id="$1"
-  local raw
-  raw="$(REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" --raw GET "$captcha_id" | tr -d '\r\n')"
-  python3 - "$raw" <<'PY'
-import json, sys
-raw = sys.argv[1]
+  python3 - "$REDIS_HOST" "$REDIS_PORT" "$REDIS_PASSWORD" "$captcha_id" <<'PY'
+import json
+import socket
+import sys
+
+host, port, password, key = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]
+
+def redis_cmd(*parts):
+    payload = f"*{len(parts)}\r\n".encode()
+    for part in parts:
+        data = str(part).encode()
+        payload += f"${len(data)}\r\n".encode() + data + b"\r\n"
+    return payload
+
+def read_line(sock):
+    data = b""
+    while not data.endswith(b"\r\n"):
+        chunk = sock.recv(1)
+        if not chunk:
+            raise SystemExit("redis connection closed unexpectedly")
+        data += chunk
+    return data[:-2]
+
+def read_resp(sock):
+    prefix = sock.recv(1)
+    if not prefix:
+        raise SystemExit("empty redis response")
+    marker = prefix.decode()
+    if marker == "+":
+        return read_line(sock).decode()
+    if marker == "-":
+        raise SystemExit(read_line(sock).decode())
+    if marker == ":":
+        return int(read_line(sock))
+    if marker == "$":
+        length = int(read_line(sock))
+        if length == -1:
+            return ""
+        data = b""
+        while len(data) < length + 2:
+            data += sock.recv(length + 2 - len(data))
+        return data[:-2].decode()
+    if marker == "*":
+        count = int(read_line(sock))
+        return [read_resp(sock) for _ in range(count)]
+    raise SystemExit(f"unsupported redis response: {marker}")
+
+with socket.create_connection((host, port), timeout=5) as sock:
+    if password:
+        sock.sendall(redis_cmd("AUTH", password))
+        read_resp(sock)
+    sock.sendall(redis_cmd("GET", key))
+    raw = read_resp(sock)
+
 if raw == "":
     print("")
-elif raw.startswith("NOAUTH ") or raw.startswith("WRONGPASS "):
-    raise SystemExit(raw)
 elif len(raw) >= 2 and raw[0] == '"' and raw[-1] == '"':
     print(json.loads(raw))
 else:

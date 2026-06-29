@@ -4,9 +4,13 @@ import com.osh.ai.assistant.common.config.ExHandlerConfig;
 import com.osh.ai.assistant.common.config.MybatisPlusConfig;
 import com.osh.ai.assistant.common.config.RedisConfig;
 import com.osh.ai.assistant.common.config.properties.AuthorizationProperties;
+import com.osh.ai.assistant.common.config.properties.EnvProperties;
 import com.osh.ai.assistant.common.config.properties.UploadProperties;
 import com.osh.ai.assistant.common.controller.StorageController;
 import com.osh.ai.assistant.consumer.ConsumerApp;
+import com.osh.ai.assistant.consumer.config.properties.AlertProperties;
+import com.osh.ai.assistant.consumer.config.properties.DbProbeProperties;
+import com.osh.ai.assistant.consumer.config.properties.RagSplitProperties;
 import com.osh.ai.assistant.manager.ManagerApp;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
@@ -26,7 +30,14 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 @EnableScheduling
 @EnableTransactionManagement
 @EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)
-@EnableConfigurationProperties({AuthorizationProperties.class, UploadProperties.class})
+@EnableConfigurationProperties({
+    AuthorizationProperties.class,
+    UploadProperties.class,
+    EnvProperties.class,
+    RagSplitProperties.class,
+    AlertProperties.class,
+    DbProbeProperties.class
+})
 @Import({MybatisPlusConfig.class, RedisConfig.class, ExHandlerConfig.class})
 @ComponentScan(
     basePackages = {
