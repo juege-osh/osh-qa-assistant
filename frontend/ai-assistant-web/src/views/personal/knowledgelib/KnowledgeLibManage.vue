@@ -126,6 +126,9 @@
           />
           <div class="recall-debug-actions">
             <el-button class="workspace-btn workspace-btn--ghost" @click="recallDebugForm.query = ''">清空</el-button>
+            <el-button class="workspace-btn workspace-btn--ghost" :disabled="!recallDebugResult.query" @click="saveRecallSnapshot">
+              保存实验快照
+            </el-button>
             <el-button class="workspace-btn workspace-btn--ghost" :disabled="!recallDebugResult.query" @click="copyRecallTaskDraft">
               复制任务草稿
             </el-button>
@@ -187,6 +190,45 @@
           </div>
         </section>
 
+        <section class="recall-snapshot-section" v-if="recallSnapshots.length">
+          <div class="recall-judgement-copy">
+            <div class="recall-judgement-title">实验快照</div>
+            <div class="recall-judgement-desc">
+              保存每次调试结果后，可以勾选两条快照做人工对比，判断哪一版切分与检索效果更适合当前问题集。
+            </div>
+          </div>
+          <div class="snapshot-actions">
+            <el-button class="workspace-btn workspace-btn--ghost" :disabled="selectedSnapshotIds.length !== 2" @click="copySnapshotCompareDraft">
+              复制对比报告
+            </el-button>
+            <el-button class="workspace-btn workspace-btn--ghost" @click="clearRecallSnapshots">
+              清空快照
+            </el-button>
+          </div>
+          <div class="snapshot-list">
+            <label v-for="snapshot in recallSnapshots" :key="snapshot.id" class="snapshot-card">
+              <input
+                type="checkbox"
+                :checked="selectedSnapshotIds.includes(snapshot.id)"
+                @change="toggleSnapshotSelection(snapshot.id)"
+              >
+              <div class="snapshot-card-main">
+                <div class="snapshot-card-head">
+                  <strong>{{ snapshot.query }}</strong>
+                  <span>{{ snapshot.savedAt }}</span>
+                </div>
+                <div class="snapshot-card-meta">
+                  <span>{{ snapshot.libName }}</span>
+                  <span>{{ formatSplitStrategy(snapshot.splitStrategy) }}</span>
+                  <span>原始 {{ snapshot.rawHitCount }}</span>
+                  <span>重排 {{ snapshot.rerankHitCount }}</span>
+                  <span>{{ snapshot.categoryLabel }}</span>
+                </div>
+              </div>
+            </label>
+          </div>
+        </section>
+
         <section class="recall-grid" v-if="recallDebugResult.query">
           <article class="recall-panel">
             <div class="recall-panel-title">原始召回结果</div>
@@ -235,6 +277,7 @@ import UpdateKnowledgeLib from '@/views/personal/knowledgelib/UpdateKnowledgeLib
 import { Plus, Folder } from '@element-plus/icons-vue';
 import { useResource } from '@/hooks/useResource';
 import { ElMessage } from 'element-plus';
+import { getItem, saveItem } from '@/util/storageUtil';
 
 // 添加对话框是否显示
 let addDialogVisible = ref(false)
@@ -257,6 +300,22 @@ const recallDebugForm = reactive({
   topK: 5
 })
 const selectedFollowUpCategory = ref<FollowUpCategory>('knowledge')
+const RECALL_SNAPSHOT_STORAGE_KEY = 'knowledge-lib-recall-snapshots'
+type RecallSnapshot = {
+  id: string
+  savedAt: string
+  libId: string
+  libName: string
+  query: string
+  splitStrategy: string
+  rawHitCount: number
+  rerankHitCount: number
+  diagnosisTitle: string
+  category: FollowUpCategory
+  categoryLabel: string
+  rawTopSummary: string
+  rerankTopSummary: string
+}
 const recallDebugResult = reactive({
   query: '',
   topK: 5,
@@ -266,6 +325,8 @@ const recallDebugResult = reactive({
   rawHits: [] as Array<{ index: number; fileName: string; documentId: string; score?: number; content: string }>,
   rerankHits: [] as Array<{ index: number; fileName: string; documentId: string; score?: number; content: string }>
 })
+const recallSnapshots = ref<RecallSnapshot[]>([])
+const selectedSnapshotIds = ref<string[]>([])
 const recallDiagnosis = computed(() => {
   const rawHitCount = Number(recallDebugResult.rawHitCount || 0)
   const rerankHitCount = Number(recallDebugResult.rerankHitCount || 0)
@@ -435,7 +496,120 @@ function buildRecallTaskDraft() {
   return lines.join('\n')
 }
 
+function saveRecallSnapshot() {
+  if (!recallDebugResult.query) {
+    ElMessage.warning('请先完成一次检索调试')
+    return
+  }
+  const selectedLib = tableData.rows.find((row: any) => String(row.id) === String(recallDebugForm.libId))
+  const rawTop = recallDebugResult.rawHits[0]
+  const rerankTop = recallDebugResult.rerankHits[0]
+  const snapshot: RecallSnapshot = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    savedAt: new Date().toLocaleString(),
+    libId: String(recallDebugForm.libId),
+    libName: selectedLib?.libName || String(recallDebugForm.libId),
+    query: recallDebugResult.query,
+    splitStrategy: recallDebugResult.splitStrategy,
+    rawHitCount: Number(recallDebugResult.rawHitCount || 0),
+    rerankHitCount: Number(recallDebugResult.rerankHitCount || 0),
+    diagnosisTitle: recallDiagnosis.value.title,
+    category: selectedFollowUpCategory.value,
+    categoryLabel: activeFollowUpLabel.value,
+    rawTopSummary: rawTop ? `${rawTop.fileName} / ${formatScore(rawTop.score)}` : '未命中',
+    rerankTopSummary: rerankTop ? `${rerankTop.fileName} / ${formatScore(rerankTop.score)}` : '未命中'
+  }
+  const nextSnapshots = [snapshot, ...recallSnapshots.value].slice(0, 20)
+  recallSnapshots.value = nextSnapshots
+  saveItem(RECALL_SNAPSHOT_STORAGE_KEY, nextSnapshots)
+  ElMessage.success('已保存实验快照')
+}
+
+function clearRecallSnapshots() {
+  recallSnapshots.value = []
+  selectedSnapshotIds.value = []
+  saveItem(RECALL_SNAPSHOT_STORAGE_KEY, [])
+  ElMessage.success('已清空实验快照')
+}
+
+function toggleSnapshotSelection(snapshotId: string) {
+  if (selectedSnapshotIds.value.includes(snapshotId)) {
+    selectedSnapshotIds.value = selectedSnapshotIds.value.filter((id) => id !== snapshotId)
+    return
+  }
+  if (selectedSnapshotIds.value.length >= 2) {
+    selectedSnapshotIds.value = [...selectedSnapshotIds.value.slice(1), snapshotId]
+    return
+  }
+  selectedSnapshotIds.value = [...selectedSnapshotIds.value, snapshotId]
+}
+
+async function copySnapshotCompareDraft() {
+  if (selectedSnapshotIds.value.length !== 2) {
+    ElMessage.warning('请先勾选两条实验快照')
+    return
+  }
+  const selectedSnapshots = recallSnapshots.value.filter((item) => selectedSnapshotIds.value.includes(item.id))
+  const [snapshotA, snapshotB] = selectedSnapshots
+  const draft = [
+    '# RAG 切分 / 检索实验对比草稿',
+    '',
+    `- 生成时间：${new Date().toLocaleString()}`,
+    '',
+    '## 实验 A',
+    '',
+    `- 保存时间：${snapshotA.savedAt}`,
+    `- 知识库：${snapshotA.libName}`,
+    `- 问题：${snapshotA.query}`,
+    `- 切分策略：${formatSplitStrategy(snapshotA.splitStrategy)}`,
+    `- 原始召回：${snapshotA.rawHitCount}`,
+    `- 重排后：${snapshotA.rerankHitCount}`,
+    `- 建议归类：${snapshotA.categoryLabel}`,
+    `- 诊断结论：${snapshotA.diagnosisTitle}`,
+    `- 原始 Top1：${snapshotA.rawTopSummary}`,
+    `- 重排 Top1：${snapshotA.rerankTopSummary}`,
+    '',
+    '## 实验 B',
+    '',
+    `- 保存时间：${snapshotB.savedAt}`,
+    `- 知识库：${snapshotB.libName}`,
+    `- 问题：${snapshotB.query}`,
+    `- 切分策略：${formatSplitStrategy(snapshotB.splitStrategy)}`,
+    `- 原始召回：${snapshotB.rawHitCount}`,
+    `- 重排后：${snapshotB.rerankHitCount}`,
+    `- 建议归类：${snapshotB.categoryLabel}`,
+    `- 诊断结论：${snapshotB.diagnosisTitle}`,
+    `- 原始 Top1：${snapshotB.rawTopSummary}`,
+    `- 重排 Top1：${snapshotB.rerankTopSummary}`,
+    '',
+    '## 对比判断',
+    '',
+    '- 哪一版更容易在 Top1 / Top3 召回正确知识：',
+    '- 哪一版的重排后结果更稳定：',
+    '- 哪一版更适合作为当前知识库默认切分：',
+    '- 需要继续补知识、补切分还是补提示词：'
+  ].join('\n')
+
+  try {
+    await navigator.clipboard.writeText(draft)
+    ElMessage.success('已复制实验对比草稿')
+  } catch {
+    ElMessage.error('复制失败，请稍后重试')
+  }
+}
+
 onMounted(() => {
+  try {
+    const saved = getItem(RECALL_SNAPSHOT_STORAGE_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed)) {
+        recallSnapshots.value = parsed
+      }
+    }
+  } catch {
+    recallSnapshots.value = []
+  }
   loadTable()
 })
 </script>
@@ -563,6 +737,63 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+.recall-snapshot-section {
+  padding: 18px;
+  border: 1px solid rgba(64, 158, 255, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.snapshot-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.snapshot-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.snapshot-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(64, 158, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.92);
+  cursor: pointer;
+}
+
+.snapshot-card input {
+  margin-top: 4px;
+}
+
+.snapshot-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.snapshot-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--space-text);
+  font-size: 14px;
+}
+
+.snapshot-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+  color: var(--space-text-soft);
+  font-size: 12px;
 }
 
 .recall-judgement {
@@ -718,6 +949,10 @@ onMounted(() => {
 
   .recall-judgement-grid {
     grid-template-columns: 1fr;
+  }
+
+  .snapshot-card-head {
+    flex-direction: column;
   }
 }
 </style>
