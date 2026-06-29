@@ -126,6 +126,9 @@
           />
           <div class="recall-debug-actions">
             <el-button class="workspace-btn workspace-btn--ghost" @click="recallDebugForm.query = ''">清空</el-button>
+            <el-button class="workspace-btn workspace-btn--ghost" :disabled="!recallDebugResult.query" @click="copyRecallTaskDraft">
+              复制任务草稿
+            </el-button>
             <el-button type="primary" class="workspace-btn workspace-btn--primary" :loading="recallDebugLoading" @click="runRecallDebug">
               开始调试
             </el-button>
@@ -148,6 +151,39 @@
           <div class="recall-summary-card">
             <span class="recall-summary-label">TopK</span>
             <strong class="recall-summary-value">{{ recallDebugResult.topK }}</strong>
+          </div>
+        </section>
+
+        <section class="recall-judgement" v-if="recallDebugResult.query">
+          <div class="recall-judgement-copy">
+            <div class="recall-judgement-title">当前问题判断</div>
+            <div class="recall-judgement-desc">
+              先判断这是没召回、召回错了，还是召回对了但答案组织得不好，再决定后续进入补知识、补切分、补提示词还是补展示。
+            </div>
+          </div>
+          <div class="recall-judgement-grid">
+            <div class="recall-judgement-card">
+              <span class="recall-judgement-label">建议归类</span>
+              <strong class="recall-judgement-value">{{ activeFollowUpLabel }}</strong>
+            </div>
+            <div class="recall-judgement-card">
+              <span class="recall-judgement-label">诊断结论</span>
+              <strong class="recall-judgement-value recall-judgement-value--small">{{ recallDiagnosis.title }}</strong>
+            </div>
+          </div>
+          <div class="recall-judgement-tags">
+            <el-button
+              v-for="option in followUpCategoryOptions"
+              :key="option.value"
+              class="workspace-btn"
+              :class="selectedFollowUpCategory === option.value ? 'workspace-btn--primary' : 'workspace-btn--ghost'"
+              @click="selectedFollowUpCategory = option.value"
+            >
+              {{ option.label }}
+            </el-button>
+          </div>
+          <div class="recall-judgement-note">
+            {{ recallDiagnosis.description }}
           </div>
         </section>
 
@@ -191,7 +227,7 @@
   </div>
 </template>
 <script setup name='KnowledgeLibManage' lang='ts'>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useTable } from '@/hooks/useTable';
 import { pageKnowledgeLibApi, deleteKnowledgeLibByIdApi, debugKnowledgeLibRecallApi } from '@/api/workspace/knowledgeLibApi';
 import AddKnowledgeLib from '@/views/personal/knowledgelib/AddKnowledgeLib.vue';
@@ -206,11 +242,21 @@ let updateDialogVisible = ref(false)
 let idToUpdate = ref('')
 let recallDebugVisible = ref(false)
 let recallDebugLoading = ref(false)
+const followUpCategoryOptions = [
+  { value: 'knowledge', label: '补知识' },
+  { value: 'chunking', label: '补切分' },
+  { value: 'prompt', label: '补提示词' },
+  { value: 'ui', label: '补展示' },
+  { value: 'observe', label: '补观测' }
+] as const
+type FollowUpCategory = typeof followUpCategoryOptions[number]['value']
+
 const recallDebugForm = reactive({
   libId: '',
   query: '',
   topK: 5
 })
+const selectedFollowUpCategory = ref<FollowUpCategory>('knowledge')
 const recallDebugResult = reactive({
   query: '',
   topK: 5,
@@ -219,6 +265,41 @@ const recallDebugResult = reactive({
   splitStrategy: '',
   rawHits: [] as Array<{ index: number; fileName: string; documentId: string; score?: number; content: string }>,
   rerankHits: [] as Array<{ index: number; fileName: string; documentId: string; score?: number; content: string }>
+})
+const recallDiagnosis = computed(() => {
+  const rawHitCount = Number(recallDebugResult.rawHitCount || 0)
+  const rerankHitCount = Number(recallDebugResult.rerankHitCount || 0)
+  const firstRerank = recallDebugResult.rerankHits[0]
+  if (rawHitCount === 0) {
+    return {
+      title: '完全未召回',
+      description: '当前问题在原始召回阶段就没有命中任何内容，更像是知识缺失、关键词不一致，或者知识源本身还没有入库。',
+      suggestedCategory: 'knowledge' as FollowUpCategory
+    }
+  }
+  if (rawHitCount > 0 && rerankHitCount === 0) {
+    return {
+      title: '召回到弱相关内容',
+      description: '原始召回拿到了候选，但都没通过重排阈值。优先检查切分边界、关键词表达和文档标题结构，再决定是否补知识。',
+      suggestedCategory: 'chunking' as FollowUpCategory
+    }
+  }
+  if (firstRerank && Number(firstRerank.score || 0) < 0.45) {
+    return {
+      title: '召回命中较弱',
+      description: '当前虽然有重排结果，但头部结果分数偏低，说明问题和知识片段的贴合度不高，建议优先优化切分与知识组织。',
+      suggestedCategory: 'chunking' as FollowUpCategory
+    }
+  }
+  return {
+    title: '已召回到较相关内容',
+    description: '当前问题已经能召回到相对相关的 chunk。如果线上回答仍然不好，下一步更可能是提示词组织、答案展示或链路观测的问题。',
+    suggestedCategory: 'prompt' as FollowUpCategory
+  }
+})
+const activeFollowUpLabel = computed(() => {
+  const active = followUpCategoryOptions.find((option) => option.value === selectedFollowUpCategory.value)
+  return active?.label || '-'
 })
 
 let searchFormData = reactive({
@@ -279,9 +360,24 @@ function runRecallDebug() {
     topK: recallDebugForm.topK
   }).then(result => {
     Object.assign(recallDebugResult, result.data || {})
+    selectedFollowUpCategory.value = recallDiagnosis.value.suggestedCategory
   }).finally(() => {
     recallDebugLoading.value = false
   })
+}
+
+async function copyRecallTaskDraft() {
+  if (!recallDebugResult.query) {
+    ElMessage.warning('请先完成一次检索调试')
+    return
+  }
+  const draft = buildRecallTaskDraft()
+  try {
+    await navigator.clipboard.writeText(draft)
+    ElMessage.success('已复制检索调试任务草稿')
+  } catch {
+    ElMessage.error('复制失败，请稍后重试')
+  }
 }
 
 function formatSplitStrategy(strategy: string) {
@@ -299,6 +395,44 @@ function formatScore(score?: number) {
     return '-'
   }
   return score.toFixed(3)
+}
+
+function buildRecallTaskDraft() {
+  const selectedLib = tableData.rows.find((row: any) => String(row.id) === String(recallDebugForm.libId))
+  const rerankTop = recallDebugResult.rerankHits[0]
+  const rawTop = recallDebugResult.rawHits[0]
+  const lines = [
+    '# RAG 检索调试后续任务草稿',
+    '',
+    `- 生成时间：${new Date().toLocaleString()}`,
+    `- 知识库：${selectedLib?.libName || recallDebugForm.libId}`,
+    `- 调试问题：${recallDebugResult.query}`,
+    `- 当前切分策略：${formatSplitStrategy(recallDebugResult.splitStrategy)}`,
+    `- 原始召回数：${recallDebugResult.rawHitCount}`,
+    `- 重排后召回数：${recallDebugResult.rerankHitCount}`,
+    `- 建议归类：${activeFollowUpLabel.value}`,
+    `- 诊断结论：${recallDiagnosis.value.title}`,
+    '',
+    '## 问题判断',
+    '',
+    recallDiagnosis.value.description,
+    '',
+    '## 当前命中情况',
+    '',
+    `- 原始召回 Top1：${rawTop ? `${rawTop.fileName} / 分数 ${formatScore(rawTop.score)}` : '未命中'}`,
+    `- 重排后 Top1：${rerankTop ? `${rerankTop.fileName} / 分数 ${formatScore(rerankTop.score)}` : '未命中'}`,
+    `- Top1 片段摘要：${rerankTop?.content || rawTop?.content || '暂无可用片段'}`,
+    '',
+    '## 建议动作',
+    '',
+    `- 优先从“${activeFollowUpLabel.value}”方向进入任务池。`,
+    '- 如果是补知识：补充缺失制度、术语别名、业务流程原文。',
+    '- 如果是补切分：优先检查标题边界、段落聚合是否过粗或过碎。',
+    '- 如果是补提示词：检查答案结构是否先结论后依据，是否清楚说明不确定性。',
+    '- 如果是补展示：检查引用片段、失败反馈、结果可读性是否足够清楚。',
+    '- 如果是补观测：把这个问题加入回归样例，后续对比不同切分版本和提示词版本。'
+  ]
+  return lines.join('\n')
 }
 
 onMounted(() => {
@@ -431,6 +565,72 @@ onMounted(() => {
   gap: 16px;
 }
 
+.recall-judgement {
+  padding: 18px;
+  border: 1px solid rgba(64, 158, 255, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.recall-judgement-title {
+  color: var(--space-text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.recall-judgement-desc {
+  margin-top: 8px;
+  color: var(--space-text-soft);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.recall-judgement-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.recall-judgement-card {
+  padding: 14px 16px;
+  border: 1px solid rgba(64, 158, 255, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(239, 246, 255, 0.98));
+}
+
+.recall-judgement-label {
+  display: block;
+  color: var(--space-text-soft);
+  font-size: 12px;
+}
+
+.recall-judgement-value {
+  display: block;
+  margin-top: 8px;
+  color: var(--space-primary-strong);
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.recall-judgement-value--small {
+  font-size: 17px;
+}
+
+.recall-judgement-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.recall-judgement-note {
+  margin-top: 14px;
+  color: var(--space-text-soft);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 .recall-panel {
   padding: 18px;
   border: 1px solid rgba(64, 158, 255, 0.12);
@@ -513,6 +713,10 @@ onMounted(() => {
   }
 
   .recall-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recall-judgement-grid {
     grid-template-columns: 1fr;
   }
 }
