@@ -44,6 +44,7 @@ import reactor.core.publisher.Flux;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -55,6 +56,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class AiChatServiceImpl implements AiChatService {
+    private static final int REFERENCE_SNIPPET_LIMIT = 120;
     @Resource
     private VectorStore vectorStore;
     @Autowired(required = false)
@@ -353,17 +355,24 @@ public class AiChatServiceImpl implements AiChatService {
         if (CollUtil.isEmpty(documents)) {
             return null;
         }
-        List<UploadFileDO> uploadFiles = uploadFileService.selectByDocIds(documents.stream().map(Document::getId).toList());
-        if (CollUtil.isEmpty(uploadFiles)) {
+        Map<String, UploadFileDO> uploadFileMap = buildUploadFileMap(documents);
+        if (uploadFileMap.isEmpty()) {
             return null;
         }
         StringBuilder builder = new StringBuilder("---\n**参考来源**\n");
-        int limit = Math.min(uploadFiles.size(), 3);
+        int limit = Math.min(documents.size(), 3);
         for (int i = 0; i < limit; i++) {
-            UploadFileDO uploadFileDO = uploadFiles.get(i);
+            Document document = documents.get(i);
+            UploadFileDO uploadFileDO = uploadFileMap.get(document.getId());
+            if (uploadFileDO == null) {
+                continue;
+            }
             builder.append(i + 1)
                 .append(". ")
                 .append(uploadFileDO.getFileName())
+                .append("\n");
+            builder.append("   片段: ")
+                .append(buildSnippet(document.getText()))
                 .append("\n");
         }
         return builder.toString();
@@ -373,21 +382,56 @@ public class AiChatServiceImpl implements AiChatService {
         if (CollUtil.isEmpty(documents)) {
             return null;
         }
-        List<UploadFileDO> uploadFiles = uploadFileService.selectByDocIds(documents.stream().map(Document::getId).toList());
-        if (CollUtil.isEmpty(uploadFiles)) {
+        Map<String, UploadFileDO> uploadFileMap = buildUploadFileMap(documents);
+        if (uploadFileMap.isEmpty()) {
             return null;
         }
         StringBuilder builder = new StringBuilder("---\n**可补充核对的资料**\n");
         builder.append("以下资料与当前问题可能接近,但暂不足以支撑可靠回答:\n");
-        int limit = Math.min(uploadFiles.size(), 3);
+        int limit = Math.min(documents.size(), 3);
         for (int i = 0; i < limit; i++) {
-            UploadFileDO uploadFileDO = uploadFiles.get(i);
+            Document document = documents.get(i);
+            UploadFileDO uploadFileDO = uploadFileMap.get(document.getId());
+            if (uploadFileDO == null) {
+                continue;
+            }
             builder.append(i + 1)
                 .append(". ")
                 .append(uploadFileDO.getFileName())
                 .append("\n");
+            builder.append("   片段: ")
+                .append(buildSnippet(document.getText()))
+                .append("\n");
         }
         return builder.toString();
+    }
+
+    private Map<String, UploadFileDO> buildUploadFileMap(List<Document> documents) {
+        List<UploadFileDO> uploadFiles = uploadFileService.selectByDocIds(documents.stream().map(Document::getId).toList());
+        if (CollUtil.isEmpty(uploadFiles)) {
+            return Map.of();
+        }
+        Map<String, UploadFileDO> ret = new LinkedHashMap<>();
+        for (Document document : documents) {
+            for (UploadFileDO uploadFileDO : uploadFiles) {
+                if (StrUtil.contains(uploadFileDO.getDocIds(), document.getId())) {
+                    ret.putIfAbsent(document.getId(), uploadFileDO);
+                    break;
+                }
+            }
+        }
+        return ret;
+    }
+
+    private String buildSnippet(String text) {
+        if (StrUtil.isBlank(text)) {
+            return "暂无可展示片段";
+        }
+        String normalized = text.replace("\r\n", "\n").replace('\r', '\n').replace('\n', ' ').trim();
+        if (normalized.length() <= REFERENCE_SNIPPET_LIMIT) {
+            return normalized;
+        }
+        return normalized.substring(0, REFERENCE_SNIPPET_LIMIT) + "...";
     }
 
     private void appendReferencesIfPresent(SseEmitter sseEmitter, StringBuilder retSb, String referencesMarkdown) {
