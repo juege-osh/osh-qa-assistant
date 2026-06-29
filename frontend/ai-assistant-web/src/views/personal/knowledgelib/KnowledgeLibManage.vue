@@ -201,6 +201,12 @@
             <el-button class="workspace-btn workspace-btn--ghost" :disabled="selectedSnapshotIds.length !== 2" @click="copySnapshotCompareDraft">
               复制对比报告
             </el-button>
+            <el-button class="workspace-btn workspace-btn--ghost" :disabled="selectedSnapshotIds.length !== 1" @click="markRecommendedSnapshot">
+              标记推荐版本
+            </el-button>
+            <el-button class="workspace-btn workspace-btn--ghost" :disabled="!recallSnapshots.length" @click="copySnapshotExperimentDraft">
+              复制实验记录
+            </el-button>
             <el-button class="workspace-btn workspace-btn--ghost" @click="clearRecallSnapshots">
               清空快照
             </el-button>
@@ -214,15 +220,25 @@
               >
               <div class="snapshot-card-main">
                 <div class="snapshot-card-head">
-                  <strong>{{ snapshot.query }}</strong>
+                  <strong>{{ snapshot.versionName || snapshot.query }}</strong>
                   <span>{{ snapshot.savedAt }}</span>
                 </div>
+                <div class="snapshot-card-subtitle">{{ snapshot.query }}</div>
                 <div class="snapshot-card-meta">
                   <span>{{ snapshot.libName }}</span>
                   <span>{{ formatSplitStrategy(snapshot.splitStrategy) }}</span>
                   <span>原始 {{ snapshot.rawHitCount }}</span>
                   <span>重排 {{ snapshot.rerankHitCount }}</span>
                   <span>{{ snapshot.categoryLabel }}</span>
+                  <span v-if="snapshot.recommended" class="snapshot-recommended">推荐版本</span>
+                </div>
+                <div class="snapshot-card-actions">
+                  <el-button text class="workspace-btn workspace-btn--text" @click.prevent="renameSnapshot(snapshot.id)">
+                    命名版本
+                  </el-button>
+                  <el-button text class="workspace-btn workspace-btn--text" @click.prevent="removeSnapshot(snapshot.id)">
+                    删除
+                  </el-button>
                 </div>
               </div>
             </label>
@@ -276,7 +292,7 @@ import AddKnowledgeLib from '@/views/personal/knowledgelib/AddKnowledgeLib.vue';
 import UpdateKnowledgeLib from '@/views/personal/knowledgelib/UpdateKnowledgeLib.vue';
 import { Plus, Folder } from '@element-plus/icons-vue';
 import { useResource } from '@/hooks/useResource';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { getItem, saveItem } from '@/util/storageUtil';
 
 // 添加对话框是否显示
@@ -306,6 +322,7 @@ type RecallSnapshot = {
   savedAt: string
   libId: string
   libName: string
+  versionName: string
   query: string
   splitStrategy: string
   rawHitCount: number
@@ -315,6 +332,7 @@ type RecallSnapshot = {
   categoryLabel: string
   rawTopSummary: string
   rerankTopSummary: string
+  recommended: boolean
 }
 const recallDebugResult = reactive({
   query: '',
@@ -509,6 +527,7 @@ function saveRecallSnapshot() {
     savedAt: new Date().toLocaleString(),
     libId: String(recallDebugForm.libId),
     libName: selectedLib?.libName || String(recallDebugForm.libId),
+    versionName: '',
     query: recallDebugResult.query,
     splitStrategy: recallDebugResult.splitStrategy,
     rawHitCount: Number(recallDebugResult.rawHitCount || 0),
@@ -517,18 +536,17 @@ function saveRecallSnapshot() {
     category: selectedFollowUpCategory.value,
     categoryLabel: activeFollowUpLabel.value,
     rawTopSummary: rawTop ? `${rawTop.fileName} / ${formatScore(rawTop.score)}` : '未命中',
-    rerankTopSummary: rerankTop ? `${rerankTop.fileName} / ${formatScore(rerankTop.score)}` : '未命中'
+    rerankTopSummary: rerankTop ? `${rerankTop.fileName} / ${formatScore(rerankTop.score)}` : '未命中',
+    recommended: false
   }
   const nextSnapshots = [snapshot, ...recallSnapshots.value].slice(0, 20)
-  recallSnapshots.value = nextSnapshots
-  saveItem(RECALL_SNAPSHOT_STORAGE_KEY, nextSnapshots)
+  persistRecallSnapshots(nextSnapshots)
   ElMessage.success('已保存实验快照')
 }
 
 function clearRecallSnapshots() {
-  recallSnapshots.value = []
   selectedSnapshotIds.value = []
-  saveItem(RECALL_SNAPSHOT_STORAGE_KEY, [])
+  persistRecallSnapshots([])
   ElMessage.success('已清空实验快照')
 }
 
@@ -593,6 +611,104 @@ async function copySnapshotCompareDraft() {
   try {
     await navigator.clipboard.writeText(draft)
     ElMessage.success('已复制实验对比草稿')
+  } catch {
+    ElMessage.error('复制失败，请稍后重试')
+  }
+}
+
+function persistRecallSnapshots(nextSnapshots: RecallSnapshot[]) {
+  recallSnapshots.value = nextSnapshots
+  saveItem(RECALL_SNAPSHOT_STORAGE_KEY, nextSnapshots)
+}
+
+function removeSnapshot(snapshotId: string) {
+  const nextSnapshots = recallSnapshots.value.filter((item) => item.id !== snapshotId)
+  selectedSnapshotIds.value = selectedSnapshotIds.value.filter((id) => id !== snapshotId)
+  persistRecallSnapshots(nextSnapshots)
+  ElMessage.success('已删除实验快照')
+}
+
+async function renameSnapshot(snapshotId: string) {
+  const snapshot = recallSnapshots.value.find((item) => item.id === snapshotId)
+  if (!snapshot) {
+    return
+  }
+  try {
+    const { value } = await ElMessageBox.prompt(
+      '给当前实验快照起一个版本名，例如：IG 切分 V1 / 语义切分 V2 / Prompt+Chunk A 版',
+      '命名实验版本',
+      {
+        confirmButtonText: '保存',
+        cancelButtonText: '取消',
+        inputValue: snapshot.versionName || '',
+        inputPattern: /^.{0,40}$/,
+        inputErrorMessage: '版本名最多 40 个字符'
+      }
+    )
+    const nextSnapshots = recallSnapshots.value.map((item) => (
+      item.id === snapshotId
+        ? { ...item, versionName: String(value || '').trim() }
+        : item
+    ))
+    persistRecallSnapshots(nextSnapshots)
+    ElMessage.success('已更新版本名称')
+  } catch {
+    // 用户取消不提示
+  }
+}
+
+function markRecommendedSnapshot() {
+  if (selectedSnapshotIds.value.length !== 1) {
+    ElMessage.warning('请先勾选一条实验快照')
+    return
+  }
+  const targetId = selectedSnapshotIds.value[0]
+  const nextSnapshots = recallSnapshots.value.map((item) => ({
+    ...item,
+    recommended: item.id === targetId
+  }))
+  persistRecallSnapshots(nextSnapshots)
+  ElMessage.success('已标记推荐版本')
+}
+
+async function copySnapshotExperimentDraft() {
+  if (!recallSnapshots.value.length) {
+    ElMessage.warning('当前没有可导出的实验快照')
+    return
+  }
+  const draft = [
+    '# RAG 切分实验记录',
+    '',
+    `- 生成时间：${new Date().toLocaleString()}`,
+    `- 快照数量：${recallSnapshots.value.length}`,
+    '',
+    '## 实验版本列表',
+    '',
+    ...recallSnapshots.value.flatMap((snapshot, index) => [
+      `### 实验 ${index + 1}${snapshot.recommended ? '（推荐）' : ''}`,
+      `- 版本名称：${snapshot.versionName || '未命名版本'}`,
+      `- 保存时间：${snapshot.savedAt}`,
+      `- 知识库：${snapshot.libName}`,
+      `- 调试问题：${snapshot.query}`,
+      `- 切分策略：${formatSplitStrategy(snapshot.splitStrategy)}`,
+      `- 原始召回：${snapshot.rawHitCount}`,
+      `- 重排后：${snapshot.rerankHitCount}`,
+      `- 建议归类：${snapshot.categoryLabel}`,
+      `- 诊断结论：${snapshot.diagnosisTitle}`,
+      `- 原始 Top1：${snapshot.rawTopSummary}`,
+      `- 重排 Top1：${snapshot.rerankTopSummary}`,
+      ''
+    ]),
+    '## 结论建议',
+    '',
+    '- 哪个版本适合作为当前知识库默认切分版本：',
+    '- 是否需要继续补知识或补提示词：',
+    '- 推荐保留的实验版本名称：'
+  ].join('\n')
+
+  try {
+    await navigator.clipboard.writeText(draft)
+    ElMessage.success('已复制实验记录草稿')
   } catch {
     ElMessage.error('复制失败，请稍后重试')
   }
@@ -794,6 +910,24 @@ onMounted(() => {
   margin-top: 8px;
   color: var(--space-text-soft);
   font-size: 12px;
+}
+
+.snapshot-card-subtitle {
+  margin-top: 6px;
+  color: var(--space-text-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.snapshot-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.snapshot-recommended {
+  color: #0f766e;
+  font-weight: 700;
 }
 
 .recall-judgement {
