@@ -324,6 +324,7 @@
           <div class="priority-actions">
             <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="openSavedAcceptanceBatch(batch.id)">查看并编辑</el-button>
             <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="exportSavedAcceptanceBatch(batch)">导出 Markdown</el-button>
+            <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="openAcceptanceRepairTaskDialog(batch.id)">查看任务池</el-button>
             <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="exportAcceptanceRepairDraft(batch.id)">导出修复建议</el-button>
           </div>
         </article>
@@ -547,6 +548,17 @@
         <el-button class="workspace-btn workspace-btn--ghost" @click="copyText(taskSuggestionContent, '后续任务建议清单')">复制内容</el-button>
       </div>
       <pre class="detail-dialog-content">{{ taskSuggestionContent }}</pre>
+    </el-dialog>
+
+    <el-dialog v-model="repairTaskPoolDialogVisible" class="record-detail-dialog" :title="repairTaskPoolDialogTitle" width="960px">
+      <div class="detail-dialog-copy">
+        <div class="detail-dialog-tip">这里把正式验收中的待修复项整理成更结构化的任务池草稿，适合直接贴到禅道或开发排期里。</div>
+        <div class="dialog-footer">
+          <el-button class="workspace-btn workspace-btn--ghost" @click="copyText(repairTaskPoolContent, '任务池草稿')">复制内容</el-button>
+          <el-button class="workspace-btn workspace-btn--ghost" @click="exportRepairTaskPoolContent">导出 Markdown</el-button>
+        </div>
+      </div>
+      <pre class="detail-dialog-content">{{ repairTaskPoolContent }}</pre>
     </el-dialog>
 
     <el-dialog v-model="acceptanceBatchDialogVisible" class="record-detail-dialog acceptance-batch-dialog" :title="acceptanceBatchDialogTitle" width="1120px">
@@ -915,6 +927,10 @@ const acceptanceDialogVisible = ref(false)
 const acceptanceDialogContent = ref('')
 const taskSuggestionDialogVisible = ref(false)
 const taskSuggestionContent = ref('')
+const repairTaskPoolDialogVisible = ref(false)
+const repairTaskPoolDialogTitle = ref('验收任务池草稿')
+const repairTaskPoolContent = ref('')
+const repairTaskPoolFilename = ref('')
 const acceptanceBatchDialogVisible = ref(false)
 const acceptanceBatchDialogTitle = ref('保存验收批次')
 const acceptanceCompareDialogVisible = ref(false)
@@ -1671,9 +1687,33 @@ function exportAcceptanceRepairDraft(batchId: string | number) {
   queryRagAcceptanceBatchDetailApi(batchId).then((result) => {
     const batch = result.data || {}
     const content = buildAcceptanceRepairDraft(batch)
-    downloadMarkdown(content, `rag-acceptance-repair-${batchId}.md`)
+    downloadMarkdown(content, buildRepairTaskFilename(batch))
     ElMessage.success('已导出修复建议')
   })
+}
+
+function openAcceptanceRepairTaskDialog(batchId: string | number) {
+  queryRagAcceptanceBatchDetailApi(batchId).then((result) => {
+    const batch = result.data || {}
+    const content = buildAcceptanceRepairDraft(batch)
+    if (!content) {
+      ElMessage.warning('当前批次还没有可整理进任务池的问题')
+      return
+    }
+    repairTaskPoolDialogTitle.value = `${batch.batchName || '当前批次'} 任务池草稿`
+    repairTaskPoolContent.value = content
+    repairTaskPoolFilename.value = buildRepairTaskFilename(batch)
+    repairTaskPoolDialogVisible.value = true
+  })
+}
+
+function exportRepairTaskPoolContent() {
+  if (!repairTaskPoolContent.value) {
+    ElMessage.warning('当前没有可导出的任务池草稿')
+    return
+  }
+  downloadMarkdown(repairTaskPoolContent.value, repairTaskPoolFilename.value || `rag-acceptance-task-pool-${Date.now()}.md`)
+  ElMessage.success('已导出任务池草稿')
 }
 
 function exportSavedAcceptanceBatch(batch: any) {
@@ -2100,39 +2140,170 @@ function buildAcceptanceRepairDraft(batch: any) {
     }
   })
 
+  const taskGroups = Object.entries(grouped)
+    .filter(([, categoryItems]) => categoryItems.length > 0)
+    .map(([category, categoryItems]) => buildRepairTaskGroup(batch, category as FollowUpCategory, categoryItems))
+
+  if (!taskGroups.length) {
+    return ''
+  }
+
   const lines = [
-    '# RAG 验收后修复建议草稿',
+    '# RAG 验收后任务池草稿',
     '',
     `- 验收批次：${batch.batchName || '-'}`,
+    `- 应用：${batch.appName || '-'}`,
+    `- 场景类型：${batch.sceneType || '-'}`,
+    `- 知识库范围：${batch.knowledgeScope || '-'}`,
     `- 发布版本：${batch.releaseVersion || '-'}`,
     `- 实验版本：${batch.experimentVersion || '-'}`,
     `- 生效实验版本：${batch.activeExperimentName || '-'} (${batch.activeSplitStrategy || '-'})`,
     `- 生成时间：${new Date().toLocaleString()}`,
     '',
-    '## 修复方向汇总',
+    '## 任务池总览',
     ''
   ]
 
-  Object.entries(grouped).forEach(([category, categoryItems]) => {
-    if (!categoryItems.length) {
-      return
-    }
-    lines.push(`### ${getFollowUpLabel(category as FollowUpCategory) || '其他'}（${categoryItems.length}）`)
+  taskGroups.forEach((group, index) => {
+    lines.push(`## 任务 ${index + 1}：${group.title}`)
     lines.push('')
-    categoryItems.forEach((item) => {
-      lines.push(`- ${item.testCaseNo} ${sanitizeInline(item.userQuestion)}`)
+    lines.push(`- 建议优先级：${group.priority}`)
+    lines.push(`- 问题分类：${group.label}`)
+    lines.push(`- 影响条数：${group.items.length}`)
+    lines.push(`- 影响维度：${group.dimensions.join(' / ') || '待补充'}`)
+    lines.push(`- 任务摘要：${group.summary}`)
+    lines.push(`- 建议动作：${group.actions.join('；')}`)
+    lines.push('')
+    lines.push('典型样例：')
+    group.items.slice(0, 3).forEach((item: any) => {
+      lines.push(`- ${sanitizeInline(item.testCaseNo)} ${sanitizeInline(item.userQuestion)}`)
       lines.push(`  当前结论：命中=${sanitizeInline(item.hitConclusion || '待确认')} / 可信=${sanitizeInline(item.groundedConclusion || '待确认')} / 易懂=${sanitizeInline(item.readableConclusion || '待确认')} / 失败体面=${sanitizeInline(item.gracefulFailureConclusion || '待确认')}`)
-      lines.push(`  建议动作：${sanitizeInline(item.followUpAction || item.remark || '待补充')}`)
+      lines.push(`  原始失败原因：${sanitizeInline(item.failReason || '无')}`)
+      lines.push(`  建议动作：${sanitizeInline(item.followUpAction || item.remark || group.actions[0] || '待补充')}`)
+    })
+    lines.push('')
+    lines.push('回归验收：')
+    group.acceptanceChecks.forEach((check: string) => {
+      lines.push(`- ${check}`)
     })
     lines.push('')
   })
 
-  lines.push('## 建议优先级')
+  lines.push('## 排期建议')
   lines.push('')
-  lines.push('- 先处理影响“可信”和“失败体面”的问题，这两项最直接影响 MVP 可用性。')
-  lines.push('- 若“补切分”集中出现，优先拿当前验收批次去对比不同实验版本。')
-  lines.push('- 若“补提示词”集中出现，优先检查答案结构、依据表达和失败反馈文案。')
+  lines.push('- 先做 `P0` 的补知识、补切分、补提示词，这三类最直接影响“命中问题 / 可信 / 失败体面”。')
+  lines.push('- 每完成一类修复后，至少复跑当前批次中的对应样例，再决定是否继续扩充真实问题集。')
+  lines.push('- 如果同类问题跨多个批次反复出现，再拆成更细的知识任务或提示词任务。')
   return lines.join('\n')
+}
+
+function buildRepairTaskGroup(batch: any, category: FollowUpCategory, items: any[]) {
+  const label = getFollowUpLabel(category) || '其他'
+  const dimensions = resolveRepairTaskDimensions(items)
+  const priority = resolveRepairTaskPriority(category, dimensions, items)
+  const actions = collectRepairTaskActions(category, items)
+  return {
+    label,
+    items,
+    priority,
+    title: buildRepairTaskTitle(batch, label, priority),
+    summary: `当前批次中共有 ${items.length} 条问题需要围绕“${label}”处理，主要影响 ${dimensions.join(' / ') || '整体可用性'}。`,
+    actions,
+    dimensions,
+    acceptanceChecks: buildRepairTaskAcceptanceChecks(category, items)
+  }
+}
+
+function resolveRepairTaskDimensions(items: any[]) {
+  const dimensions = new Set<string>()
+  items.forEach((item) => {
+    if (item.hitConclusion && item.hitConclusion !== '通过') {
+      dimensions.add('命中问题')
+    }
+    if (item.groundedConclusion && item.groundedConclusion !== '通过') {
+      dimensions.add('可信')
+    }
+    if (item.readableConclusion && item.readableConclusion !== '通过') {
+      dimensions.add('易懂')
+    }
+    if (item.gracefulFailureConclusion && item.gracefulFailureConclusion !== '通过') {
+      dimensions.add('失败体面')
+    }
+  })
+  return [...dimensions]
+}
+
+function resolveRepairTaskPriority(category: FollowUpCategory, dimensions: string[], items: any[]) {
+  const hasCriticalDimension = dimensions.includes('可信') || dimensions.includes('失败体面') || dimensions.includes('命中问题')
+  const hasHardFail = items.some((item) =>
+    item.hitConclusion === '不通过' ||
+    item.groundedConclusion === '不通过' ||
+    item.gracefulFailureConclusion === '不通过'
+  )
+  if (category === 'knowledge' || category === 'chunking' || category === 'prompt') {
+    return hasCriticalDimension || hasHardFail ? 'P0' : 'P1'
+  }
+  if (category === 'observe') {
+    return hasHardFail ? 'P1' : 'P2'
+  }
+  if (category === 'ui') {
+    return hasCriticalDimension ? 'P1' : 'P2'
+  }
+  return hasCriticalDimension ? 'P1' : 'P2'
+}
+
+function collectRepairTaskActions(category: FollowUpCategory, items: any[]) {
+  const actions = items
+    .map((item) => String(item.followUpAction || item.remark || '').trim())
+    .filter(Boolean)
+  const fallbackActions: Record<FollowUpCategory, string> = {
+    knowledge: '补齐当前问题依赖的知识源，并重新验证是否能给出有依据的回答',
+    chunking: '调整切分策略和召回方式，确认正确知识能稳定进入前置候选',
+    prompt: '收紧提示词约束，优化回答结构、依据表达和失败反馈文案',
+    ui: '优化前端展示文案、引用说明或交互入口，降低运营和用户理解成本',
+    observe: '补充日志字段、失败原因和链路观测信息，提升排障效率',
+    other: '结合当前样例补充更明确的修复动作'
+  }
+  const deduped = [...new Set(actions)]
+  if (!deduped.length) {
+    return [fallbackActions[category]]
+  }
+  return deduped.slice(0, 3)
+}
+
+function buildRepairTaskAcceptanceChecks(category: FollowUpCategory, items: any[]) {
+  const sampleList = items
+    .slice(0, 3)
+    .map((item) => `${sanitizeInline(item.testCaseNo)} ${sanitizeInline(item.userQuestion)}`)
+  const checks = [
+    `复跑当前分类下的 ${items.length} 条样例，至少确保本任务影响维度不再出现“明显不通过”。`,
+    `重点回归：${sampleList.join('；')}`
+  ]
+  if (category === 'knowledge') {
+    checks.push('回答中的关键结论能够被知识库内容支撑，不再依赖无依据补全。')
+  }
+  if (category === 'chunking') {
+    checks.push('正确知识应稳定进入前置召回候选，避免答非所问或只抓住局部关键词。')
+  }
+  if (category === 'prompt') {
+    checks.push('失败场景下需要明确说明依据不足或暂不可用，并给出下一步建议。')
+  }
+  if (category === 'ui') {
+    checks.push('运营人能直接看懂当前问题、建议动作和回归口径，不需要再手工二次整理。')
+  }
+  if (category === 'observe') {
+    checks.push('出现异常时能从日志或记录页直接定位失败阶段，而不是只看到模糊错误。')
+  }
+  return checks
+}
+
+function buildRepairTaskTitle(batch: any, label: string, priority: string) {
+  return `【${priority}】${batch.appName || '当前应用'} ${label}修复`
+}
+
+function buildRepairTaskFilename(batch: any) {
+  const batchId = batch.id || Date.now()
+  return `rag-acceptance-task-pool-${batchId}.md`
 }
 
 function updateFollowUpCategory(key: string, category: FollowUpCategory) {
