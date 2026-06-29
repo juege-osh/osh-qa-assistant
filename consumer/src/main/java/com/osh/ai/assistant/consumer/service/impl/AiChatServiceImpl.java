@@ -2,6 +2,7 @@ package com.osh.ai.assistant.consumer.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.alibaba.cloud.ai.document.DocumentWithScore;
 import com.alibaba.cloud.ai.model.RerankModel;
 import com.alibaba.cloud.ai.model.RerankRequest;
@@ -31,6 +32,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
@@ -74,6 +76,12 @@ public class AiChatServiceImpl implements AiChatService {
 
     @Value("${ai-assistant.chat.model:${spring.ai.dashscope.chat.options.model}}")
     private String chatModelName;
+
+    @Value("${ai-assistant.chat.provider:openai}")
+    private String chatProvider;
+
+    @Value("${ai-assistant.chat.temperature:0.7}")
+    private Double chatTemperature;
 
     @Value("${ai-assistant.rerank.enabled:true}")
     private boolean rerankEnabled;
@@ -259,6 +267,7 @@ public class AiChatServiceImpl implements AiChatService {
             .system(getSystemPrompt(app))
             // 用户提示词
             .user(chatDTO.getUserInput());
+        applyAppChatOptions(chatClientRequestSpec, app);
         RetrievalResult retrievalResult;
         try {
             retrievalResult = obtainDocuments(chatDTO.getUserInput(), app, builder);
@@ -314,8 +323,29 @@ public class AiChatServiceImpl implements AiChatService {
                 3. 如果问题本身信息不足,指出还缺什么信息才能更准确回答。
                 """;
         }
-        Map<String,Object> promptParam = Map.of("rule",rule);
-        return SYSTEM_PROMPT_TEMPLATE.render(promptParam);
+        String basePrompt = SYSTEM_PROMPT_TEMPLATE.render(Map.of("rule", rule));
+        if (app == null || StrUtil.isBlank(app.getCustomPrompt())) {
+            return basePrompt;
+        }
+        return basePrompt + "\n## 应用补充要求\n" + app.getCustomPrompt().trim();
+    }
+
+    private void applyAppChatOptions(ChatClient.ChatClientRequestSpec requestSpec, AppDO app) {
+        if (app == null || StrUtil.isBlank(app.getChatModel())) {
+            return;
+        }
+        String targetModel = app.getChatModel().trim();
+        if ("openai".equalsIgnoreCase(chatProvider)) {
+            requestSpec.options(OpenAiChatOptions.builder()
+                .model(targetModel)
+                .temperature(chatTemperature)
+                .build());
+            return;
+        }
+        requestSpec.options(DashScopeChatOptions.builder()
+            .model(targetModel)
+            .temperature(chatTemperature)
+            .build());
     }
 
     private RetrievalResult obtainDocuments(String userInput, AppDO app, InvokeRecordBuilder invokeRecordBuilder) {

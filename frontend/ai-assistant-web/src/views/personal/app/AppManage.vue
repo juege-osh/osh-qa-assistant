@@ -73,6 +73,12 @@
                   <el-link v-else class="bind-unbind-link" @click="openBindLibDialog(row.id)" type="primary">绑定</el-link>
                 </div>
                 <div>
+                  <el-text class="app-id">
+                    模型:
+                    <span>{{ row.chatModel || '系统默认' }}</span>
+                  </el-text>
+                </div>
+                <div>
                   <el-text class="desc-text">
                     描述:{{ row.appDesc }}
                   </el-text>

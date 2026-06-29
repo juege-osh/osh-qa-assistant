@@ -39,6 +39,14 @@ public class AppDO {
      */
     private Integer outLibEnable;
     /**
+     * 应用级自定义系统提示词
+     */
+    private String customPrompt;
+    /**
+     * 应用级聊天模型名称
+     */
+    private String chatModel;
+    /**
      * 关联的知识库id
      */
     private Long libId;

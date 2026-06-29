@@ -37,4 +37,6 @@ public class AppUpdateReq {
     @NotNull
     @EnumValue(clazz = YesNoEnum.class)
     private Integer outLibEnable;
+    private String customPrompt;
+    private String chatModel;
 }

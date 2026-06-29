@@ -72,6 +72,8 @@ CREATE TABLE IF NOT EXISTS `app`
   `app_desc`        varchar(300) NOT NULL COMMENT '应用描述',
   `icon_path`       varchar(300) DEFAULT NULL COMMENT '图标存放路径,格式如:resources/type/20230523/123.jpg',
   `out_lib_enable`  tinyint      NOT NULL DEFAULT 0 COMMENT '超出知识库的问题是否回答,1:是,0:否',
+  `custom_prompt`   text         DEFAULT NULL COMMENT '应用级自定义系统提示词',
+  `chat_model`      varchar(150) DEFAULT NULL COMMENT '应用级聊天模型名称',
   `lib_id`          bigint       DEFAULT NULL COMMENT 'knowledge_lib表的主键',
   `created_time`    datetime     NOT NULL DEFAULT current_timestamp() COMMENT '创建时间',
   `modified_time`   datetime     NOT NULL DEFAULT current_timestamp() COMMENT '修改时间',

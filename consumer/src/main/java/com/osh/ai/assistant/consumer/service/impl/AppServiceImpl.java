@@ -1,4 +1,5 @@
 package com.osh.ai.assistant.consumer.service.impl;
+import cn.hutool.core.util.StrUtil;
 import com.osh.ai.assistant.common.bean.entity.AppDO;
 import com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO;
 import com.osh.ai.assistant.common.bean.res.Result;
@@ -43,6 +44,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, AppDO> implements App
     public void add(AppAddReq addReq) {
         AppDO entity = ConvertUtil.convert(addReq,AppDO.class);
         entity.setUserId(UserContext.getUserId());
+        entity.setCustomPrompt(StrUtil.emptyToNull(StrUtil.trim(addReq.getCustomPrompt())));
+        entity.setChatModel(StrUtil.emptyToNull(StrUtil.trim(addReq.getChatModel())));
         save(entity);
     }
 
@@ -86,6 +89,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, AppDO> implements App
             // 可以修改为null
             .set(AppDO::getIconPath,updateReq.getIconPath())
             .set(AppDO::getOutLibEnable,updateReq.getOutLibEnable())
+            .set(AppDO::getCustomPrompt, StrUtil.emptyToNull(StrUtil.trim(updateReq.getCustomPrompt())))
+            .set(AppDO::getChatModel, StrUtil.emptyToNull(StrUtil.trim(updateReq.getChatModel())))
             .eq(AppDO::getId,updateReq.getId());
         update(new AppDO(),luw);
     }

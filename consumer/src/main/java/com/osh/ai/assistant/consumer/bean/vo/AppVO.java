@@ -42,6 +42,14 @@ public class AppVO {
      */
     private String outLibEnableDesc;
     /**
+     * 应用级自定义系统提示词
+     */
+    private String customPrompt;
+    /**
+     * 应用级聊天模型名称
+     */
+    private String chatModel;
+    /**
      * 创建时间
      */
     private Date createdTime;

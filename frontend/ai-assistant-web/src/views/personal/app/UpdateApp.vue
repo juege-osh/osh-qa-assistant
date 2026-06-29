@@ -45,6 +45,23 @@
             </el-radio-group>
             <div class="field-help">建议知识问答类应用默认选择“否”，优先保障回答可信度。</div>
           </el-form-item>
+          <el-form-item label="应用补充提示词" prop="customPrompt" class="field-span-2">
+            <el-input
+              v-model="formData.customPrompt"
+              :rows="4"
+              type="textarea"
+              resize="none"
+              placeholder="补充这个应用特有的回答要求，例如：先给结论，再列步骤；回答尽量偏运维口径。留空则使用系统默认规则。"
+            ></el-input>
+            <div class="field-help">这里放应用级回答约束，适合控制语气、结构和业务强调点。</div>
+          </el-form-item>
+          <el-form-item label="聊天模型名称" prop="chatModel" class="field-span-2">
+            <el-input
+              v-model="formData.chatModel"
+              placeholder="可选，例如：MiniMax-M2.7-highspeed。留空则走系统默认模型。"
+            ></el-input>
+            <div class="field-help">这是最小可控模型开关。先支持直接填写模型名称，后续再扩展成下拉和版本管理。</div>
+          </el-form-item>
         </div>
       </el-form>
       <template #footer>
@@ -71,6 +88,8 @@ let formData = reactive({
   iconPath: '',
   appDesc: '',
   outLibEnable: 0,
+  customPrompt: '',
+  chatModel: ''
 })
 let rules = reactive({
   appName: [{ required: true, message: "请输入应用名称", trigger: "blur" }],
