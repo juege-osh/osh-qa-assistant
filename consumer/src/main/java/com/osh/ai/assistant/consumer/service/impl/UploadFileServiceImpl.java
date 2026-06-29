@@ -191,6 +191,41 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
         remove(lqw);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void rebuildById(Long id) {
+        UploadFileDO uploadFileDO = requireOwnedEntity(id);
+        if (!UploadFileStatusEnum.ENABLED.getCode().equals(uploadFileDO.getStatus())) {
+            throw new BizEx("当前文件已禁用，请启用后再重建索引");
+        }
+        rebuildIndex(uploadFileDO);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int rebuildByLibId(Long libId) {
+        assertLibOwned(libId);
+        LambdaQueryWrapper<UploadFileDO> lqw = Wrappers.<UploadFileDO>lambdaQuery()
+            .eq(UploadFileDO::getLibId, libId)
+            .eq(UploadFileDO::getStatus, UploadFileStatusEnum.ENABLED.getCode())
+            .orderByAsc(UploadFileDO::getId);
+        List<UploadFileDO> enabledFiles = list(lqw);
+        for (UploadFileDO uploadFileDO : enabledFiles) {
+            rebuildIndex(uploadFileDO);
+        }
+        return enabledFiles.size();
+    }
+
+    private void rebuildIndex(UploadFileDO uploadFileDO) {
+        storage.deleteByIds(uploadFileDO.getDocIds());
+        StoreResultDTO storeResultDTO = storage.store(uploadFileDO.getStorePath(), uploadFileDO.getLibId());
+        LambdaUpdateWrapper<UploadFileDO> luw = new LambdaUpdateWrapper<>();
+        luw.set(UploadFileDO::getCharCount, storeResultDTO.getCharCount())
+            .set(UploadFileDO::getDocIds, JSONUtil.toJsonStr(storeResultDTO.getDocIds()))
+            .eq(UploadFileDO::getId, uploadFileDO.getId());
+        update(new UploadFileDO(), luw);
+    }
+
     private void assertLibOwned(Long libId) {
         LambdaQueryWrapper<com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO> queryWrapper = Wrappers.<com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO>lambdaQuery()
             .eq(com.osh.ai.assistant.common.bean.entity.KnowledgeLibDO::getId, libId)

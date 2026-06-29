@@ -38,6 +38,12 @@
               新增文件
             </el-button>
           </el-form-item>
+          <el-form-item>
+            <el-button class="workspace-btn workspace-btn--ghost" @click="rebuildCurrentLib"
+              :disabled="!hasLibId">
+              重建当前知识库索引
+            </el-button>
+          </el-form-item>
         </el-form>
       </div>
     </section>
@@ -58,6 +64,10 @@
         <el-table-column label="操作">
           <template v-slot:default="scope">
             <el-button type="primary" plain @click="openPreview(scope.row)">预览</el-button>
+            <el-button class="workspace-btn workspace-btn--ghost" @click="rebuildFile(scope.row)"
+              :disabled="scope.row.status !== 1">
+              重建索引
+            </el-button>
             <el-button type="primary" v-if="scope.row.status === 0"
               @click="updateStatus(scope.row.id,1)">启用
             </el-button>
@@ -149,12 +159,12 @@
 <script setup name='UploadFileManage' lang='ts'>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useTable } from '@/hooks/useTable';
-import { pageUploadFileApi,deleteUploadFileByIdApi, updateUploadFileStatusApi } from '@/api/workspace/uploadFileApi';
+import { pageUploadFileApi,deleteUploadFileByIdApi, updateUploadFileStatusApi, rebuildUploadFileByIdApi, rebuildUploadFileByLibIdApi } from '@/api/workspace/uploadFileApi';
 import { previewFileApi } from '@/api/workspace/filePreviewApi';
 import { pageKnowledgeLibApi } from '@/api/workspace/knowledgeLibApi';
 import { useRoute } from 'vue-router';
 import { Plus, Delete } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { saveItem, getItem } from '@/util/storageUtil';
 
 const STORAGE_LAST_LIB_ID_KEY = 'last-selected-lib-id'
@@ -251,6 +261,43 @@ function openPreview(row: { id: string }) {
     previewTab.value = 'chunks'
     previewDialogVisible.value = true
   })
+}
+
+function rebuildFile(row: { id: string; fileName?: string; status?: number }) {
+  ElMessageBox.confirm(
+    `确认按当前切分规则重建「${row.fileName || '该文件'}」的索引吗？`,
+    '重建索引确认',
+    {
+      type: 'warning',
+      confirmButtonText: '确认重建',
+      cancelButtonText: '取消'
+    }
+  ).then(() => {
+    rebuildUploadFileByIdApi(row.id).then(result => {
+      ElMessage.success(result.msg)
+      loadTable()
+    })
+  }).catch(() => {})
+}
+
+function rebuildCurrentLib() {
+  if (!hasLibId.value) {
+    return
+  }
+  ElMessageBox.confirm(
+    '确认按当前切分规则重建当前知识库下所有启用文件的索引吗？这个过程会覆盖旧的向量切分结果。',
+    '批量重建确认',
+    {
+      type: 'warning',
+      confirmButtonText: '确认重建',
+      cancelButtonText: '取消'
+    }
+  ).then(() => {
+    rebuildUploadFileByLibIdApi(String(searchData.libId)).then(result => {
+      ElMessage.success(result.msg)
+      loadTable()
+    })
+  }).catch(() => {})
 }
 
 onMounted(() => {

@@ -60,4 +60,22 @@ public class UploadFileController {
         uploadFileService.updateStatus(req);
         return Result.buildSuccessMsg("状态修改成功");
     }
+
+    /**
+     * 按文件重建索引
+     */
+    @GetMapping("/rebuildById")
+    public Result<Void> rebuildById(@RequestParam("id") Long id) {
+        uploadFileService.rebuildById(id);
+        return Result.buildSuccessMsg("文件索引重建成功");
+    }
+
+    /**
+     * 按知识库批量重建索引
+     */
+    @GetMapping("/rebuildByLibId")
+    public Result<Void> rebuildByLibId(@RequestParam("libId") Long libId) {
+        int rebuildCount = uploadFileService.rebuildByLibId(libId);
+        return Result.buildSuccessMsg("已重建 " + rebuildCount + " 个启用文件的索引");
+    }
 }

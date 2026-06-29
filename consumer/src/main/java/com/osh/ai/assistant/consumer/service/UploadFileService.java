@@ -57,4 +57,8 @@ public interface UploadFileService extends IService<UploadFileDO> {
     void updateStatus(UploadFileUpdateStatusReq req);
 
     void deleteByLibId(Long libId);
+
+    void rebuildById(Long id);
+
+    int rebuildByLibId(Long libId);
 }
