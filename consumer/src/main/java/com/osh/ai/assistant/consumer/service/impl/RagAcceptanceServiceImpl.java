@@ -408,11 +408,36 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         if (StrUtil.isBlank(answer)) {
             return "不通过";
         }
+        if (looksLikeCoverageQuestion(template)) {
+            return evaluateCoverageQuestion(answer);
+        }
+        if (looksLikeOrderedStepsQuestion(template)) {
+            return evaluateOrderedStepsQuestion(answer);
+        }
+        if (looksLikeFirstStepQuestion(template)) {
+            return containsAny(answer, "第一步", "先确认")
+                && containsCountAtLeast(answer, 2, "目标任务名称", "所属知识库", "目标任务", "知识库")
+                ? "通过" : "不通过";
+        }
+        if (looksLikeAmbiguousQuestion(template)) {
+            return asksMoreDetail && containsAny(answer, "最小起步", "先查看", "生效版本", "覆盖范围") ? "通过" : "不通过";
+        }
+        if (looksLikeOutOfScopeQuestion(template)) {
+            return saysNoEnoughEvidence && saysRetryOrEscalate(answer) ? "通过" : "不通过";
+        }
         if ("未命中知识".equals(template.questionType()) || "失败场景".equals(template.questionType())) {
             return saysNoEnoughEvidence || containsAny(answer, "检索暂时不可用", "稍后重试") ? "通过" : "待确认";
         }
         if ("模糊提问".equals(template.questionType())) {
             return asksMoreDetail || containsAny(answer, "建议", "先看", "最小起步") ? "通过" : "待确认";
+        }
+        int expectedKeywordHits = countExpectedKeywordHits(template.expectedKnowledge(), answer);
+        int requiredKeywordHits = requiredExpectedKeywordHits(template.expectedKnowledge());
+        if (requiredKeywordHits > 0) {
+            if (expectedKeywordHits >= requiredKeywordHits) {
+                return "通过";
+            }
+            return expectedKeywordHits > 0 ? "待确认" : "不通过";
         }
         return answer.length() >= 20 ? "通过" : "待确认";
     }
@@ -481,6 +506,9 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         }
         if ("不通过".equals(gracefulFailureConclusion) || "不通过".equals(readableConclusion)) {
             return "prompt";
+        }
+        if ("待确认".equals(hitConclusion) && isChunkingSensitiveQuestion(template)) {
+            return "chunking";
         }
         if ("不通过".equals(hitConclusion) && ("标准知识问答".equals(template.questionType()) || "任务指导".equals(template.questionType()))) {
             return "chunking";
@@ -553,6 +581,92 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
             topicHit++;
         }
         return containsAny(answer, "三个主题", "3个主题", "主要覆盖") || topicHit >= 2;
+    }
+
+    private String evaluateCoverageQuestion(String answer) {
+        boolean hasQuestionTypeHint = containsAny(answer, "问题", "类型", "主题", "覆盖");
+        return hasCoverageTopics(answer) && hasQuestionTypeHint ? "通过" : "待确认";
+    }
+
+    private String evaluateOrderedStepsQuestion(String answer) {
+        boolean hasOrderWords = containsCountAtLeast(answer, 3, "1.", "2.", "3.", "先", "然后", "接着", "最后", "顺序");
+        boolean hasKeySteps = containsCountAtLeast(answer, 4,
+            "准备文档", "上传到知识库", "保存切分实验版本", "发布为当前生效版本", "重建索引", "绑定应用", "运行默认问题集", "正式验收");
+        return hasOrderWords && hasKeySteps ? "通过" : "待确认";
+    }
+
+    private boolean looksLikeCoverageQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "主要能回答哪些", "覆盖哪些", "哪些类型的问题", "覆盖范围");
+    }
+
+    private boolean looksLikeOrderedStepsQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "按什么顺序", "建议我按什么顺序", "真正走通", "先后步骤", "流程顺序");
+    }
+
+    private boolean looksLikeFirstStepQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "第一步应该先做什么", "第一步先做什么", "从哪里开始");
+    }
+
+    private boolean looksLikeAmbiguousQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "这个事情我该怎么弄", "我该怎么弄", "怎么办");
+    }
+
+    private boolean looksLikeOutOfScopeQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "美国联邦所得税", "2026 年怎么报", "外部问题");
+    }
+
+    private boolean isChunkingSensitiveQuestion(AcceptanceQuestionTemplate template) {
+        return looksLikeCoverageQuestion(template)
+            || looksLikeOrderedStepsQuestion(template)
+            || "标准知识问答".equals(template.questionType())
+            || "任务指导".equals(template.questionType());
+    }
+
+    private int countExpectedKeywordHits(String expectedKnowledge, String answer) {
+        if (StrUtil.isBlank(expectedKnowledge) || StrUtil.isBlank(answer)) {
+            return 0;
+        }
+        int hitCount = 0;
+        for (String keyword : extractExpectedKeywords(expectedKnowledge)) {
+            if (containsAny(answer, keyword)) {
+                hitCount++;
+            }
+        }
+        return hitCount;
+    }
+
+    private int requiredExpectedKeywordHits(String expectedKnowledge) {
+        List<String> keywords = extractExpectedKeywords(expectedKnowledge);
+        if (keywords.isEmpty()) {
+            return 0;
+        }
+        return Math.min(2, keywords.size());
+    }
+
+    private List<String> extractExpectedKeywords(String expectedKnowledge) {
+        if (StrUtil.isBlank(expectedKnowledge)) {
+            return List.of();
+        }
+        return StrUtil.split(expectedKnowledge, '、')
+            .stream()
+            .flatMap(part -> StrUtil.split(part, '，').stream())
+            .flatMap(part -> StrUtil.split(part, '。').stream())
+            .map(String::trim)
+            .map(this::normalizeExpectedKeyword)
+            .filter(StrUtil::isNotBlank)
+            .filter(keyword -> keyword.length() >= 2)
+            .distinct()
+            .toList();
+    }
+
+    private String normalizeExpectedKeyword(String keyword) {
+        String normalized = StrUtil.blankToDefault(keyword, "");
+        for (String prefix : List.of("概括", "给出", "说明", "明确说明", "明确", "提示", "识别", "建议", "安全的", "最小", "并且", "同时")) {
+            if (normalized.startsWith(prefix)) {
+                normalized = normalized.substring(prefix.length()).trim();
+            }
+        }
+        return normalized;
     }
 
     private boolean isPassSaveItem(RagAcceptanceItemSaveReq item) {
