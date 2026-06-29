@@ -6,6 +6,7 @@ import com.osh.ai.assistant.common.bean.dto.TokenDTO;
 import com.osh.ai.assistant.common.context.UserContext;
 import com.osh.ai.assistant.common.ex.BizEx;
 import com.osh.ai.assistant.consumer.bean.req.ops.AlertSelfCheckReq;
+import com.osh.ai.assistant.consumer.bean.vo.AlertReadinessVO;
 import com.osh.ai.assistant.consumer.bean.vo.AlertSelfCheckVO;
 import com.osh.ai.assistant.consumer.config.properties.AlertProperties;
 import com.osh.ai.assistant.consumer.service.AlertService;
@@ -31,8 +32,53 @@ public class OpsSelfCheckServiceImpl implements OpsSelfCheckService {
     private final AlertService alertService;
     private final AlertProperties alertProperties;
 
+    @Value("${spring.mail.host:}")
+    private String springMailHost;
+
     @Value("${spring.mail.username:}")
     private String springMailUsername;
+
+    @Override
+    public AlertReadinessVO queryAlertReadiness() {
+        List<String> recipients = normalizeList(alertProperties.getRecipients());
+        List<String> allowedUsers = normalizeList(alertProperties.getSelfCheckAllowedUsers());
+        boolean smtpHostConfigured = StrUtil.isNotBlank(springMailHost);
+        boolean smtpUsernameConfigured = StrUtil.isNotBlank(springMailUsername);
+        boolean recipientsConfigured = CollUtil.isNotEmpty(recipients);
+        boolean mailSenderReady = alertService.canSendAlertNow();
+        String status;
+        String message;
+        if (!alertProperties.isEnabled()) {
+            status = "DISABLED";
+            message = "当前环境未开启最小故障告警。";
+        } else if (!alertProperties.isSelfCheckEnabled()) {
+            status = "SELF_CHECK_DISABLED";
+            message = "告警已开启，但当前环境未开启人工自检入口。";
+        } else if (!smtpHostConfigured || !smtpUsernameConfigured || !recipientsConfigured) {
+            status = "CONFIG_MISSING";
+            message = "告警链路缺少 SMTP 或收件人配置，当前无法完成真实演练。";
+        } else if (!mailSenderReady) {
+            status = "SENDER_UNAVAILABLE";
+            message = "告警链路配置存在，但 JavaMailSender 当前不可用，请检查运行时装配。";
+        } else {
+            status = "READY";
+            message = "告警链路已具备人工演练条件，可以触发真实自检。";
+        }
+        return AlertReadinessVO.builder()
+            .alertEnabled(alertProperties.isEnabled())
+            .selfCheckEnabled(alertProperties.isSelfCheckEnabled())
+            .mailSenderReady(mailSenderReady)
+            .smtpHostConfigured(smtpHostConfigured)
+            .smtpUsernameConfigured(smtpUsernameConfigured)
+            .recipientsConfigured(recipientsConfigured)
+            .subjectPrefix(alertProperties.getSubjectPrefix())
+            .from(StrUtil.blankToDefault(alertProperties.getFrom(), springMailUsername))
+            .recipients(recipients)
+            .allowedUsers(allowedUsers)
+            .status(status)
+            .message(message)
+            .build();
+    }
 
     @Override
     public AlertSelfCheckVO triggerAlertSelfCheck(AlertSelfCheckReq req) {

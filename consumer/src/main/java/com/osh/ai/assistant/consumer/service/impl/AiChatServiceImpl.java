@@ -138,7 +138,7 @@ public class AiChatServiceImpl implements AiChatService {
     @Override
     public String doChat(SseEmitter sseEmitter, AppDO app, InvokeRecordBuilder builder, boolean closeOnComplete) {
         StringBuilder retSb = new StringBuilder();
-        InvokeRecordDetailBuilder detailBuilder4llm = initDetailBuilder4llm(builder);
+        InvokeRecordDetailBuilder detailBuilder4llm = initDetailBuilder4llm(builder, app);
         ChatResponsePlan responsePlan = obtainResponse(builder, app);
         Flux<ChatResponse> fluxResponse = responsePlan.response();
         String referencesMarkdown = responsePlan.referencesMarkdown();
@@ -183,10 +183,10 @@ public class AiChatServiceImpl implements AiChatService {
         return doChat(emitter, app, builder, true);
     }
 
-    private InvokeRecordDetailBuilder initDetailBuilder4llm(InvokeRecordBuilder builder) {
+    private InvokeRecordDetailBuilder initDetailBuilder4llm(InvokeRecordBuilder builder, AppDO app) {
         return InvokeRecordDetailBuilder.builder()
             .setInvokeRecordId(builder.getId())
-            .setModelName(chatModelName)
+            .setModelName(resolveRuntimeModelName(app))
             .setStartTime(new Date())
             // 设置查询词
             .setUserInput(builder.getChatDto().getUserInput());
@@ -421,6 +421,13 @@ public class AiChatServiceImpl implements AiChatService {
             .model(targetModel)
             .temperature(chatTemperature)
             .build());
+    }
+
+    private String resolveRuntimeModelName(AppDO app) {
+        if (app != null && StrUtil.isNotBlank(app.getChatModel())) {
+            return app.getChatModel().trim();
+        }
+        return chatModelName;
     }
 
     private RetrievalResult obtainDocuments(String userInput, AppDO app, InvokeRecordBuilder invokeRecordBuilder) {
