@@ -109,9 +109,11 @@ ai-assistant:
       retry-interval-seconds: ${AI_ASSISTANT_QDRANT_PROBE_RETRY_INTERVAL_SECONDS:10}
   rag:
     split:
+      strategy: ${AI_ASSISTANT_RAG_SPLIT_STRATEGY:semantic}
       chunk-size: ${AI_ASSISTANT_RAG_SPLIT_CHUNK_SIZE:800}
       min-chunk-size-chars: ${AI_ASSISTANT_RAG_SPLIT_MIN_CHUNK_SIZE_CHARS:350}
       min-chunk-length-to-embed: ${AI_ASSISTANT_RAG_SPLIT_MIN_CHUNK_LENGTH_TO_EMBED:5}
       max-num-chunks: ${AI_ASSISTANT_RAG_SPLIT_MAX_NUM_CHUNKS:10000}
       keep-separator: ${AI_ASSISTANT_RAG_SPLIT_KEEP_SEPARATOR:true}
+      semantic-section-max-chars: ${AI_ASSISTANT_RAG_SPLIT_SEMANTIC_SECTION_MAX_CHARS:1200}
       preview-chunk-limit: ${AI_ASSISTANT_RAG_SPLIT_PREVIEW_CHUNK_LIMIT:8}

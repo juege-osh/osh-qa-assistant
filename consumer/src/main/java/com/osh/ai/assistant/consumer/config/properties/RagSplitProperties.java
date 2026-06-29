@@ -7,6 +7,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "ai-assistant.rag.split")
 public class RagSplitProperties {
     /**
+     * 切分策略：token / semantic
+     */
+    private String strategy = "semantic";
+    /**
      * 目标 chunk token 大小
      */
     private int chunkSize = 800;
@@ -26,6 +30,10 @@ public class RagSplitProperties {
      * 是否保留 separator
      */
     private boolean keepSeparator = true;
+    /**
+     * 语义分段的最大字符数，超过后会在同一标题下继续拆分
+     */
+    private int semanticSectionMaxChars = 1200;
     /**
      * 预览接口默认返回的 chunk 数
      */

@@ -106,8 +106,16 @@
           </div>
           <div class="preview-config-grid">
             <div class="preview-config-card">
+              <span class="preview-config-label">切分策略</span>
+              <strong class="preview-config-value">{{ formatSplitStrategy(previewData.splitConfig?.strategy) }}</strong>
+            </div>
+            <div class="preview-config-card">
               <span class="preview-config-label">chunk 大小</span>
               <strong class="preview-config-value">{{ previewData.splitConfig?.chunkSize ?? '-' }}</strong>
+            </div>
+            <div class="preview-config-card">
+              <span class="preview-config-label">语义段长度上限</span>
+              <strong class="preview-config-value">{{ previewData.splitConfig?.semanticSectionMaxChars ?? '-' }}</strong>
             </div>
             <div class="preview-config-card">
               <span class="preview-config-label">最小 chunk</span>
@@ -197,7 +205,9 @@ const previewData = reactive({
   content: '',
   chunkCount: 0,
   splitConfig: {
+    strategy: '',
     chunkSize: 0,
+    semanticSectionMaxChars: 0,
     minChunkSizeChars: 0,
     minChunkLengthToEmbed: 0,
     maxNumChunks: 0,
@@ -300,6 +310,16 @@ function rebuildCurrentLib() {
   }).catch(() => {})
 }
 
+function formatSplitStrategy(strategy?: string) {
+  if (strategy === 'semantic') {
+    return '语义优先'
+  }
+  if (strategy === 'token') {
+    return '纯 Token'
+  }
+  return strategy || '-'
+}
+
 onMounted(() => {
   handleLibId()
   if (hasLibId.value) {
@@ -382,7 +402,7 @@ onMounted(() => {
 
 .preview-config-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 

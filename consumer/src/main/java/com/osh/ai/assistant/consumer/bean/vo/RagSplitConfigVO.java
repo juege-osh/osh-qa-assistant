@@ -5,6 +5,10 @@ import lombok.Data;
 @Data
 public class RagSplitConfigVO {
     /**
+     * 切分策略
+     */
+    private String strategy;
+    /**
      * 目标 chunk token 大小
      */
     private Integer chunkSize;
@@ -24,6 +28,10 @@ public class RagSplitConfigVO {
      * 是否保留分隔符
      */
     private Boolean keepSeparator;
+    /**
+     * 语义分段的最大字符数
+     */
+    private Integer semanticSectionMaxChars;
     /**
      * 预览时返回的 chunk 数
      */
