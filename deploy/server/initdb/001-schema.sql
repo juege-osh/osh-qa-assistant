@@ -107,6 +107,28 @@ CREATE TABLE IF NOT EXISTS `upload_file`
   KEY `idx_lib_id` (`lib_id`)
 ) ENGINE=InnoDB COMMENT='文件信息';
 
+CREATE TABLE IF NOT EXISTS `knowledge_lib_experiment`
+(
+  `id`                 bigint       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `lib_id`             bigint       NOT NULL COMMENT 'knowledge_lib表的主键',
+  `version_name`       varchar(150) DEFAULT NULL COMMENT '实验版本名称',
+  `query_text`         varchar(500) NOT NULL COMMENT '调试问题',
+  `split_strategy`     varchar(50)  NOT NULL COMMENT '切分策略',
+  `raw_hit_count`      int          NOT NULL DEFAULT 0 COMMENT '原始召回数',
+  `rerank_hit_count`   int          NOT NULL DEFAULT 0 COMMENT '重排后召回数',
+  `diagnosis_title`    varchar(150) NOT NULL COMMENT '诊断结论',
+  `category_code`      varchar(50)  NOT NULL COMMENT '建议归类编码',
+  `category_label`     varchar(50)  NOT NULL COMMENT '建议归类名称',
+  `raw_top_summary`    varchar(500) DEFAULT NULL COMMENT '原始Top1摘要',
+  `rerank_top_summary` varchar(500) DEFAULT NULL COMMENT '重排Top1摘要',
+  `recommended`        tinyint      NOT NULL DEFAULT 0 COMMENT '是否推荐版本,1:是,0:否',
+  `created_time`       datetime     NOT NULL DEFAULT current_timestamp() COMMENT '创建时间',
+  `modified_time`      datetime     NOT NULL DEFAULT current_timestamp() COMMENT '修改时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_lib_id` (`lib_id`),
+  KEY `idx_recommended` (`recommended`)
+) ENGINE=InnoDB COMMENT='知识库实验版本';
+
 CREATE TABLE IF NOT EXISTS `chat`
 (
   `id`            bigint       NOT NULL AUTO_INCREMENT COMMENT '主键',
