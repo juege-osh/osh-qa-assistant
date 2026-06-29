@@ -75,6 +75,39 @@ The server `.env` should point to the existing MySQL, Redis, Qdrant, embedding, 
 
 The laughing profile now supports a minimal alert self-check so we can verify SMTP and recipient wiring before a real outage.
 
+For a local-only rehearsal without a real mailbox provider, you can enable the built-in Mailpit sandbox:
+
+```bash
+LAUGHING_ENABLE_ALERT_SANDBOX=1 ./scripts/laughing-local-up.sh
+```
+
+Then the local stack will additionally expose:
+
+- Mail UI: `http://127.0.0.1:18025/`
+- SMTP: `127.0.0.1:1025`
+
+In this mode the script automatically injects a minimal local alert configuration into `.laughing-runtime/.env`, including:
+
+- `AI_ASSISTANT_ALERT_ENABLED=true`
+- `AI_ASSISTANT_ALERT_SELF_CHECK_ENABLED=true`
+- `AI_ASSISTANT_ALERT_SELF_CHECK_ALLOWED_USERS=course_demo_user`
+- `AI_ASSISTANT_ALERT_RECIPIENTS=codex-local@example.com`
+- `AI_ASSISTANT_ALERT_SMTP_HOST=qa-assistant-mailpit-laughing`
+- `AI_ASSISTANT_ALERT_SMTP_PORT=1025`
+
+You can then verify end to end with:
+
+```bash
+./scripts/laughing-alert-self-check.sh http://127.0.0.1:19088
+```
+
+Expected local sandbox result:
+
+- `GET /consumer/ops/alertReadiness` returns `status=READY`
+- `POST /consumer/ops/alertSelfCheck` returns `status=SENT`
+- Mailpit UI shows the self-check message
+- backend logs contain `alert self check triggered`
+
 Required runtime variables:
 
 ```bash

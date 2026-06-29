@@ -35,6 +35,9 @@ public class OpsSelfCheckServiceImpl implements OpsSelfCheckService {
     @Value("${spring.mail.host:}")
     private String springMailHost;
 
+    @Value("${spring.mail.port:}")
+    private String springMailPort;
+
     @Value("${spring.mail.username:}")
     private String springMailUsername;
 
@@ -43,7 +46,8 @@ public class OpsSelfCheckServiceImpl implements OpsSelfCheckService {
         List<String> recipients = normalizeList(alertProperties.getRecipients());
         List<String> allowedUsers = normalizeList(alertProperties.getSelfCheckAllowedUsers());
         boolean smtpHostConfigured = StrUtil.isNotBlank(springMailHost);
-        boolean smtpUsernameConfigured = StrUtil.isNotBlank(springMailUsername);
+        boolean smtpPortConfigured = StrUtil.isNotBlank(springMailPort);
+        boolean smtpUsernameConfigured = StrUtil.isNotBlank(springMailUsername) || StrUtil.isNotBlank(alertProperties.getFrom());
         boolean recipientsConfigured = CollUtil.isNotEmpty(recipients);
         boolean mailSenderReady = alertService.canSendAlertNow();
         String status;
@@ -54,9 +58,9 @@ public class OpsSelfCheckServiceImpl implements OpsSelfCheckService {
         } else if (!alertProperties.isSelfCheckEnabled()) {
             status = "SELF_CHECK_DISABLED";
             message = "告警已开启，但当前环境未开启人工自检入口。";
-        } else if (!smtpHostConfigured || !smtpUsernameConfigured || !recipientsConfigured) {
+        } else if (!smtpHostConfigured || !smtpPortConfigured || !recipientsConfigured) {
             status = "CONFIG_MISSING";
-            message = "告警链路缺少 SMTP 或收件人配置，当前无法完成真实演练。";
+            message = "告警链路缺少 SMTP 主机、端口或收件人配置，当前无法完成真实演练。";
         } else if (!mailSenderReady) {
             status = "SENDER_UNAVAILABLE";
             message = "告警链路配置存在，但 JavaMailSender 当前不可用，请检查运行时装配。";

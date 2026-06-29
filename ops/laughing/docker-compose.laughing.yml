@@ -30,6 +30,18 @@ services:
     networks:
       - qa-assistant-laughing-network
 
+  qa-assistant-mailpit-laughing:
+    image: axllent/mailpit:v1.21
+    container_name: qa-assistant-mailpit-laughing
+    restart: unless-stopped
+    profiles:
+      - mailpit
+    ports:
+      - "${LAUGHING_MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${LAUGHING_MAILPIT_UI_PORT:-18025}:8025"
+    networks:
+      - qa-assistant-laughing-network
+
   qa-assistant-nginx-laughing:
     image: nginx:1.27-alpine
     container_name: qa-assistant-nginx-laughing
