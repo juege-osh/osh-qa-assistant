@@ -4,10 +4,8 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.osh.ai.assistant.common.constants.CommonConstants;
 import com.osh.ai.assistant.consumer.bean.dto.StoreResultDTO;
-import com.osh.ai.assistant.consumer.elt.reader.DocReader;
 import jakarta.annotation.Resource;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
 
@@ -20,15 +18,12 @@ import java.util.List;
 @Component
 public class VectorStorage implements Storage{
     @Resource
-    private DocReader docReader;
+    private RagDocumentSplitService ragDocumentSplitService;
     @Resource
     private VectorStore vectorStore;
     @Override
     public StoreResultDTO store(String storePath, Long libId) {
-        List<Document> documents = docReader.read(storePath);
-        // 对每一个文档(Document)分块,每chunk的size默认为800
-        TokenTextSplitter tokenTextSplitter = new TokenTextSplitter();
-        documents = tokenTextSplitter.split(documents);
+        List<Document> documents = ragDocumentSplitService.split(storePath);
         List<String> docIds = new ArrayList<>();
         long charCount = 0L;
         // 为每个文档添加元数据
