@@ -76,6 +76,9 @@
           <el-form-item>
             <el-button class="workspace-btn workspace-btn--ghost" @click="openSaveAcceptanceBatchDialog">保存验收批次</el-button>
           </el-form-item>
+          <el-form-item>
+            <el-button class="workspace-btn workspace-btn--ghost" @click="openTemplateAcceptanceBatchDialog">从默认问题集建批次</el-button>
+          </el-form-item>
         </el-form>
       </div>
     </section>
@@ -277,6 +280,15 @@
           <span class="review-badge">批次数：{{ savedAcceptanceBatches.length }}</span>
         </div>
       </div>
+      <div class="category-export-row">
+        <el-button class="workspace-btn workspace-btn--ghost" :disabled="selectedAcceptanceBatchIds.length !== 2" @click="openAcceptanceCompareDialog">
+          对比两轮验收
+        </el-button>
+        <el-button class="workspace-btn workspace-btn--ghost" :disabled="selectedAcceptanceBatchIds.length !== 2" @click="exportAcceptanceCompareDraft">
+          导出对比报告
+        </el-button>
+        <span class="quick-filter-hint">建议选择同一知识库、不同实验版本的两轮正式验收批次，直接比较切分版本或提示词版本效果。</span>
+      </div>
       <div v-if="savedAcceptanceBatches.length" class="saved-batch-grid">
         <article v-for="batch in savedAcceptanceBatches" :key="batch.id" class="saved-batch-card">
           <div class="saved-batch-head">
@@ -285,8 +297,21 @@
               <div class="saved-batch-meta">
                 {{ batch.appName || '未填写应用' }} · {{ batch.sceneType || '未填写场景' }} · {{ formatDateTime(batch.testDate || batch.createdTime) }}
               </div>
+              <div class="saved-batch-meta" v-if="batch.releaseVersion || batch.experimentVersion">
+                发布版本：{{ batch.releaseVersion || '-' }} · 实验版本：{{ batch.experimentVersion || '-' }}
+              </div>
             </div>
-            <div class="saved-batch-count">{{ batch.itemCount || 0 }} 条</div>
+            <div class="saved-batch-head-side">
+              <label class="saved-batch-check">
+                <input
+                  type="checkbox"
+                  :checked="selectedAcceptanceBatchIds.includes(batch.id)"
+                  @change="toggleAcceptanceBatchSelection(batch.id)"
+                >
+                对比
+              </label>
+              <div class="saved-batch-count">{{ batch.itemCount || 0 }} 条</div>
+            </div>
           </div>
           <div class="saved-batch-summary">
             <span>通过：{{ batch.passCount || 0 }}</span>
@@ -296,6 +321,7 @@
           <div class="priority-actions">
             <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="openSavedAcceptanceBatch(batch.id)">查看并编辑</el-button>
             <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="exportSavedAcceptanceBatch(batch)">导出 Markdown</el-button>
+            <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="exportAcceptanceRepairDraft(batch.id)">导出修复建议</el-button>
           </div>
         </article>
       </div>
@@ -573,7 +599,10 @@
         <section class="acceptance-batch-section">
           <div class="acceptance-batch-section-head">
             <div class="acceptance-batch-section-title">验收条目</div>
-            <div class="detail-dialog-tip">共 {{ acceptanceBatchForm.items.length }} 条，可逐条填写四项结论和后续动作。</div>
+            <div class="acceptance-batch-section-actions">
+              <div class="detail-dialog-tip">共 {{ acceptanceBatchForm.items.length }} 条，可逐条填写四项结论和后续动作。</div>
+              <el-button class="workspace-btn workspace-btn--ghost" @click="appendCurrentRecordItemsToBatch">追加当前筛选记录</el-button>
+            </div>
           </div>
           <div class="acceptance-item-list">
             <article v-for="item in acceptanceBatchForm.items" :key="item.localKey" class="acceptance-item-card">
@@ -661,6 +690,68 @@
         </div>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="acceptanceCompareDialogVisible" class="record-detail-dialog acceptance-batch-dialog" title="正式验收对比" width="1100px">
+      <div v-if="acceptanceCompareState.left && acceptanceCompareState.right" class="acceptance-compare-layout">
+        <section class="acceptance-batch-section">
+          <div class="acceptance-batch-section-title">对比概览</div>
+          <div class="acceptance-compare-grid">
+            <article class="acceptance-compare-card">
+              <div class="saved-batch-title">{{ acceptanceCompareState.left.batchName }}</div>
+              <div class="saved-batch-meta">发布版本：{{ acceptanceCompareState.left.releaseVersion || '-' }} · 实验版本：{{ acceptanceCompareState.left.experimentVersion || '-' }}</div>
+              <div class="saved-batch-summary">
+                <span>总条目：{{ acceptanceCompareState.left.itemCount }}</span>
+                <span>全部通过：{{ acceptanceCompareState.left.passCount }}</span>
+                <span>待跟进：{{ acceptanceCompareState.left.followUpCount }}</span>
+              </div>
+            </article>
+            <article class="acceptance-compare-card">
+              <div class="saved-batch-title">{{ acceptanceCompareState.right.batchName }}</div>
+              <div class="saved-batch-meta">发布版本：{{ acceptanceCompareState.right.releaseVersion || '-' }} · 实验版本：{{ acceptanceCompareState.right.experimentVersion || '-' }}</div>
+              <div class="saved-batch-summary">
+                <span>总条目：{{ acceptanceCompareState.right.itemCount }}</span>
+                <span>全部通过：{{ acceptanceCompareState.right.passCount }}</span>
+                <span>待跟进：{{ acceptanceCompareState.right.followUpCount }}</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="acceptance-batch-section">
+          <div class="acceptance-batch-section-title">四项体验与修复分类对比</div>
+          <div class="acceptance-compare-table">
+            <table class="compare-table">
+              <thead>
+                <tr>
+                  <th>维度</th>
+                  <th>{{ acceptanceCompareState.left.batchName }}</th>
+                  <th>{{ acceptanceCompareState.right.batchName }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in acceptanceCompareRows" :key="row.label">
+                  <td>{{ row.label }}</td>
+                  <td>{{ row.left }}</td>
+                  <td>{{ row.right }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="acceptance-batch-section">
+          <div class="acceptance-batch-section-title">对比结论草稿</div>
+          <pre class="detail-dialog-content">{{ acceptanceCompareDraftContent }}</pre>
+        </section>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button class="workspace-btn workspace-btn--ghost" @click="copyText(acceptanceCompareDraftContent, '正式验收对比草稿')">复制内容</el-button>
+          <el-button class="workspace-btn workspace-btn--ghost" @click="exportAcceptanceCompareDraft">导出 Markdown</el-button>
+          <el-button class="workspace-btn workspace-btn--ghost" @click="acceptanceCompareDialogVisible = false">关闭</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 <script setup name='InvokeRecordManage' lang='ts'>
@@ -701,8 +792,14 @@ const taskSuggestionDialogVisible = ref(false)
 const taskSuggestionContent = ref('')
 const acceptanceBatchDialogVisible = ref(false)
 const acceptanceBatchDialogTitle = ref('保存验收批次')
+const acceptanceCompareDialogVisible = ref(false)
 const followUpCategoryView = ref<FollowUpCategory | ''>('')
 const savedAcceptanceBatches = ref<any[]>([])
+const selectedAcceptanceBatchIds = ref<Array<string | number>>([])
+const acceptanceCompareState = reactive<{ left: any | null; right: any | null }>({
+  left: null,
+  right: null
+})
 const acceptanceBatchForm = reactive<any>({
   id: null,
   batchName: '',
@@ -721,6 +818,18 @@ const acceptanceBatchForm = reactive<any>({
   items: []
 })
 const conclusionOptions = ['通过', '不通过', '待确认']
+const defaultAcceptanceQuestionPool = [
+  { testCaseNo: 'TC-01', questionType: '标准知识问答', userQuestion: '这个知识库当前主要覆盖哪些主题？', expectedKnowledge: '能说明当前知识库覆盖范围、主题边界或主要文档类型。' },
+  { testCaseNo: 'TC-02', questionType: '标准知识问答', userQuestion: '某个制度或流程的核心结论是什么？', expectedKnowledge: '能直接给结论，并指出依据或关键规则。' },
+  { testCaseNo: 'TC-03', questionType: '任务指导', userQuestion: '我应该从哪里开始完成这个任务？', expectedKnowledge: '给出开始入口、前置准备和建议顺序。' },
+  { testCaseNo: 'TC-04', questionType: '任务指导', userQuestion: '如果我要把这个流程走通，先后步骤应该是什么？', expectedKnowledge: '按顺序说明步骤，并提示关键注意事项。' },
+  { testCaseNo: 'TC-05', questionType: '模糊提问', userQuestion: '这个事情我该怎么弄？', expectedKnowledge: '先识别问题模糊，再引导补充关键信息或给出安全的初始路径。' },
+  { testCaseNo: 'TC-06', questionType: '模糊提问', userQuestion: '我现在不知道从哪开始，你建议我先看什么？', expectedKnowledge: '给出最小起步建议和优先阅读内容。' },
+  { testCaseNo: 'TC-07', questionType: '未命中知识', userQuestion: '询问一个明确不在知识库范围内的问题', expectedKnowledge: '明确说明当前缺少依据，不要强答，并给出下一步建议。' },
+  { testCaseNo: 'TC-08', questionType: '未命中知识', userQuestion: '故意使用模糊、歧义、缺少关键词的问题', expectedKnowledge: '提醒问题信息不足，建议补充关键词或制度名称。' },
+  { testCaseNo: 'TC-09', questionType: '失败场景', userQuestion: '检索结果为空时，系统会怎么反馈？', expectedKnowledge: '反馈应说明未找到足够依据，并给出可理解的下一步。' },
+  { testCaseNo: 'TC-10', questionType: '失败场景', userQuestion: '链路异常时，系统会怎么提示我？', expectedKnowledge: '反馈应避免报错堆栈，提示稍后重试或换更明确问法。' }
+] as const
 const reviewStatusStoreKey = 'invoke-record-review-status'
 const followUpCategoryStoreKey = 'invoke-record-follow-up-category'
 const reviewStatusMap = ref<Record<string, ReviewStatus>>(loadReviewStatusMap())
@@ -880,6 +989,33 @@ const currentQuickViewDesc = computed(() => {
     return '当前仅显示已复盘记录，适合回看已经检查过的样本，确认结论是否需要再整理进验收文档。'
   }
   return '当前显示全部记录，适合做完整抽样和总体复盘。'
+})
+
+const acceptanceCompareRows = computed(() => {
+  if (!acceptanceCompareState.left || !acceptanceCompareState.right) {
+    return []
+  }
+  const leftStats = buildAcceptanceBatchStats(acceptanceCompareState.left)
+  const rightStats = buildAcceptanceBatchStats(acceptanceCompareState.right)
+  return [
+    { label: '命中问题通过', left: leftStats.hitPass, right: rightStats.hitPass },
+    { label: '可信通过', left: leftStats.groundedPass, right: rightStats.groundedPass },
+    { label: '易懂通过', left: leftStats.readablePass, right: rightStats.readablePass },
+    { label: '失败体面通过', left: leftStats.gracefulPass, right: rightStats.gracefulPass },
+    { label: '补知识', left: leftStats.followUp.knowledge, right: rightStats.followUp.knowledge },
+    { label: '补切分', left: leftStats.followUp.chunking, right: rightStats.followUp.chunking },
+    { label: '补提示词', left: leftStats.followUp.prompt, right: rightStats.followUp.prompt },
+    { label: '补展示', left: leftStats.followUp.ui, right: rightStats.followUp.ui },
+    { label: '补观测', left: leftStats.followUp.observe, right: rightStats.followUp.observe },
+    { label: '其他待跟进', left: leftStats.followUp.other, right: rightStats.followUp.other }
+  ]
+})
+
+const acceptanceCompareDraftContent = computed(() => {
+  if (!acceptanceCompareState.left || !acceptanceCompareState.right) {
+    return ''
+  }
+  return buildAcceptanceCompareMarkdown(acceptanceCompareState.left, acceptanceCompareState.right)
 })
 
 function loadOverview() {
@@ -1055,6 +1191,43 @@ function openSaveAcceptanceBatchDialog() {
   acceptanceBatchDialogVisible.value = true
 }
 
+function openTemplateAcceptanceBatchDialog() {
+  resetAcceptanceBatchForm()
+  acceptanceBatchDialogTitle.value = '从默认问题集建立正式验收批次'
+  acceptanceBatchForm.batchName = `${new Date().toLocaleDateString()} 默认问题集验收`
+  acceptanceBatchForm.quickView = 'template'
+  acceptanceBatchForm.quickViewDesc = '基于开发文档里的默认问题池，先建立一轮正式验收批次，再补齐真实回答和结论。'
+  acceptanceBatchForm.items = defaultAcceptanceQuestionPool.map((item, index) => ({
+    localKey: `template-${index + 1}`,
+    id: null,
+    invokeRecordId: 0,
+    invokeRecordDetailId: null,
+    testCaseNo: item.testCaseNo,
+    questionType: item.questionType,
+    userQuestion: item.userQuestion,
+    expectedKnowledge: item.expectedKnowledge,
+    actualAnswerSummary: '',
+    actualAnswer: '',
+    failReason: '',
+    hitConclusion: '',
+    groundedConclusion: '',
+    readableConclusion: '',
+    gracefulFailureConclusion: '',
+    hitRateConclusion: '',
+    completenessConclusion: '',
+    followUpCategory: '',
+    followUpAction: '',
+    remark: '',
+    invokeStatus: '待补录',
+    modelName: '',
+    appName: '',
+    libName: '',
+    costTime: null,
+    costToken: null
+  }))
+  acceptanceBatchDialogVisible.value = true
+}
+
 function buildAcceptanceBatchItems() {
   return filteredRows.value.flatMap((row: any) => {
     const detailList = row.detailList || []
@@ -1090,6 +1263,22 @@ function buildAcceptanceBatchItems() {
       }
     })
   })
+}
+
+function appendCurrentRecordItemsToBatch() {
+  const currentItems = buildAcceptanceBatchItems()
+  if (!currentItems.length) {
+    ElMessage.warning('当前筛选结果没有可追加的调用记录')
+    return
+  }
+  const existingKeys = new Set(acceptanceBatchForm.items.map((item: any) => item.localKey || item.testCaseNo))
+  const newItems = currentItems.filter((item: any) => !existingKeys.has(item.localKey))
+  if (!newItems.length) {
+    ElMessage.success('当前筛选记录都已经在验收批次里了')
+    return
+  }
+  acceptanceBatchForm.items = [...acceptanceBatchForm.items, ...newItems]
+  ElMessage.success(`已追加 ${newItems.length} 条调用记录`)
 }
 
 function resetAcceptanceBatchForm() {
@@ -1184,6 +1373,60 @@ function openSavedAcceptanceBatch(id: string | number) {
       }))
     })
     acceptanceBatchDialogVisible.value = true
+  })
+}
+
+function toggleAcceptanceBatchSelection(id: string | number) {
+  if (selectedAcceptanceBatchIds.value.includes(id)) {
+    selectedAcceptanceBatchIds.value = selectedAcceptanceBatchIds.value.filter((item) => item !== id)
+    return
+  }
+  if (selectedAcceptanceBatchIds.value.length >= 2) {
+    selectedAcceptanceBatchIds.value = [...selectedAcceptanceBatchIds.value.slice(1), id]
+    return
+  }
+  selectedAcceptanceBatchIds.value = [...selectedAcceptanceBatchIds.value, id]
+}
+
+async function openAcceptanceCompareDialog() {
+  if (selectedAcceptanceBatchIds.value.length !== 2) {
+    ElMessage.warning('请先选择两轮正式验收批次')
+    return
+  }
+  const [leftId, rightId] = selectedAcceptanceBatchIds.value
+  const [leftResult, rightResult] = await Promise.all([
+    queryRagAcceptanceBatchDetailApi(leftId),
+    queryRagAcceptanceBatchDetailApi(rightId)
+  ])
+  acceptanceCompareState.left = leftResult.data || null
+  acceptanceCompareState.right = rightResult.data || null
+  acceptanceCompareDialogVisible.value = true
+}
+
+function exportAcceptanceCompareDraft() {
+  if (!acceptanceCompareState.left || !acceptanceCompareState.right) {
+    if (selectedAcceptanceBatchIds.value.length !== 2) {
+      ElMessage.warning('请先选择两轮正式验收批次')
+      return
+    }
+    openAcceptanceCompareDialog().then(() => {
+      if (acceptanceCompareDraftContent.value) {
+        downloadMarkdown(acceptanceCompareDraftContent.value, `rag-acceptance-compare-${Date.now()}.md`)
+        ElMessage.success('已导出对比报告')
+      }
+    })
+    return
+  }
+  downloadMarkdown(acceptanceCompareDraftContent.value, `rag-acceptance-compare-${Date.now()}.md`)
+  ElMessage.success('已导出对比报告')
+}
+
+function exportAcceptanceRepairDraft(batchId: string | number) {
+  queryRagAcceptanceBatchDetailApi(batchId).then((result) => {
+    const batch = result.data || {}
+    const content = buildAcceptanceRepairDraft(batch)
+    downloadMarkdown(content, `rag-acceptance-repair-${batchId}.md`)
+    ElMessage.success('已导出修复建议')
   })
 }
 
@@ -1503,6 +1746,141 @@ function getFollowUpLabel(category: FollowUpCategory | '' | undefined) {
     return ''
   }
   return followUpCategoryLabelMap[category]
+}
+
+function buildAcceptanceBatchStats(batch: any) {
+  const items = batch.items || []
+  const initFollowUp = {
+    knowledge: 0,
+    chunking: 0,
+    prompt: 0,
+    ui: 0,
+    observe: 0,
+    other: 0
+  }
+  return items.reduce((acc: any, item: any) => {
+    if (item.hitConclusion === '通过') {
+      acc.hitPass += 1
+    }
+    if (item.groundedConclusion === '通过') {
+      acc.groundedPass += 1
+    }
+    if (item.readableConclusion === '通过') {
+      acc.readablePass += 1
+    }
+    if (item.gracefulFailureConclusion === '通过') {
+      acc.gracefulPass += 1
+    }
+    const category = String(item.followUpCategory || '') as FollowUpCategory | ''
+    if (category && Object.prototype.hasOwnProperty.call(acc.followUp, category)) {
+      acc.followUp[category] += 1
+    } else if (item.followUpAction || item.remark) {
+      acc.followUp.other += 1
+    }
+    return acc
+  }, {
+    hitPass: 0,
+    groundedPass: 0,
+    readablePass: 0,
+    gracefulPass: 0,
+    followUp: initFollowUp
+  })
+}
+
+function buildAcceptanceCompareMarkdown(left: any, right: any) {
+  const leftStats = buildAcceptanceBatchStats(left)
+  const rightStats = buildAcceptanceBatchStats(right)
+  const rows = acceptanceCompareRows.value
+  return [
+    '# RAG 正式验收对比报告',
+    '',
+    `- 生成时间：${new Date().toLocaleString()}`,
+    '',
+    '## 对比对象',
+    '',
+    `- A 批次：${left.batchName}`,
+    `  发布版本：${left.releaseVersion || '-'}`,
+    `  实验版本：${left.experimentVersion || '-'}`,
+    `  汇总结论：${left.summaryConclusion || '-'}`,
+    `- B 批次：${right.batchName}`,
+    `  发布版本：${right.releaseVersion || '-'}`,
+    `  实验版本：${right.experimentVersion || '-'}`,
+    `  汇总结论：${right.summaryConclusion || '-'}`,
+    '',
+    '## 结果对比',
+    '',
+    '| 维度 | A | B |',
+    '| --- | --- | --- |',
+    ...rows.map((row) => `| ${row.label} | ${row.left} | ${row.right} |`),
+    '',
+    '## 对比判断',
+    '',
+    `- A 全部通过条目：${left.passCount || 0} / ${left.itemCount || 0}`,
+    `- B 全部通过条目：${right.passCount || 0} / ${right.itemCount || 0}`,
+    `- A 待跟进条目：${left.followUpCount || 0}`,
+    `- B 待跟进条目：${right.followUpCount || 0}`,
+    '',
+    '## 结论草稿',
+    '',
+    '- 哪一版在命中问题、可信、易懂、失败体面上更稳定：',
+    `  当前可先参考：A 命中/可信/易懂/失败体面分别为 ${leftStats.hitPass}/${leftStats.groundedPass}/${leftStats.readablePass}/${leftStats.gracefulPass}，B 分别为 ${rightStats.hitPass}/${rightStats.groundedPass}/${rightStats.readablePass}/${rightStats.gracefulPass}。`,
+    '- 哪一版更像“补知识”问题，哪一版更像“补切分 / 补提示词”问题：',
+    `  当前可先参考：A 跟进分类 ${JSON.stringify(leftStats.followUp)}，B 跟进分类 ${JSON.stringify(rightStats.followUp)}。`,
+    '- 哪一版更适合作为当前默认生效版本：',
+    '- 下一轮要继续验证什么：'
+  ].join('\n')
+}
+
+function buildAcceptanceRepairDraft(batch: any) {
+  const items = batch.items || []
+  const grouped: Record<string, any[]> = {
+    knowledge: [],
+    chunking: [],
+    prompt: [],
+    ui: [],
+    observe: [],
+    other: []
+  }
+  items.forEach((item: any) => {
+    const category = String(item.followUpCategory || 'other')
+    const key = Object.prototype.hasOwnProperty.call(grouped, category) ? category : 'other'
+    if (item.followUpCategory || item.followUpAction || item.remark || item.hitConclusion === '不通过' || item.groundedConclusion === '不通过' || item.readableConclusion === '不通过' || item.gracefulFailureConclusion === '不通过') {
+      grouped[key].push(item)
+    }
+  })
+
+  const lines = [
+    '# RAG 验收后修复建议草稿',
+    '',
+    `- 验收批次：${batch.batchName || '-'}`,
+    `- 发布版本：${batch.releaseVersion || '-'}`,
+    `- 实验版本：${batch.experimentVersion || '-'}`,
+    `- 生成时间：${new Date().toLocaleString()}`,
+    '',
+    '## 修复方向汇总',
+    ''
+  ]
+
+  Object.entries(grouped).forEach(([category, categoryItems]) => {
+    if (!categoryItems.length) {
+      return
+    }
+    lines.push(`### ${getFollowUpLabel(category as FollowUpCategory) || '其他'}（${categoryItems.length}）`)
+    lines.push('')
+    categoryItems.forEach((item) => {
+      lines.push(`- ${item.testCaseNo} ${sanitizeInline(item.userQuestion)}`)
+      lines.push(`  当前结论：命中=${sanitizeInline(item.hitConclusion || '待确认')} / 可信=${sanitizeInline(item.groundedConclusion || '待确认')} / 易懂=${sanitizeInline(item.readableConclusion || '待确认')} / 失败体面=${sanitizeInline(item.gracefulFailureConclusion || '待确认')}`)
+      lines.push(`  建议动作：${sanitizeInline(item.followUpAction || item.remark || '待补充')}`)
+    })
+    lines.push('')
+  })
+
+  lines.push('## 建议优先级')
+  lines.push('')
+  lines.push('- 先处理影响“可信”和“失败体面”的问题，这两项最直接影响 MVP 可用性。')
+  lines.push('- 若“补切分”集中出现，优先拿当前验收批次去对比不同实验版本。')
+  lines.push('- 若“补提示词”集中出现，优先检查答案结构、依据表达和失败反馈文案。')
+  return lines.join('\n')
 }
 
 function updateFollowUpCategory(key: string, category: FollowUpCategory) {
@@ -1836,6 +2214,21 @@ onMounted(() => {
   align-items: flex-start;
 }
 
+.saved-batch-head-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.saved-batch-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--space-text-soft);
+  font-size: 12px;
+}
+
 .saved-batch-title,
 .acceptance-batch-section-title,
 .acceptance-item-title {
@@ -1903,6 +2296,15 @@ onMounted(() => {
   align-items: center;
 }
 
+.acceptance-batch-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
 .acceptance-batch-form,
 .acceptance-item-form {
   margin-top: 14px;
@@ -1930,6 +2332,51 @@ onMounted(() => {
   border-radius: 16px;
   background: #fff;
   border: 1px solid rgba(64, 158, 255, 0.1);
+}
+
+.acceptance-compare-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.acceptance-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.acceptance-compare-card {
+  padding: 16px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(64, 158, 255, 0.1);
+}
+
+.acceptance-compare-table {
+  margin-top: 14px;
+  overflow: auto;
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.compare-table th,
+.compare-table td {
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  text-align: left;
+  font-size: 13px;
+  color: var(--space-text);
+}
+
+.compare-table th {
+  background: #f8fbff;
+  font-weight: 700;
 }
 
 .acceptance-item-head {
@@ -2018,8 +2465,13 @@ onMounted(() => {
     align-items: flex-start;
   }
 
+  .saved-batch-head-side {
+    align-items: flex-start;
+  }
+
   .acceptance-batch-grid,
-  .acceptance-item-grid {
+  .acceptance-item-grid,
+  .acceptance-compare-grid {
     grid-template-columns: 1fr;
   }
 }
