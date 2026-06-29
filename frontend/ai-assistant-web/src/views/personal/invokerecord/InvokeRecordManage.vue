@@ -79,6 +79,9 @@
           <el-form-item>
             <el-button class="workspace-btn workspace-btn--ghost" @click="openTemplateAcceptanceBatchDialog">从默认问题集建批次</el-button>
           </el-form-item>
+          <el-form-item>
+            <el-button class="workspace-btn workspace-btn--ghost" @click="openRealAcceptanceBatchDialog">执行真实问题集</el-button>
+          </el-form-item>
         </el-form>
       </div>
     </section>
@@ -788,6 +791,89 @@
         </div>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="realBatchRunnerVisible" class="record-detail-dialog acceptance-batch-dialog" title="执行真实问题集跑测" width="1080px">
+      <div class="acceptance-batch-layout">
+        <section class="acceptance-batch-section">
+          <div class="acceptance-batch-section-title">批次信息</div>
+          <el-form :model="realBatchRunnerForm" label-width="110px" class="acceptance-batch-form">
+            <div class="acceptance-batch-grid">
+              <el-form-item label="选择应用">
+                <el-select v-model="realBatchRunnerForm.appId" placeholder="选择要跑测的应用" style="width: 100%">
+                  <el-option v-for="app in availableApps" :key="app.id" :label="app.appName" :value="app.id" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="批次名称">
+                <el-input v-model="realBatchRunnerForm.batchName" placeholder="例如：2026-06-30 真实问题集首轮正式验收" />
+              </el-form-item>
+              <el-form-item label="场景类型">
+                <el-input v-model="realBatchRunnerForm.sceneType" placeholder="内部知识问答 / 任务指导 / 真实业务问题" />
+              </el-form-item>
+              <el-form-item label="验收人">
+                <el-input v-model="realBatchRunnerForm.testerName" placeholder="填写本轮验收人" />
+              </el-form-item>
+            </div>
+            <el-form-item label="汇总结论">
+              <el-input v-model="realBatchRunnerForm.summaryConclusion" type="textarea" :rows="3" placeholder="可以先留空，跑完后自动汇总。" />
+            </el-form-item>
+            <el-form-item label="后续动作">
+              <el-input v-model="realBatchRunnerForm.nextAction" type="textarea" :rows="3" placeholder="例如：跑完后重点检查补知识、补提示词或补切分问题。" />
+            </el-form-item>
+          </el-form>
+        </section>
+
+        <section class="acceptance-batch-section">
+          <div class="acceptance-batch-section-head">
+            <div class="acceptance-batch-section-title">真实问题集</div>
+            <div class="acceptance-batch-section-actions">
+              <div class="detail-dialog-tip">把真实业务问题逐条补进去，系统会直接批量执行并生成正式验收批次。</div>
+              <el-button class="workspace-btn workspace-btn--ghost" @click="appendRealQuestionRow">新增一条</el-button>
+              <el-button class="workspace-btn workspace-btn--ghost" @click="loadRealQuestionsFromCurrentRows">从当前调用记录带入</el-button>
+            </div>
+          </div>
+          <div class="acceptance-item-list">
+            <article v-for="(item, index) in realBatchRunnerForm.questions" :key="item.localKey" class="acceptance-item-card">
+              <div class="acceptance-item-head">
+                <div>
+                  <div class="acceptance-item-title">{{ item.testCaseNo || `RQ-${String(index + 1).padStart(2, '0')}` }}</div>
+                  <div class="saved-batch-meta">{{ item.questionType || '真实业务问题' }}</div>
+                </div>
+                <div class="priority-tag-group">
+                  <el-button class="workspace-btn workspace-btn--ghost" @click="removeRealQuestionRow(index)">删除</el-button>
+                </div>
+              </div>
+              <el-form :model="item" label-width="96px" class="acceptance-item-form">
+                <div class="acceptance-item-grid">
+                  <el-form-item label="测试编号">
+                    <el-input v-model="item.testCaseNo" placeholder="例如：RQ-01" />
+                  </el-form-item>
+                  <el-form-item label="问题类型">
+                    <el-input v-model="item.questionType" placeholder="例如：标准知识问答 / 任务指导 / 失败场景" />
+                  </el-form-item>
+                </div>
+                <el-form-item label="用户问题">
+                  <el-input v-model="item.userQuestion" type="textarea" :rows="3" placeholder="填写真实用户会问的问题" />
+                </el-form-item>
+                <el-form-item label="期望知识点">
+                  <el-input v-model="item.expectedKnowledge" type="textarea" :rows="2" placeholder="填写期望系统覆盖的知识点、回答结构或行为" />
+                </el-form-item>
+              </el-form>
+            </article>
+          </div>
+        </section>
+      </div>
+      <div class="detail-dialog-tip">
+        这一步会直接执行你填入的真实问题集，生成真实回答、真实调用记录和正式验收批次，适合做一轮真正可交付的 MVP 验收。
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button class="workspace-btn workspace-btn--ghost" @click="realBatchRunnerVisible = false">取消</el-button>
+          <el-button class="workspace-btn workspace-btn--primary" :loading="realBatchRunning" @click="runRealAcceptanceBatch">
+            开始真实跑测
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 <script setup name='InvokeRecordManage' lang='ts'>
@@ -799,6 +885,7 @@ import {
   pageInvokeRecordApi,
   queryInvokeRecordOverviewApi,
   queryRagAcceptanceBatchDetailApi,
+  runRagAcceptanceBatchApi,
   runDefaultRagAcceptanceBatchApi,
   saveRagAcceptanceBatchApi
 } from '@/api/workspace/invokeRecordApi';
@@ -833,6 +920,8 @@ const acceptanceBatchDialogTitle = ref('保存验收批次')
 const acceptanceCompareDialogVisible = ref(false)
 const defaultBatchRunnerVisible = ref(false)
 const defaultBatchRunning = ref(false)
+const realBatchRunnerVisible = ref(false)
+const realBatchRunning = ref(false)
 const followUpCategoryView = ref<FollowUpCategory | ''>('')
 const savedAcceptanceBatches = ref<any[]>([])
 const selectedAcceptanceBatchIds = ref<Array<string | number>>([])
@@ -848,6 +937,15 @@ const defaultBatchRunnerForm = reactive({
   testerName: '',
   summaryConclusion: '',
   nextAction: ''
+})
+const realBatchRunnerForm = reactive({
+  appId: '',
+  batchName: '',
+  sceneType: '真实业务问题',
+  testerName: '',
+  summaryConclusion: '',
+  nextAction: '',
+  questions: buildInitialRealQuestionRows()
 })
 const acceptanceBatchForm = reactive<any>({
   id: null,
@@ -1260,6 +1358,17 @@ function openTemplateAcceptanceBatchDialog() {
   defaultBatchRunnerVisible.value = true
 }
 
+function openRealAcceptanceBatchDialog() {
+  realBatchRunnerForm.appId = availableApps.value[0]?.id || ''
+  realBatchRunnerForm.batchName = `${new Date().toLocaleDateString()} 真实问题集验收`
+  realBatchRunnerForm.sceneType = '真实业务问题'
+  realBatchRunnerForm.testerName = ''
+  realBatchRunnerForm.summaryConclusion = ''
+  realBatchRunnerForm.nextAction = ''
+  realBatchRunnerForm.questions = buildInitialRealQuestionRows()
+  realBatchRunnerVisible.value = true
+}
+
 function runDefaultAcceptanceBatch() {
   if (!defaultBatchRunnerForm.appId) {
     ElMessage.warning('请先选择应用')
@@ -1287,6 +1396,79 @@ function runDefaultAcceptanceBatch() {
   }).finally(() => {
     defaultBatchRunning.value = false
   })
+}
+
+function runRealAcceptanceBatch() {
+  if (!realBatchRunnerForm.appId) {
+    ElMessage.warning('请先选择应用')
+    return
+  }
+  if (!String(realBatchRunnerForm.batchName || '').trim()) {
+    ElMessage.warning('请先填写验收批次名称')
+    return
+  }
+  const questions = realBatchRunnerForm.questions
+    .map((item, index) => ({
+      testCaseNo: String(item.testCaseNo || `RQ-${String(index + 1).padStart(2, '0')}`).trim(),
+      questionType: String(item.questionType || '真实业务问题').trim(),
+      userQuestion: String(item.userQuestion || '').trim(),
+      expectedKnowledge: String(item.expectedKnowledge || '').trim()
+    }))
+    .filter((item) => item.userQuestion)
+  if (!questions.length) {
+    ElMessage.warning('请至少填写一条真实问题')
+    return
+  }
+  realBatchRunning.value = true
+  runRagAcceptanceBatchApi({
+    appId: realBatchRunnerForm.appId,
+    batchName: realBatchRunnerForm.batchName,
+    sceneType: realBatchRunnerForm.sceneType,
+    testerName: realBatchRunnerForm.testerName,
+    summaryConclusion: realBatchRunnerForm.summaryConclusion,
+    nextAction: realBatchRunnerForm.nextAction,
+    questions
+  }).then((result) => {
+    ElMessage.success('已完成真实问题集跑测，并生成正式验收批次')
+    realBatchRunnerVisible.value = false
+    loadSavedAcceptanceBatches()
+    if (result.data) {
+      openSavedAcceptanceBatch(result.data)
+    }
+  }).finally(() => {
+    realBatchRunning.value = false
+  })
+}
+
+function appendRealQuestionRow() {
+  realBatchRunnerForm.questions.push(createRealQuestionRow(realBatchRunnerForm.questions.length + 1))
+}
+
+function removeRealQuestionRow(index: number) {
+  if (realBatchRunnerForm.questions.length <= 1) {
+    ElMessage.warning('至少保留一条真实问题')
+    return
+  }
+  realBatchRunnerForm.questions.splice(index, 1)
+}
+
+function loadRealQuestionsFromCurrentRows() {
+  const entries = filteredRows.value.flatMap((row: any) => {
+    const detailList = row.detailList || []
+    return detailList.map((detail: any, index: number) => ({
+      localKey: `${row.id}-${index + 1}`,
+      testCaseNo: `RQ-${row.id}-${index + 1}`,
+      questionType: '真实业务问题',
+      userQuestion: String(detail.userInput || '').trim(),
+      expectedKnowledge: ''
+    }))
+  }).filter((item: any) => item.userQuestion)
+  if (!entries.length) {
+    ElMessage.warning('当前筛选结果没有可带入的用户问题')
+    return
+  }
+  realBatchRunnerForm.questions = entries
+  ElMessage.success(`已带入 ${entries.length} 条真实问题`)
 }
 
 function buildAcceptanceBatchItems() {
@@ -2012,6 +2194,24 @@ function formatDateTime(value: string | Date) {
 
 function formatDateForPicker(value: string | Date) {
   return formatDateTime(value)
+}
+
+function buildInitialRealQuestionRows() {
+  return [
+    createRealQuestionRow(1),
+    createRealQuestionRow(2),
+    createRealQuestionRow(3)
+  ]
+}
+
+function createRealQuestionRow(index: number) {
+  return {
+    localKey: `real-question-${Date.now()}-${index}-${Math.random().toString(16).slice(2, 8)}`,
+    testCaseNo: `RQ-${String(index).padStart(2, '0')}`,
+    questionType: '真实业务问题',
+    userQuestion: '',
+    expectedKnowledge: ''
+  }
 }
 
 type ReviewStatus = 'pending' | 'reviewed' | 'followUp'

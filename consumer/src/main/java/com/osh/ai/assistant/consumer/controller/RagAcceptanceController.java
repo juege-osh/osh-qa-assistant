@@ -2,6 +2,7 @@ package com.osh.ai.assistant.consumer.controller;
 
 import com.osh.ai.assistant.common.bean.res.Result;
 import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceBatchSaveReq;
+import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceRunBatchReq;
 import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceRunDefaultBatchReq;
 import com.osh.ai.assistant.consumer.bean.vo.RagAcceptanceBatchVO;
 import com.osh.ai.assistant.consumer.service.RagAcceptanceService;
@@ -34,6 +35,11 @@ public class RagAcceptanceController {
     @PostMapping("/runDefaultBatch")
     public Result<Long> runDefaultBatch(@RequestBody @Valid RagAcceptanceRunDefaultBatchReq req) {
         return Result.buildSuccess(ragAcceptanceService.runDefaultBatch(req));
+    }
+
+    @PostMapping("/runBatch")
+    public Result<Long> runBatch(@RequestBody @Valid RagAcceptanceRunBatchReq req) {
+        return Result.buildSuccess(ragAcceptanceService.runBatch(req));
     }
 
     @GetMapping("/listMine")

@@ -42,3 +42,10 @@ export function runDefaultRagAcceptanceBatchApi(data: object) {
     data
   })
 }
+
+export function runRagAcceptanceBatchApi(data: object) {
+  return appJsonPost({
+    url: "/consumer/ragAcceptance/runBatch",
+    data
+  })
+}

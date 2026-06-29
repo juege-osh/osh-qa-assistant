@@ -17,6 +17,8 @@ import com.osh.ai.assistant.common.enums.InvokeStatusEnum;
 import com.osh.ai.assistant.common.ex.BizEx;
 import com.osh.ai.assistant.common.util.ConvertUtil;
 import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceBatchSaveReq;
+import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceRunBatchReq;
+import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceRunQuestionReq;
 import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceItemSaveReq;
 import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceRunDefaultBatchReq;
 import com.osh.ai.assistant.consumer.bean.dto.ChatDTO;
@@ -55,17 +57,17 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
     private final InvokeRecordService invokeRecordService;
     private final InvokeRecordDetailService invokeRecordDetailService;
 
-    private static final List<DefaultQuestionTemplate> DEFAULT_QUESTION_TEMPLATES = List.of(
-        new DefaultQuestionTemplate("TC-01", "标准知识问答", "这个知识库当前主要覆盖哪些主题？", "能说明当前知识库覆盖范围、主题边界或主要文档类型。"),
-        new DefaultQuestionTemplate("TC-02", "标准知识问答", "某个制度或流程的核心结论是什么？", "能直接给结论，并指出依据或关键规则。"),
-        new DefaultQuestionTemplate("TC-03", "任务指导", "我应该从哪里开始完成这个任务？", "给出开始入口、前置准备和建议顺序。"),
-        new DefaultQuestionTemplate("TC-04", "任务指导", "如果我要把这个流程走通，先后步骤应该是什么？", "按顺序说明步骤，并提示关键注意事项。"),
-        new DefaultQuestionTemplate("TC-05", "模糊提问", "这个事情我该怎么弄？", "先识别问题模糊，再引导补充关键信息或给出安全的初始路径。"),
-        new DefaultQuestionTemplate("TC-06", "模糊提问", "我现在不知道从哪开始，你建议我先看什么？", "给出最小起步建议和优先阅读内容。"),
-        new DefaultQuestionTemplate("TC-07", "未命中知识", "请回答一个当前知识库里没有覆盖的外部问题。", "明确说明当前缺少依据，不要强答，并给出下一步建议。"),
-        new DefaultQuestionTemplate("TC-08", "未命中知识", "我只说一个很模糊的事情，你直接告诉我答案。", "提醒问题信息不足，建议补充关键词或制度名称。"),
-        new DefaultQuestionTemplate("TC-09", "失败场景", "如果当前没找到相关知识，你会怎么告诉我？", "反馈应说明未找到足够依据，并给出可理解的下一步。"),
-        new DefaultQuestionTemplate("TC-10", "失败场景", "如果知识库检索暂时不可用，你会怎么提示我？", "反馈应避免报错堆栈，提示稍后重试或换更明确问法。")
+    private static final List<AcceptanceQuestionTemplate> DEFAULT_QUESTION_TEMPLATES = List.of(
+        new AcceptanceQuestionTemplate("TC-01", "标准知识问答", "这个知识库当前主要覆盖哪些主题？", "能说明当前知识库覆盖范围、主题边界或主要文档类型。"),
+        new AcceptanceQuestionTemplate("TC-02", "标准知识问答", "某个制度或流程的核心结论是什么？", "能直接给结论，并指出依据或关键规则。"),
+        new AcceptanceQuestionTemplate("TC-03", "任务指导", "我应该从哪里开始完成这个任务？", "给出开始入口、前置准备和建议顺序。"),
+        new AcceptanceQuestionTemplate("TC-04", "任务指导", "如果我要把这个流程走通，先后步骤应该是什么？", "按顺序说明步骤，并提示关键注意事项。"),
+        new AcceptanceQuestionTemplate("TC-05", "模糊提问", "这个事情我该怎么弄？", "先识别问题模糊，再引导补充关键信息或给出安全的初始路径。"),
+        new AcceptanceQuestionTemplate("TC-06", "模糊提问", "我现在不知道从哪开始，你建议我先看什么？", "给出最小起步建议和优先阅读内容。"),
+        new AcceptanceQuestionTemplate("TC-07", "未命中知识", "请回答一个当前知识库里没有覆盖的外部问题。", "明确说明当前缺少依据，不要强答，并给出下一步建议。"),
+        new AcceptanceQuestionTemplate("TC-08", "未命中知识", "我只说一个很模糊的事情，你直接告诉我答案。", "提醒问题信息不足，建议补充关键词或制度名称。"),
+        new AcceptanceQuestionTemplate("TC-09", "失败场景", "如果当前没找到相关知识，你会怎么告诉我？", "反馈应说明未找到足够依据，并给出可理解的下一步。"),
+        new AcceptanceQuestionTemplate("TC-10", "失败场景", "如果知识库检索暂时不可用，你会怎么提示我？", "反馈应避免报错堆栈，提示稍后重试或换更明确问法。")
     );
 
     @Override
@@ -98,37 +100,68 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long runDefaultBatch(RagAcceptanceRunDefaultBatchReq req) {
-        AppDO app = appService.requireOwnedEntity(req.getAppId());
+        RunBatchContext context = prepareRunBatchContext(req.getAppId());
+        RagAcceptanceBatchSaveReq saveReq = initBatchSaveReq(req.getBatchName(), req.getSceneType(), req.getTesterName(),
+            req.getSummaryConclusion(), req.getNextAction(), context.app(), context.knowledgeLib());
+        saveReq.setReleaseVersion("默认问题集自动跑测");
+        saveReq.setQuickView("defaultQuestionPool");
+        saveReq.setQuickViewDesc("系统直接批量执行默认问题集，生成真实回答、真实调用记录和正式验收批次。");
+        return runBatchAndSave(saveReq, context, DEFAULT_QUESTION_TEMPLATES, "默认问题集自动跑测");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long runBatch(RagAcceptanceRunBatchReq req) {
+        RunBatchContext context = prepareRunBatchContext(req.getAppId());
+        RagAcceptanceBatchSaveReq saveReq = initBatchSaveReq(req.getBatchName(), req.getSceneType(), req.getTesterName(),
+            req.getSummaryConclusion(), req.getNextAction(), context.app(), context.knowledgeLib());
+        saveReq.setReleaseVersion("真实问题集自动跑测");
+        saveReq.setQuickView("realQuestionPool");
+        saveReq.setQuickViewDesc("系统直接批量执行运营人提供的真实问题集，生成真实回答、真实调用记录和正式验收批次。");
+        List<AcceptanceQuestionTemplate> templates = req.getQuestions().stream()
+            .map(this::toAcceptanceQuestionTemplate)
+            .toList();
+        return runBatchAndSave(saveReq, context, templates, "真实问题集自动跑测");
+    }
+
+    private RunBatchContext prepareRunBatchContext(Long appId) {
+        AppDO app = appService.requireOwnedEntity(appId);
         appService.checkChatCondition(app.getId());
         KnowledgeLibDO knowledgeLib = app.getLibId() == null ? null : knowledgeLibService.requireOwnedEntity(app.getLibId());
         UserDO currentUser = userService.getById(UserContext.getUserId());
         if (currentUser == null) {
             throw new BizEx("当前用户不存在");
         }
+        return new RunBatchContext(app, knowledgeLib, currentUser);
+    }
 
+    private RagAcceptanceBatchSaveReq initBatchSaveReq(String batchName, String sceneType, String testerName,
+                                                       String summaryConclusion, String nextAction,
+                                                       AppDO app, KnowledgeLibDO knowledgeLib) {
         RagAcceptanceBatchSaveReq saveReq = new RagAcceptanceBatchSaveReq();
         saveReq.setAppId(app.getId());
         saveReq.setLibId(app.getLibId());
-        saveReq.setBatchName(StrUtil.trim(req.getBatchName()));
+        saveReq.setBatchName(StrUtil.trim(batchName));
         saveReq.setAppName(app.getAppName());
-        saveReq.setSceneType(StrUtil.blankToDefault(StrUtil.trim(req.getSceneType()), "内部知识问答"));
+        saveReq.setSceneType(StrUtil.blankToDefault(StrUtil.trim(sceneType), "内部知识问答"));
         saveReq.setKnowledgeScope(knowledgeLib == null ? null : knowledgeLib.getLibName());
-        saveReq.setReleaseVersion("默认问题集自动跑测");
         saveReq.setExperimentVersion(knowledgeLib == null ? null : knowledgeLib.getActiveExperimentName());
         saveReq.setActiveExperimentId(knowledgeLib == null ? null : knowledgeLib.getActiveExperimentId());
         saveReq.setActiveExperimentName(knowledgeLib == null ? null : knowledgeLib.getActiveExperimentName());
         saveReq.setActiveSplitStrategy(knowledgeLib == null ? null : knowledgeLib.getActiveSplitStrategy());
         saveReq.setVersionRemark(buildVersionRemark(app, knowledgeLib));
-        saveReq.setQuickView("defaultQuestionPool");
-        saveReq.setQuickViewDesc("系统直接批量执行默认问题集，生成真实回答、真实调用记录和正式验收批次。");
-        saveReq.setTesterName(StrUtil.emptyToNull(StrUtil.trim(req.getTesterName())));
+        saveReq.setTesterName(StrUtil.emptyToNull(StrUtil.trim(testerName)));
         saveReq.setTestDate(DateUtil.now());
-        saveReq.setSummaryConclusion(StrUtil.emptyToNull(StrUtil.trim(req.getSummaryConclusion())));
-        saveReq.setNextAction(StrUtil.emptyToNull(StrUtil.trim(req.getNextAction())));
+        saveReq.setSummaryConclusion(StrUtil.emptyToNull(StrUtil.trim(summaryConclusion)));
+        saveReq.setNextAction(StrUtil.emptyToNull(StrUtil.trim(nextAction)));
+        return saveReq;
+    }
 
+    private Long runBatchAndSave(RagAcceptanceBatchSaveReq saveReq, RunBatchContext context,
+                                 List<AcceptanceQuestionTemplate> templates, String batchLabel) {
         List<RagAcceptanceItemSaveReq> items = new ArrayList<>();
-        for (DefaultQuestionTemplate template : DEFAULT_QUESTION_TEMPLATES) {
-            ExecutionSnapshot snapshot = executeQuestion(app, currentUser, template);
+        for (AcceptanceQuestionTemplate template : templates) {
+            ExecutionSnapshot snapshot = executeQuestion(context.app(), context.currentUser(), template);
             AcceptanceEvaluation evaluation = evaluateAcceptance(template, snapshot);
             RagAcceptanceItemSaveReq item = new RagAcceptanceItemSaveReq();
             item.setInvokeRecordId(snapshot.invokeRecordId());
@@ -143,8 +176,8 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
             item.setGracefulFailureConclusion(snapshot.failReason() == null ? "" : "待确认");
             item.setInvokeStatus(snapshot.invokeStatus());
             item.setModelName(snapshot.modelName());
-            item.setAppName(app.getAppName());
-            item.setLibName(knowledgeLib == null ? "" : knowledgeLib.getLibName());
+            item.setAppName(context.app().getAppName());
+            item.setLibName(context.knowledgeLib() == null ? "" : context.knowledgeLib().getLibName());
             item.setCostTime(snapshot.costTime());
             item.setCostToken(snapshot.costToken());
             item.setHitConclusion(evaluation.hitConclusion());
@@ -160,7 +193,7 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         }
         saveReq.setItems(items);
         if (StrUtil.isBlank(saveReq.getSummaryConclusion())) {
-            saveReq.setSummaryConclusion(buildSummaryConclusion(items));
+            saveReq.setSummaryConclusion(buildSummaryConclusion(items, batchLabel));
         }
         if (StrUtil.isBlank(saveReq.getNextAction())) {
             saveReq.setNextAction(buildNextAction(items));
@@ -258,7 +291,16 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         return "通过".equals(StrUtil.trim(value));
     }
 
-    private ExecutionSnapshot executeQuestion(AppDO app, UserDO currentUser, DefaultQuestionTemplate template) {
+    private AcceptanceQuestionTemplate toAcceptanceQuestionTemplate(RagAcceptanceRunQuestionReq req) {
+        return new AcceptanceQuestionTemplate(
+            StrUtil.trim(req.getTestCaseNo()),
+            StrUtil.blankToDefault(StrUtil.trim(req.getQuestionType()), "真实业务问题"),
+            StrUtil.trim(req.getUserQuestion()),
+            StrUtil.emptyToNull(StrUtil.trim(req.getExpectedKnowledge()))
+        );
+    }
+
+    private ExecutionSnapshot executeQuestion(AppDO app, UserDO currentUser, AcceptanceQuestionTemplate template) {
         ChatDTO chatDTO = new ChatDTO();
         chatDTO.setUserInput(template.userQuestion());
         chatDTO.setConversationId("rag-acceptance-batch-" + IdWorker.getId());
@@ -271,11 +313,11 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
     private ExecutionSnapshot loadExecutionSnapshot(Long invokeRecordId) {
         InvokeRecordDO record = invokeRecordService.getById(invokeRecordId);
         if (record == null) {
-            throw new BizEx("默认问题集跑测失败，未生成调用记录");
+            throw new BizEx("问题集跑测失败，未生成调用记录");
         }
         List<InvokeRecordDetailDO> details = invokeRecordDetailService.selectByInvokeRecordId(invokeRecordId);
         if (details.isEmpty()) {
-            throw new BizEx("默认问题集跑测失败，未生成调用明细");
+            throw new BizEx("问题集跑测失败，未生成调用明细");
         }
         InvokeRecordDetailDO detail = details.get(0);
         return new ExecutionSnapshot(
@@ -311,7 +353,7 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
             + "，切分策略=" + StrUtil.blankToDefault(knowledgeLib.getActiveSplitStrategy(), "未设置");
     }
 
-    private AcceptanceEvaluation evaluateAcceptance(DefaultQuestionTemplate template, ExecutionSnapshot snapshot) {
+    private AcceptanceEvaluation evaluateAcceptance(AcceptanceQuestionTemplate template, ExecutionSnapshot snapshot) {
         String answer = normalize(snapshot.answer());
         boolean invokeSuccess = InvokeStatusEnum.SUCCESS.getCode().toString().equals(snapshot.invokeStatus());
         boolean saysNoEnoughEvidence = containsAny(answer, "没有足够依据", "暂时无法可靠回答", "资料不足以支撑", "暂无法提供可靠答案");
@@ -341,7 +383,7 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         );
     }
 
-    private String evaluateHit(DefaultQuestionTemplate template, boolean invokeSuccess, String answer,
+    private String evaluateHit(AcceptanceQuestionTemplate template, boolean invokeSuccess, String answer,
                                boolean asksMoreDetail, boolean saysNoEnoughEvidence) {
         if (!invokeSuccess || StrUtil.isBlank(answer)) {
             return "不通过";
@@ -357,8 +399,22 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
             case "TC-08" -> containsAny(answer, "信息不足", "补充") && containsAny(answer, "具体", "任务名称", "流程名称", "制度名称") ? "通过" : "不通过";
             case "TC-09" -> saysNoEnoughEvidence && saysRetryOrEscalate(answer) ? "通过" : "不通过";
             case "TC-10" -> containsAny(answer, "检索暂时不可用") && containsAny(answer, "稍后重试", "更明确的问题") ? "通过" : "不通过";
-            default -> "待确认";
+            default -> evaluateCustomHit(template, answer, asksMoreDetail, saysNoEnoughEvidence);
         };
+    }
+
+    private String evaluateCustomHit(AcceptanceQuestionTemplate template, String answer,
+                                     boolean asksMoreDetail, boolean saysNoEnoughEvidence) {
+        if (StrUtil.isBlank(answer)) {
+            return "不通过";
+        }
+        if ("未命中知识".equals(template.questionType()) || "失败场景".equals(template.questionType())) {
+            return saysNoEnoughEvidence || containsAny(answer, "检索暂时不可用", "稍后重试") ? "通过" : "待确认";
+        }
+        if ("模糊提问".equals(template.questionType())) {
+            return asksMoreDetail || containsAny(answer, "建议", "先看", "最小起步") ? "通过" : "待确认";
+        }
+        return answer.length() >= 20 ? "通过" : "待确认";
     }
 
     private String evaluateGrounded(boolean invokeSuccess, String answer, String hitConclusion, boolean saysNoEnoughEvidence) {
@@ -387,7 +443,7 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         return answer.length() >= 20 ? "通过" : "待确认";
     }
 
-    private String evaluateGraceful(DefaultQuestionTemplate template, boolean invokeSuccess, String answer,
+    private String evaluateGraceful(AcceptanceQuestionTemplate template, boolean invokeSuccess, String answer,
                                     boolean saysNoEnoughEvidence, boolean saysRetryLater, boolean containsStackWords) {
         if (containsStackWords) {
             return "不通过";
@@ -404,7 +460,7 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         return "通过";
     }
 
-    private String evaluateCompleteness(DefaultQuestionTemplate template, String answer, String hitConclusion) {
+    private String evaluateCompleteness(AcceptanceQuestionTemplate template, String answer, String hitConclusion) {
         if (!"通过".equals(hitConclusion)) {
             return "待确认";
         }
@@ -415,7 +471,7 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         };
     }
 
-    private String resolveFollowUpCategory(DefaultQuestionTemplate template, boolean invokeSuccess, String hitConclusion,
+    private String resolveFollowUpCategory(AcceptanceQuestionTemplate template, boolean invokeSuccess, String hitConclusion,
                                            String groundedConclusion, String readableConclusion, String gracefulFailureConclusion) {
         if (!invokeSuccess) {
             return "observe";
@@ -432,7 +488,7 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         return "";
     }
 
-    private String buildFollowUpAction(DefaultQuestionTemplate template, String followUpCategory,
+    private String buildFollowUpAction(AcceptanceQuestionTemplate template, String followUpCategory,
                                        boolean invokeSuccess, String answer) {
         if (StrUtil.isBlank(followUpCategory)) {
             return "";
@@ -449,7 +505,7 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         };
     }
 
-    private String buildAcceptanceRemark(DefaultQuestionTemplate template, String hitConclusion,
+    private String buildAcceptanceRemark(AcceptanceQuestionTemplate template, String hitConclusion,
                                          String groundedConclusion, String gracefulFailureConclusion) {
         if ("不通过".equals(hitConclusion) && "标准知识问答".equals(template.questionType())) {
             return "当前回答没有直接命中问题本身，需要继续比较知识切分和召回效果。";
@@ -463,12 +519,12 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         return "";
     }
 
-    private String buildSummaryConclusion(List<RagAcceptanceItemSaveReq> items) {
+    private String buildSummaryConclusion(List<RagAcceptanceItemSaveReq> items, String batchLabel) {
         long passCount = items.stream().filter(this::isPassSaveItem).count();
         long chunkingCount = items.stream().filter(item -> "chunking".equals(item.getFollowUpCategory())).count();
         long promptCount = items.stream().filter(item -> "prompt".equals(item.getFollowUpCategory())).count();
         long observeCount = items.stream().filter(item -> "observe".equals(item.getFollowUpCategory())).count();
-        return "默认问题集自动跑测共 " + items.size() + " 条，当前全部通过 " + passCount + " 条；"
+        return batchLabel + "共 " + items.size() + " 条，当前全部通过 " + passCount + " 条；"
             + "主要待修复方向为切分=" + chunkingCount + "，提示词=" + promptCount + "，观测=" + observeCount + "。";
     }
 
@@ -540,11 +596,14 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         return StrUtil.blankToDefault(text, "").replace("\r\n", "\n").trim();
     }
 
-    private record DefaultQuestionTemplate(String testCaseNo, String questionType, String userQuestion, String expectedKnowledge) {
+    private record AcceptanceQuestionTemplate(String testCaseNo, String questionType, String userQuestion, String expectedKnowledge) {
     }
 
     private record ExecutionSnapshot(Long invokeRecordId, Long invokeRecordDetailId, String answer, String failReason,
                                      String invokeStatus, String modelName, Integer costTime, Long costToken) {
+    }
+
+    private record RunBatchContext(AppDO app, KnowledgeLibDO knowledgeLib, UserDO currentUser) {
     }
 
     private record AcceptanceEvaluation(String hitConclusion, String groundedConclusion, String readableConclusion,
