@@ -356,7 +356,9 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
     private AcceptanceEvaluation evaluateAcceptance(AcceptanceQuestionTemplate template, ExecutionSnapshot snapshot) {
         String answer = normalize(snapshot.answer());
         boolean invokeSuccess = InvokeStatusEnum.SUCCESS.getCode().toString().equals(snapshot.invokeStatus());
-        boolean saysNoEnoughEvidence = containsAny(answer, "没有足够依据", "暂时无法可靠回答", "资料不足以支撑", "暂无法提供可靠答案");
+        boolean saysNoEnoughEvidence = containsAny(answer,
+            "没有足够依据", "没有直接依据", "缺少知识依据", "当前知识库里没有直接依据",
+            "暂时无法可靠回答", "资料不足以支撑", "暂无法提供可靠答案");
         boolean asksMoreDetail = containsAny(answer, "请补充", "具体", "制度名称", "流程名称", "任务名称");
         boolean saysRetryLater = containsAny(answer, "稍后重试", "更明确的问题", "换一个更具体", "联系知识库运营", "联系维护人");
         boolean containsStackWords = containsAny(answer, "exception", "sqlsyntaxerror", "stack", "trace", "nullpointer");
@@ -385,8 +387,11 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
 
     private String evaluateHit(AcceptanceQuestionTemplate template, boolean invokeSuccess, String answer,
                                boolean asksMoreDetail, boolean saysNoEnoughEvidence) {
-        if (!invokeSuccess || StrUtil.isBlank(answer)) {
+        if (StrUtil.isBlank(answer)) {
             return "不通过";
+        }
+        if (!invokeSuccess) {
+            return isControlledRefusalPass(template, answer, saysNoEnoughEvidence) ? "通过" : "不通过";
         }
         return switch (template.testCaseNo()) {
             case "TC-01" -> hasCoverageTopics(answer) ? "通过" : "不通过";
@@ -440,6 +445,15 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
             return expectedKeywordHits > 0 ? "待确认" : "不通过";
         }
         return answer.length() >= 20 ? "通过" : "待确认";
+    }
+
+    private boolean isControlledRefusalPass(AcceptanceQuestionTemplate template, String answer, boolean saysNoEnoughEvidence) {
+        if (!saysNoEnoughEvidence || !saysRetryOrEscalate(answer)) {
+            return false;
+        }
+        return looksLikeOutOfScopeQuestion(template)
+            || "未命中知识".equals(template.questionType())
+            || "失败场景".equals(template.questionType());
     }
 
     private String evaluateGrounded(boolean invokeSuccess, String answer, String hitConclusion, boolean saysNoEnoughEvidence) {
@@ -689,7 +703,9 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
     }
 
     private boolean saysRetryOrEscalate(String answer) {
-        return containsAny(answer, "更具体", "联系知识库运营", "联系维护人", "补充相关内容", "稍后重试");
+        return containsAny(answer,
+            "更具体", "联系知识库运营", "联系维护人", "联系专业负责人", "联系对应专业负责人",
+            "补充相关内容", "补充明确的制度名称", "流程来源", "稍后重试");
     }
 
     private boolean containsCountAtLeast(String answer, int threshold, String... tokens) {
