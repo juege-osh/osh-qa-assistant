@@ -2,14 +2,14 @@
   <div class="page-shell chat-page">
     <section class="context-strip">
       <el-button text class="context-back workspace-btn workspace-btn--text" @click="$router.push('/workspace/app/manage')">返回应用</el-button>
-      <span class="context-note">聊天调试属于应用工作流，从应用列表进入更顺手。</span>
+      <span class="context-note">回到应用列表可以切换别的应用。</span>
     </section>
     <el-container class="app">
       <el-main class="main">
         <div class="chat-head">
           <div>
             <div class="chat-head-title">{{ currentChatName || '请选择或创建会话' }}</div>
-            <div class="chat-head-desc">支持上下文连续对话，回答内容实时流式返回。</div>
+            <div class="chat-head-desc">直接提问，看看这轮回答是否符合预期。</div>
           </div>
           <div class="chat-head-meta">
             <span class="meta-pill" :class="{ running: pageData.sending }">
@@ -67,7 +67,7 @@
           <div v-else class="empty-chat">
             <div class="empty-chat-title">开始你的第一轮对话</div>
             <div class="empty-chat-desc">
-              当前会话还没有消息。输入问题后即可开始验证上下文、多轮对话与严格模式效果。
+              先发一个问题，看看回答和上下文表现。
             </div>
             <div class="quick-prompts">
               <button v-for="prompt in quickPrompts" :key="prompt" class="prompt-chip" @click="usePrompt(prompt)">
@@ -93,7 +93,6 @@
           <div class="input-actions">
             <div class="input-actions-left">
               <span class="tip-pill">当前问题将保留上下文</span>
-              <span class="tip-pill">支持 Markdown 返回</span>
             </div>
             <div class="input-actions-right">
               <el-button class="workspace-btn workspace-btn--ghost" @click="pageData.crtUserInput = ''">清空</el-button>
@@ -124,6 +123,7 @@ import xml from 'highlight.js/lib/languages/xml'
 import 'highlight.js/styles/github.css'
 import { BASE_URL, STORAGE_LAST_APP_ID_KEY } from '@/config/constants';
 import { saveItem, getItem } from '@/util/storageUtil';
+import { writeClipboardText } from '@/util/clipboard';
 import { chatApi, listRecentChatApi } from '@/api/workspace/chatApi';
 import { pageAppApi } from '@/api/workspace/appApi';
 import type { AnyObjDefine, AnyObjsDefine } from '@/types/common';
@@ -392,7 +392,7 @@ async function autoSelectApp() {
 
 async function copyMessage(message: string) {
   try {
-    await navigator.clipboard.writeText(message)
+    await writeClipboardText(message)
     ElMessage.success('已复制到剪贴板')
   } catch {
     ElMessage.error('复制失败')

@@ -9,7 +9,7 @@
       :before-close="handleCancel"
     >
       <div class="dialog-intro">
-        调整应用名称、图标、描述和问答策略，保存后会立即影响当前应用的使用体验。
+        修改后会直接影响这个应用的回答表现和公开展示。
       </div>
       <el-form
         ref="updateForm"
@@ -26,7 +26,7 @@
             <div class="upload-panel">
               <FileUpload :file-list="uploadInfo.fileList" @file-list-change="handleFileListChange" ref="fileUploadRef">
               </FileUpload>
-              <div class="field-help">建议上传清晰方形图标，方便在应用列表和聊天入口里识别。</div>
+              <div class="field-help">建议使用清晰的方形图标。</div>
             </div>
           </el-form-item>
           <el-form-item label="应用描述" prop="appDesc">
@@ -35,7 +35,7 @@
               :rows="4"
               type="textarea"
               resize="none"
-              placeholder="说明这个应用主要解决什么问题、适合谁使用、用户能得到什么结果。"
+              placeholder="一句话说明这个应用帮谁解决什么问题。"
             ></el-input>
           </el-form-item>
           <el-form-item label="超出知识库范围是否回答" prop="outLibEnable" class="field-span-2">
@@ -43,7 +43,7 @@
               <el-radio :label="0" border>否，优先保证依据可靠</el-radio>
               <el-radio :label="1" border>是，可允许扩展回答</el-radio>
             </el-radio-group>
-            <div class="field-help">建议知识问答类应用默认选择“否”，优先保障回答可信度。</div>
+            <div class="field-help">知识问答场景通常选“否”。</div>
           </el-form-item>
           <el-form-item label="应用补充提示词" prop="customPrompt" class="field-span-2">
             <el-input
@@ -51,16 +51,16 @@
               :rows="4"
               type="textarea"
               resize="none"
-              placeholder="补充这个应用特有的回答要求，例如：先给结论，再列步骤；回答尽量偏运维口径。留空则使用系统默认规则。"
+              placeholder="想固定回答语气或结构时再填，例如：先给结论，再列步骤。"
             ></el-input>
-            <div class="field-help">这里放应用级回答约束，适合控制语气、结构和业务强调点。</div>
+            <div class="field-help">留空就使用默认规则。</div>
           </el-form-item>
           <el-form-item label="聊天模型名称" prop="chatModel" class="field-span-2">
             <el-input
               v-model="formData.chatModel"
               placeholder="可选，例如：MiniMax-M2.7-highspeed。留空则走系统默认模型。"
             ></el-input>
-            <div class="field-help">这是最小可控模型开关。先支持直接填写模型名称，后续再扩展成下拉和版本管理。</div>
+            <div class="field-help">留空就使用默认模型。</div>
           </el-form-item>
         </div>
       </el-form>

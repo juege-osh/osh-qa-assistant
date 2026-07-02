@@ -1,14 +1,14 @@
 <template>
   <div class="page-shell">
     <section class="hero-panel">
-      <div class="hero-title">应用工作区</div>
+      <div class="hero-title">应用</div>
       <div class="hero-subtitle">
-        为每个业务场景创建独立应用，按需绑定知识库，管理图标、描述与问答入口。应用是对外提供聊天能力的最小交付单元。
+        先建一个应用，再决定要不要绑定知识库、开始聊天或打开公开访问。
       </div>
       <div class="hero-meta">
         <span class="hero-badge">应用总数：{{ tableData.total || 0 }}</span>
-        <span class="hero-badge">可随时绑定或解绑知识库</span>
-        <span class="hero-badge">支持直接进入聊天调试</span>
+        <span class="hero-badge">未绑定知识库也能先测试</span>
+        <span class="hero-badge">公开访问可单独设置</span>
       </div>
     </section>
 
@@ -16,7 +16,7 @@
       <div class="toolbar-copy">
         <div class="toolbar-title">应用列表</div>
         <div class="toolbar-desc">
-          先创建应用即可进入聊天调试；如果绑定知识库，回答会优先参考知识库内容。这里保留了所有原有能力，并补强了状态展示与操作引导。
+          先看名称、知识库和模型，需要时直接编辑、绑定或开聊。
         </div>
       </div>
       <div class="toolbar-actions">
@@ -81,7 +81,7 @@
                 <div>
                   <el-text class="app-id">
                     公开发布:
-                    <span>支持最小配置管理</span>
+                    <span>可单独设置</span>
                   </el-text>
                 </div>
                 <div>

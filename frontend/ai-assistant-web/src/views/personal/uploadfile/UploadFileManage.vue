@@ -2,17 +2,17 @@
   <div class="page-shell">
     <section class="context-strip">
       <el-button text class="context-back" @click="$router.push('/workspace/knowledgeLib/manage')">返回知识库</el-button>
-      <span class="context-note">文档维护属于知识库工作流，从知识库列表进入更适合持续整理内容。</span>
+      <span class="context-note">回到知识库列表可以切换别的资料库。</span>
     </section>
     <section class="hero-panel">
-      <div class="hero-title">文档管理中心</div>
+      <div class="hero-title">文档管理</div>
       <div class="hero-subtitle">
-        在这里维护当前知识库下的所有文件，包括上传、启用、禁用、删除以及查看字符数和召回次数，用于持续优化知识库质量。
+        处理上传、启用、禁用和重建索引。
       </div>
       <div class="hero-meta">
         <span class="hero-badge">文件总数：{{ tableData.total || 0 }}</span>
-        <span class="hero-badge">支持快速启停</span>
-        <span class="hero-badge">可观测召回次数</span>
+        <span class="hero-badge">可快速启停</span>
+        <span class="hero-badge">可查看召回次数</span>
       </div>
     </section>
 
@@ -20,7 +20,7 @@
       <div class="toolbar-copy">
         <div class="toolbar-title">文件列表</div>
         <div class="toolbar-desc">
-          如果某份文档内容错误或过期，可以先禁用再观察效果；如果召回次数长期很低，建议优化标题、内容结构或文档归属。
+          内容有问题先禁用；规则改完再重建索引。
         </div>
       </div>
       <div class="toolbar-actions">
@@ -101,7 +101,7 @@
           <div class="preview-summary-copy">
             <div class="preview-summary-title">当前切分规则</div>
             <div class="preview-summary-desc">
-              现在入库前会按同一套规则完成切分。你可以先看前几个 chunk 的长度和内容，再决定是否需要调整 chunk 大小或切分策略。
+              先看切出来的段落顺不顺，再决定要不要调规则。
             </div>
           </div>
           <div class="preview-config-grid">
@@ -144,7 +144,7 @@
           <div class="preview-playground-copy">
             <div class="preview-summary-title">切分试算</div>
             <div class="preview-summary-desc">
-              这里的修改只影响当前预览，不会直接改数据库。确认效果后，再使用“重建索引”把新规则真正应用到知识库。
+              这里只是试算。满意后再重建索引生效。
             </div>
           </div>
           <div class="preview-playground-grid">
@@ -193,7 +193,7 @@
             <pre class="chunk-card-content">{{ chunk.content || '暂无内容' }}</pre>
           </article>
           <div v-if="!previewData.chunks.length" class="chunk-empty-state">
-            当前没有可预览的切分结果，请先确认文件是否已成功读取。
+            还没有切分结果，先确认文件是否读取成功。
           </div>
         </section>
       </section>

@@ -36,8 +36,8 @@
       <el-dropdown trigger="click" placement="top-start" popper-class="user-dropdown-popper">
         <div class="user-trigger">
           <div class="user-avatar">
-            <el-avatar v-if="userStore.userInfo.avatarPath" :src="toAddressable(userStore.userInfo.avatarPath)" :size="40"></el-avatar>
-            <el-avatar v-else :size="40">{{ userStore.userInfo.username?.charAt(0).toUpperCase() }}</el-avatar>
+            <el-avatar v-if="userStore.userInfo.avatarPath" :src="toAddressable(userStore.userInfo.avatarPath)" :size="38"></el-avatar>
+            <el-avatar v-else :size="38">{{ userStore.userInfo.username?.charAt(0).toUpperCase() }}</el-avatar>
           </div>
           <div class="user-info">
             <div class="user-name">你好，{{ userStore.userInfo.username }}</div>
@@ -73,8 +73,8 @@
     <div class="user-card-collapsed" v-else>
       <el-dropdown trigger="click" placement="right" popper-class="user-dropdown-popper">
         <div class="user-avatar-only">
-          <el-avatar v-if="userStore.userInfo.avatarPath" :src="toAddressable(userStore.userInfo.avatarPath)" :size="36"></el-avatar>
-          <el-avatar v-else :size="36">{{ userStore.userInfo.username?.charAt(0).toUpperCase() }}</el-avatar>
+          <el-avatar v-if="userStore.userInfo.avatarPath" :src="toAddressable(userStore.userInfo.avatarPath)" :size="34"></el-avatar>
+          <el-avatar v-else :size="34">{{ userStore.userInfo.username?.charAt(0).toUpperCase() }}</el-avatar>
         </div>
         <template #dropdown>
           <el-dropdown-menu>
@@ -424,6 +424,12 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
+.collapse-toggle :deep(.el-icon) {
+  width: var(--space-icon-lg);
+  height: var(--space-icon-lg);
+  font-size: var(--space-icon-lg);
+}
+
 .menu-scroll {
   flex: 1;
   min-height: 0;
@@ -514,6 +520,13 @@ onMounted(() => {
 
 .user-avatar {
   flex-shrink: 0;
+}
+
+.user-arrow {
+  width: var(--space-icon-sm);
+  height: var(--space-icon-sm);
+  font-size: var(--space-icon-sm);
+  color: var(--space-text-soft);
 }
 
 .user-info {

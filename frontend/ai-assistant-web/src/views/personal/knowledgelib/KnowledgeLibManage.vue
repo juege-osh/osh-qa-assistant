@@ -1,14 +1,14 @@
 <template>
   <div class="page-shell">
     <section class="hero-panel">
-      <div class="hero-title">知识库中心</div>
+      <div class="hero-title">知识库</div>
       <div class="hero-subtitle">
-        在这里集中管理知识库资产，包括文档数量、字符规模、归属应用与内容描述。知识库是问答质量的核心，建议按业务域拆分管理。
+        把同一类资料放进一个知识库，后续绑定到应用就能使用。
       </div>
       <div class="hero-meta">
         <span class="hero-badge">知识库总数：{{ tableData.total || 0 }}</span>
-        <span class="hero-badge">支持文档管理与应用绑定</span>
-        <span class="hero-badge">适合按业务域拆分内容</span>
+        <span class="hero-badge">可直接进入文档管理</span>
+        <span class="hero-badge">可做检索调试</span>
       </div>
     </section>
 
@@ -16,7 +16,7 @@
       <div class="toolbar-copy">
         <div class="toolbar-title">知识库列表</div>
         <div class="toolbar-desc">
-          从这里可以快速判断每个知识库的规模、挂载情况和维护状态，并直接进入文档管理做增删改查。
+          先看文档数量和挂载应用，需要时直接进文档管理。
         </div>
       </div>
       <div class="toolbar-actions">
@@ -161,7 +161,7 @@
           <div class="recall-judgement-copy">
             <div class="recall-judgement-title">当前参数快照</div>
             <div class="recall-judgement-desc">
-              保存实验版本时，会把这里的切分参数一起存下来，后面回看版本时就能知道当时的策略上下文。
+              保存快照时会把这些参数一起记下来，方便回看。
             </div>
           </div>
           <div class="recall-config-grid">
@@ -235,7 +235,7 @@
           <div class="recall-judgement-copy">
             <div class="recall-judgement-title">实验快照</div>
             <div class="recall-judgement-desc">
-              保存每次调试结果后，可以勾选两条快照做人工对比，判断哪一版切分与检索效果更适合当前问题集。
+              选两条快照就能直接对比。
             </div>
           </div>
           <div class="snapshot-actions">
@@ -351,6 +351,7 @@ import UpdateKnowledgeLib from '@/views/personal/knowledgelib/UpdateKnowledgeLib
 import { Plus, Folder } from '@element-plus/icons-vue';
 import { useResource } from '@/hooks/useResource';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { writeClipboardText } from '@/util/clipboard';
 
 // 添加对话框是否显示
 let addDialogVisible = ref(false)
@@ -524,7 +525,7 @@ async function copyRecallTaskDraft() {
   }
   const draft = buildRecallTaskDraft()
   try {
-    await navigator.clipboard.writeText(draft)
+    await writeClipboardText(draft)
     ElMessage.success('已复制检索调试任务草稿')
   } catch {
     ElMessage.error('复制失败，请稍后重试')
@@ -711,7 +712,7 @@ async function copySnapshotCompareDraft() {
   ].join('\n')
 
   try {
-    await navigator.clipboard.writeText(draft)
+    await writeClipboardText(draft)
     ElMessage.success('已复制实验对比草稿')
   } catch {
     ElMessage.error('复制失败，请稍后重试')
@@ -831,7 +832,7 @@ async function copySnapshotExperimentDraft() {
   ].join('\n')
 
   try {
-    await navigator.clipboard.writeText(draft)
+    await writeClipboardText(draft)
     ElMessage.success('已复制实验记录草稿')
   } catch {
     ElMessage.error('复制失败，请稍后重试')

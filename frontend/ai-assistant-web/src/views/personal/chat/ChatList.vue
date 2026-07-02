@@ -2,7 +2,7 @@
   <div class="page-shell chat-list-page">
     <section class="context-strip">
       <el-button text class="context-back workspace-btn workspace-btn--text" @click="router.push('/workspace/app/manage')">返回应用</el-button>
-      <span class="context-note">聊天会话属于应用调试入口，可从应用列表继续切换场景。</span>
+      <span class="context-note">回到应用列表可以切换别的应用。</span>
     </section>
     <section class="session-panel">
       <div class="panel-header">

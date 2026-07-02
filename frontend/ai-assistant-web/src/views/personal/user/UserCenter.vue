@@ -1,9 +1,9 @@
 <template>
   <div class="page-shell">
     <section class="hero-panel">
-      <div class="hero-title">账户中心</div>
+      <div class="hero-title">账户</div>
       <div class="hero-subtitle">
-        在这里查看你的访问凭证、注册信息和集成标识。后续前后端对接、OpenAPI 接入以及应用授权，都可以从这里快速定位关键信息。
+        查看账号信息和 App Key。
       </div>
       <div class="hero-meta">
         <span class="hero-badge">用户名：{{ pageData.user.username || '--' }}</span>
@@ -16,17 +16,17 @@
       <article class="stat-card">
         <div class="stat-label">用户名</div>
         <div class="stat-value value-small">{{ pageData.user.username || '--' }}</div>
-        <div class="stat-help">用于登录系统与归属应用资源。</div>
+        <div class="stat-help">登录时使用。</div>
       </article>
       <article class="stat-card">
         <div class="stat-label">注册时间</div>
         <div class="stat-value value-small">{{ pageData.user.registerTime || '--' }}</div>
-        <div class="stat-help">可用于排查开通时间与数据创建时序。</div>
+        <div class="stat-help">方便确认账号开通时间。</div>
       </article>
       <article class="stat-card">
         <div class="stat-label">App Key</div>
         <div class="stat-value value-small key-text">{{ pageData.user.appKey || '--' }}</div>
-        <div class="stat-help">调用开放接口时使用，请妥善保管。</div>
+        <div class="stat-help">对接接口时使用，请妥善保管。</div>
       </article>
     </section>
 
@@ -40,7 +40,7 @@
         </el-descriptions-item>
       </el-descriptions>
       <div class="hint">
-        提示：如果你需要让外部系统接入问答助手，请优先使用这里的 `appKey` 做应用身份识别，不要直接暴露登录密码。
+        外部系统接入时使用 `appKey`，不要直接使用登录密码。
       </div>
     </section>
   </div>

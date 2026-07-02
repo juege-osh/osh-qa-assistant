@@ -9,7 +9,7 @@
       width="720px"
     >
       <div class="dialog-intro">
-        为当前应用生成一个稳定的公开访问标识。保存后可直接通过公开页面访问；若选择密码访问，访客需要先完成密码验证才能进入聊天。
+        设置好公开链接后，别人就能直接访问这个应用。
       </div>
       <div class="publish-summary">
         <div class="summary-item">
@@ -47,7 +47,7 @@
               active-text="启用"
               inactive-text="关闭"
             />
-            <div class="field-help">关闭后会保留配置，但外部公开能力视为停用状态。</div>
+            <div class="field-help">关闭后，公开链接会暂停使用。</div>
           </el-form-item>
           <el-form-item label="公开访问标识" prop="slug" class="field-span-2">
             <el-input v-model="formData.slug" maxlength="100" show-word-limit placeholder="例如：pipeline-helper"></el-input>
@@ -73,7 +73,7 @@
               placeholder="首次启用密码访问时必填；后续留空则沿用旧密码"
             ></el-input>
             <div class="field-help">
-              {{ formData.hasPassword ? '当前已存在访问密码，留空表示继续沿用。' : '当前未设置访问密码，保存前需要补齐。' }}
+              {{ formData.hasPassword ? '留空就继续使用原密码。' : '第一次启用密码访问时需要设置。' }}
             </div>
           </el-form-item>
         </div>
@@ -101,6 +101,7 @@
 import { computed, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { disablePublishConfigApi, queryPublishConfigApi, savePublishConfigApi } from '@/api/workspace/appApi'
+import { writeClipboardText } from '@/util/clipboard'
 
 const props = defineProps<{
   publishDialogVisible: boolean,
@@ -185,7 +186,7 @@ function handleCancel() {
 function queryPublishConfig() {
   queryPublishConfigApi(props.idToPublish).then(result => {
     const data = result.data || {}
-    formData.appId = String(data.appId ?? props.idToPublish)
+    formData.appId = resolveAppId(data.appId)
     formData.enabled = Number(data.enabled ?? 0)
     formData.slug = String(data.slug || '')
     formData.accessType = String(data.accessType || 'PUBLIC')
@@ -194,13 +195,19 @@ function queryPublishConfig() {
   })
 }
 
+function resolveAppId(appId?: string | number | null) {
+  const rawAppId = appId ?? props.idToPublish
+  return String(rawAppId || '').trim()
+}
+
 function onSubmit() {
   publishForm.value.validate((valid: boolean) => {
     if (!valid) {
       return
     }
     savePublishConfigApi({
-      appId: Number(formData.appId || props.idToPublish),
+      // Preserve Long ids as strings to avoid JS precision loss before they reach the backend.
+      appId: resolveAppId(formData.appId),
       enabled: Number(formData.enabled),
       slug: String(formData.slug || '').trim(),
       accessType: formData.accessType,
@@ -224,7 +231,7 @@ function disablePublish() {
 
 async function copyPublishPath() {
   try {
-    await navigator.clipboard.writeText(publishPath.value)
+    await writeClipboardText(publishPath.value)
     ElMessage.success('公开路径已复制')
   } catch (_error) {
     ElMessage.error('复制失败，请手动复制')
