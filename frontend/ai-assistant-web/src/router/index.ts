@@ -13,13 +13,13 @@ const staticRoutes = [
       {
         path: 'login',
         name: 'Login',
-        component: () => import('@/views/Login.vue'),
+        component: () => import('@/features/auth').then((module) => module.LoginPage),
         meta: { authorityName: '登录' }
       },
       {
         path: 'register',
         name: 'Register',
-        component: () => import('@/views/Register.vue'),
+        component: () => import('@/features/auth').then((module) => module.RegisterPage),
         meta: { authorityName: '注册', role: 'GUEST' }
       },
       {
@@ -31,7 +31,7 @@ const staticRoutes = [
       {
         path: 'public/app/:slug',
         name: 'PublicAppChat',
-        component: () => import('@/views/public/PublicAppChat.vue'),
+        component: () => import('@/features/public-app').then((module) => module.PublicAppPage),
         meta: { authorityName: '公开应用' }
       },
       {
@@ -121,12 +121,12 @@ const staticRoutes = [
           },
           {
             path: 'chat',
-            component: () => import('@/views/personal/chat/ChatList.vue'),
+            component: () => import('@/features/workspace-chat').then((module) => module.WorkspaceChatListPage),
             meta: { authorityName: '智能聊天助手', role: 'USER', activeMenuPath: '/workspace/app/manage' }
           },
           {
             path: 'chat/:chatId',
-            component: () => import('@/views/personal/chat/Chat.vue'),
+            component: () => import('@/features/workspace-chat').then((module) => module.WorkspaceChatConversationPage),
             meta: { authorityName: '对话详情', role: 'USER', activeMenuPath: '/workspace/app/manage' }
           }
         ]

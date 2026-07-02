@@ -43,3 +43,4 @@ upload/resources
 bun.lock
 CLAUDE.md
 AGENTS.md
+.codebase-memory

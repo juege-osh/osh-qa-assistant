@@ -1,5 +1,5 @@
 <template>
-  <div class="page-shell">
+  <div class="page-shell app-manage-page">
     <section class="hero-panel">
       <div class="hero-title">应用</div>
       <div class="hero-subtitle">
@@ -12,23 +12,24 @@
       </div>
     </section>
 
-    <section class="toolbar-panel glass-panel">
-      <div class="toolbar-copy">
+    <section class="toolbar-panel glass-panel workspace-toolbar-panel">
+      <div class="toolbar-copy workspace-toolbar-copy">
+        <div class="workspace-toolbar-kicker">Manage Apps</div>
         <div class="toolbar-title">应用列表</div>
         <div class="toolbar-desc">
           先看名称、知识库和模型，需要时直接编辑、绑定或开聊。
         </div>
       </div>
-      <div class="toolbar-actions">
-        <el-form :model="searchData" :inline="true">
-          <el-form-item>
-            <el-input type="text" placeholder="按应用名称搜索" v-model="searchData.appName" clearable style="width: 180px"></el-input>
+      <div class="toolbar-actions workspace-toolbar-actions">
+        <el-form :model="searchData" :inline="true" class="workspace-toolbar-form">
+          <el-form-item class="workspace-toolbar-field workspace-toolbar-field--lg">
+            <el-input type="text" placeholder="按应用名称搜索" v-model="searchData.appName" clearable></el-input>
           </el-form-item>
           <el-form-item>
-            <el-button @click="loadTable" type="primary">查询</el-button>
+            <el-button @click="loadTable" type="primary" class="workspace-btn workspace-btn--primary">查询</el-button>
           </el-form-item>
           <el-form-item>
-            <el-button @click="addDialogVisible = true" type="success" :icon="Plus">新增应用</el-button>
+            <el-button @click="addDialogVisible = true" type="success" :icon="Plus" class="workspace-btn app-create-btn">新增应用</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -228,6 +229,22 @@ onMounted(() => {
   color: var(--space-text);
   letter-spacing: .02em;
   font-size: 14px;
+}
+
+.app-manage-page {
+  gap: 16px;
+}
+
+.app-create-btn {
+  border: 0 !important;
+  background: linear-gradient(135deg, #7ed957 0%, #64c934 58%, #4fb423 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px rgba(91, 191, 44, 0.24) !important;
+}
+
+.app-create-btn:hover {
+  background: linear-gradient(135deg, #8de164 0%, #6fd33a 58%, #58bb28 100%) !important;
+  box-shadow: 0 16px 32px rgba(91, 191, 44, 0.3) !important;
 }
 
 .time-tip {

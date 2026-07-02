@@ -45,10 +45,10 @@
             <!-- 中间描述 -->
             <div class="content">
               <div class="one-row">
-                <div class="left">
+                <div class="left workspace-media">
                   <el-avatar v-if="row.iconPath" :src="toAddressable(row.iconPath)">
                   </el-avatar>
-                  <el-icon v-else color="#409eff" :size="40">
+                  <el-icon v-else color="#409eff" class="space-icon--xl">
                     <Folder />
                   </el-icon>
                 </div>
@@ -878,16 +878,7 @@ function loadRecallSnapshots() {
 </script>
 <style scoped>
 .left {
-  background: rgba(64, 158, 255, 0.06);
-  border: 1px solid var(--space-border);
-  padding: 3px;
   margin-right: 10px;
-  border-radius: 6px;
-  width: 52px;
-  height: 52px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 .right {

@@ -1,9 +1,9 @@
 <template>
-  <div class="layout">
+  <div :class="['layout', isPublicRoute ? 'layout--public' : '']">
     <section class="wrapper">
-      <section class="main-content">
+      <section :class="['main-content', isPublicRoute ? 'main-content--public' : '']">
         <!-- 除了顶部导航所占区域在这里统一定义 -->
-        <div class="content-box">
+        <div :class="['content-box', isPublicRoute ? 'content-box--public' : '']">
           <!-- empty-values指定空值是什么,默认['', null, undefined],空值无法选中 -->
           <el-config-provider :value-on-clear="null" :empty-values="[undefined, null]">
             <router-view :key="currentRoute.fullPath"></router-view>
@@ -14,9 +14,10 @@
   </div>
 </template>
 <script setup name='Layout' lang='ts'>
-import { ref } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router';
 let currentRoute = useRoute()
+const isPublicRoute = computed(() => currentRoute.path.startsWith('/public/app/'))
 
 </script>
 <style scoped>
@@ -33,11 +34,25 @@ let currentRoute = useRoute()
   flex-direction: column;
 }
 
+.content-box--public {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+  overflow: auto;
+}
+
 .layout {
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.layout--public {
+  background: transparent;
 }
 
 .wrapper {
@@ -53,6 +68,10 @@ let currentRoute = useRoute()
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.main-content--public {
+  padding: 0;
 }
 
 </style>

@@ -2,6 +2,7 @@ package com.osh.ai.assistant.consumer.controller;
 
 import com.osh.ai.assistant.common.bean.res.Result;
 import com.osh.ai.assistant.consumer.bean.vo.ChatMessageVO;
+import com.osh.ai.assistant.consumer.service.ChatService;
 import com.osh.ai.assistant.consumer.service.ChatMessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ import java.util.List;
 @Validated
 public class ChatMessageController {
 
+    private final ChatService chatService;
     private final ChatMessageService chatMessageService;
 
     /**
@@ -30,6 +32,7 @@ public class ChatMessageController {
      */
     @GetMapping("/listHistory")
     public Result<List<ChatMessageVO>> listHistory(@RequestParam("chatId") Long chatId) {
+        chatService.requireOwnedChat(chatId);
         return Result.buildSuccess(chatMessageService.listHistory(chatId));
     }
 }

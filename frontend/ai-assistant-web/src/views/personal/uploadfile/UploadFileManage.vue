@@ -51,31 +51,33 @@
     <!-- 表格   -->
     <section class="glass-panel table-panel">
       <el-table :data="tableData.rows" stripe :border="true" style="width: 100%">
-        <el-table-column prop="fileName" label="文件名称">
+        <el-table-column prop="fileName" label="文件名称" min-width="160">
         </el-table-column>
-        <el-table-column prop="charCount" label="字符数">
+        <el-table-column prop="charCount" label="字符数" width="90">
         </el-table-column>
-        <el-table-column prop="recallCount" label="召回次数">
+        <el-table-column prop="recallCount" label="召回次数" width="90">
         </el-table-column>
-        <el-table-column prop="statusDesc" label="状态">
+        <el-table-column prop="statusDesc" label="状态" width="80">
         </el-table-column>
-        <el-table-column prop="createdTime" label="创建时间">
+        <el-table-column prop="createdTime" label="创建时间" width="170">
         </el-table-column>
-        <el-table-column label="操作">
+        <el-table-column label="操作" min-width="280" class-name="op-col">
           <template v-slot:default="scope">
-            <el-button type="primary" plain @click="openPreview(scope.row)">预览</el-button>
-            <el-button class="workspace-btn workspace-btn--ghost" @click="rebuildFile(scope.row)"
-              :disabled="scope.row.status !== 1">
-              重建索引
-            </el-button>
-            <el-button type="primary" v-if="scope.row.status === 0"
-              @click="updateStatus(scope.row.id,1)">启用
-            </el-button>
-            <el-button type="primary" v-if="scope.row.status === 1"
-              @click="updateStatus(scope.row.id,0)">禁用
-            </el-button>
-            <el-button type="danger" :icon="Delete" @click="deleteById(scope.row.id)">删除
-            </el-button>
+            <div class="op-group">
+              <el-button type="primary" plain size="small" @click="openPreview(scope.row)">预览</el-button>
+              <el-button class="workspace-btn workspace-btn--ghost" size="small" @click="rebuildFile(scope.row)"
+                :disabled="scope.row.status !== 1">
+                重建索引
+              </el-button>
+              <el-button type="primary" size="small" v-if="scope.row.status === 0"
+                @click="updateStatus(scope.row.id,1)">启用
+              </el-button>
+              <el-button type="primary" size="small" v-if="scope.row.status === 1"
+                @click="updateStatus(scope.row.id,0)">禁用
+              </el-button>
+              <el-button type="danger" size="small" :icon="Delete" @click="deleteById(scope.row.id)">删除
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -634,6 +636,19 @@ onMounted(() => {
   color: var(--space-text-soft);
   text-align: center;
   background: rgba(248, 250, 252, 0.9);
+}
+
+.op-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+:deep(.op-col .cell) {
+  overflow: visible;
+  white-space: nowrap;
 }
 
 @media (max-width: 900px) {

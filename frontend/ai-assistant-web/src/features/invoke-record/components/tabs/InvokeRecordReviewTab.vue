@@ -7,25 +7,23 @@
           <div class="review-desc">先看失败、慢请求和长回答，通常最容易发现问题。</div>
         </div>
         <div class="review-badges">
-          <span class="review-badge">当前记录数：{{ model.filteredRows.length }}</span>
-          <span class="review-badge">失败记录：{{ model.failRowCount }}</span>
-          <span class="review-badge">慢请求：{{ model.slowRowCount }}</span>
+          <span class="review-badge">记录：{{ model.filteredRows.length }}</span>
+          <span class="review-badge review-badge--danger">失败：{{ model.failRowCount }}</span>
+          <span class="review-badge review-badge--warn">慢请求：{{ model.slowRowCount }}</span>
           <span class="review-badge">长回答：{{ model.longAnswerRowCount }}</span>
           <span class="review-badge">待跟进：{{ model.followUpCount }}</span>
         </div>
       </div>
       <div class="quick-filter-row">
-        <span class="quick-filter-label">快速聚焦</span>
-        <el-button class="workspace-btn" :class="model.quickView === 'all' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.quickView = 'all'">全部记录</el-button>
-        <el-button class="workspace-btn" :class="model.quickView === 'fail' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.quickView = 'fail'">只看失败</el-button>
-        <el-button class="workspace-btn" :class="model.quickView === 'slow' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.quickView = 'slow'">只看慢请求</el-button>
-        <el-button class="workspace-btn" :class="model.quickView === 'long' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.quickView = 'long'">只看长回答</el-button>
-        <el-button class="workspace-btn" :class="model.quickView === 'followUp' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.quickView = 'followUp'">只看待跟进</el-button>
-        <el-button class="workspace-btn" :class="model.quickView === 'reviewed' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.quickView = 'reviewed'">只看已复盘</el-button>
-        <span class="quick-filter-hint">慢请求默认按耗时 ≥ 5000ms，长回答默认按回答长度 ≥ 200 字符判断。</span>
+        <el-button class="workspace-btn workspace-btn--sm" :class="model.quickView === 'all' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.quickView = 'all'">全部记录</el-button>
+        <el-button class="workspace-btn workspace-btn--sm" :class="model.quickView === 'fail' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.quickView = 'fail'">只看失败</el-button>
+        <el-button class="workspace-btn workspace-btn--sm" :class="model.quickView === 'slow' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.quickView = 'slow'">只看慢请求</el-button>
+        <el-button class="workspace-btn workspace-btn--sm" :class="model.quickView === 'long' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.quickView = 'long'">只看长回答</el-button>
+        <el-button class="workspace-btn workspace-btn--sm" :class="model.quickView === 'followUp' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.quickView = 'followUp'">只看待跟进</el-button>
+        <el-button class="workspace-btn workspace-btn--sm" :class="model.quickView === 'reviewed' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.quickView = 'reviewed'">只看已复盘</el-button>
       </div>
-      <div class="review-header-note">
-        <span>建议顺序：先看失败，再看慢请求，最后抽样看长回答是否真正答题且有依据。</span>
+      <div class="review-hint-row">
+        <span class="quick-filter-hint">慢请求 ≥ 5000ms · 长回答 ≥ 200 字符 · 建议先看失败，再看慢请求，最后抽样长回答</span>
       </div>
     </section>
 
@@ -113,11 +111,11 @@
       </div>
       <div class="quick-filter-row">
         <span class="quick-filter-label">分类聚焦</span>
-        <el-button class="workspace-btn" :class="model.followUpCategoryView === '' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.followUpCategoryView = ''">全部分类</el-button>
+        <el-button class="workspace-btn workspace-btn--sm" :class="model.followUpCategoryView === '' ? 'workspace-btn--primary' : 'workspace-btn--ghost'" @click="model.followUpCategoryView = ''">全部分类</el-button>
         <el-button
           v-for="option in model.followUpCategoryOptions"
           :key="option.value"
-          class="workspace-btn"
+          class="workspace-btn workspace-btn--sm"
           :class="model.followUpCategoryView === option.value ? 'workspace-btn--primary' : 'workspace-btn--ghost'"
           @click="model.followUpCategoryView = option.value"
         >
@@ -285,12 +283,12 @@ const model = useInvokeRecordFeatureModel()
 .table-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .review-panel,
 .table-panel {
-  padding: 18px;
+  padding: 16px;
 }
 
 .compact-panel {
@@ -343,7 +341,7 @@ const model = useInvokeRecordFeatureModel()
 .priority-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .review-badges {
@@ -352,7 +350,7 @@ const model = useInvokeRecordFeatureModel()
 
 .review-badge,
 .priority-tag {
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
@@ -362,6 +360,16 @@ const model = useInvokeRecordFeatureModel()
 .priority-tag--info {
   background: rgba(237, 245, 255, 0.95);
   color: var(--space-primary-strong);
+}
+
+.review-badge--danger {
+  background: rgba(254, 226, 226, 0.95) !important;
+  color: #b42318 !important;
+}
+
+.review-badge--warn {
+  background: rgba(255, 244, 229, 0.98) !important;
+  color: #b54708 !important;
 }
 
 .priority-tag--danger {
@@ -382,6 +390,17 @@ const model = useInvokeRecordFeatureModel()
 .quick-filter-row,
 .category-export-row {
   align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.review-hint-row {
+  margin-top: 8px;
+}
+
+.quick-filter-hint {
+  font-size: 12px;
+  color: var(--space-muted);
 }
 
 .quick-filter-label,
@@ -393,7 +412,7 @@ const model = useInvokeRecordFeatureModel()
 .priority-grid,
 .category-grid {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .priority-grid {
@@ -406,14 +425,14 @@ const model = useInvokeRecordFeatureModel()
 
 .priority-card,
 .category-card {
-  border-radius: 18px;
+  border-radius: 16px;
   border: 1px solid rgba(64, 158, 255, 0.12);
 }
 
 .priority-card {
-  padding: 16px;
+  padding: 14px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 255, 0.95));
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
 }
 
 .category-card {
@@ -449,7 +468,7 @@ const model = useInvokeRecordFeatureModel()
 
 .priority-block,
 .acceptance-item-block {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .priority-text {
@@ -511,5 +530,17 @@ const model = useInvokeRecordFeatureModel()
   .priority-tag-group {
     justify-content: flex-start;
   }
+}
+
+:deep(.workspace-btn--sm) {
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+}
+
+:deep(.workspace-btn--sm .el-icon) {
+  width: 12px;
+  height: 12px;
+  font-size: 12px;
 }
 </style>

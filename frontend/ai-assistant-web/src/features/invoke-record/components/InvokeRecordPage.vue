@@ -12,22 +12,34 @@
       </div>
     </section>
 
-    <section class="stats-grid">
-      <article class="stat-card">
-        <div class="stat-label">总调用次数</div>
-        <div class="stat-value">{{ model.overview.totalCount }}</div>
+    <section class="stats-grid stats-grid--colored">
+      <article class="stat-card stat-card--total">
+        <div class="stat-bar"></div>
+        <div class="stat-body">
+          <div class="stat-label">总调用次数</div>
+          <div class="stat-value">{{ model.overview.totalCount }}</div>
+        </div>
       </article>
-      <article class="stat-card">
-        <div class="stat-label">成功率</div>
-        <div class="stat-value">{{ model.successRate }}</div>
+      <article class="stat-card stat-card--success">
+        <div class="stat-bar"></div>
+        <div class="stat-body">
+          <div class="stat-label">成功率</div>
+          <div class="stat-value">{{ model.successRate }}</div>
+        </div>
       </article>
-      <article class="stat-card">
-        <div class="stat-label">累计 Token</div>
-        <div class="stat-value">{{ model.overview.totalCostToken }}</div>
+      <article class="stat-card stat-card--token">
+        <div class="stat-bar"></div>
+        <div class="stat-body">
+          <div class="stat-label">累计 Token</div>
+          <div class="stat-value">{{ model.overview.totalCostToken }}</div>
+        </div>
       </article>
-      <article class="stat-card">
-        <div class="stat-label">平均耗时</div>
-        <div class="stat-value">{{ model.overview.avgCostTime }}ms</div>
+      <article class="stat-card stat-card--time">
+        <div class="stat-bar"></div>
+        <div class="stat-body">
+          <div class="stat-label">平均耗时</div>
+          <div class="stat-value">{{ model.overview.avgCostTime }}<span class="stat-unit">ms</span></div>
+        </div>
       </article>
     </section>
 
@@ -71,6 +83,85 @@ onMounted(() => {
 <style scoped>
 .tabs-panel {
   padding: 18px;
+}
+
+.stats-grid--colored {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.stats-grid--colored .stat-card {
+  display: flex;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+.stats-grid--colored .stat-bar {
+  flex: 0 0 4px;
+  border-radius: 4px 0 0 4px;
+}
+
+.stats-grid--colored .stat-card--total .stat-bar {
+  background: linear-gradient(180deg, #409eff, #2f7fe2);
+}
+
+.stats-grid--colored .stat-card--success .stat-bar {
+  background: linear-gradient(180deg, #67c23a, #4fa82d);
+}
+
+.stats-grid--colored .stat-card--token .stat-bar {
+  background: linear-gradient(180deg, #e6a23c, #cf8a2e);
+}
+
+.stats-grid--colored .stat-card--time .stat-bar {
+  background: linear-gradient(180deg, #909399, #73767a);
+}
+
+.stats-grid--colored .stat-body {
+  flex: 1;
+  padding: 16px 18px;
+}
+
+.stats-grid--colored .stat-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.stats-grid--colored .stat-value {
+  margin-top: 8px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.stats-grid--colored .stat-card--total .stat-value {
+  color: var(--space-primary-strong);
+}
+
+.stats-grid--colored .stat-card--success .stat-value {
+  color: #3a9a1e;
+}
+
+.stats-grid--colored .stat-card--token .stat-value {
+  color: #b5791e;
+}
+
+.stats-grid--colored .stat-card--time .stat-value {
+  color: var(--space-text);
+}
+
+.stats-grid--colored .stat-unit {
+  margin-left: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--space-muted);
+}
+
+@media (max-width: 900px) {
+  .stats-grid--colored {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .tabs-copy {
