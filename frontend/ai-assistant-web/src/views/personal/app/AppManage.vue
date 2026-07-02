@@ -79,6 +79,12 @@
                   </el-text>
                 </div>
                 <div>
+                  <el-text class="app-id">
+                    公开发布:
+                    <span>支持最小配置管理</span>
+                  </el-text>
+                </div>
+                <div>
                   <el-text class="desc-text">
                     描述:{{ row.appDesc }}
                   </el-text>
@@ -89,6 +95,7 @@
             <template #footer>
               <div class="footer">
                 <el-button @click="openUpdateDialog(row.id)" type="primary">编辑</el-button>
+                <el-button @click="openPublishDialog(row.id)" type="primary" plain>公开发布</el-button>
                 <el-button @click="startChat(row.id)" type="primary">开始聊天</el-button>
                 <el-button @click="deleteById(row.id)" type="primary">删除</el-button>
               </div>
@@ -112,6 +119,12 @@
       :idToUpdate="idToUpdate" @updateSuccess="handleUpdateSuccess"></UpdateApp>
     <BindLib :bind-lib-dialog-visible="bindLibDialogVisible" @closeDialog="bindLibDialogVisible = false"
       :idToBindLib="idToBindLib" @bind-success="handleBindSuccess"></BindLib>
+    <PublishApp
+      :publish-dialog-visible="publishDialogVisible"
+      @closeDialog="publishDialogVisible = false"
+      :idToPublish="idToPublish"
+      @publishSuccess="handlePublishSuccess"
+    ></PublishApp>
   </div>
 </template>
 <script setup name='AppManage' lang='ts'>
@@ -123,6 +136,7 @@ import { Plus, Edit, Delete } from '@element-plus/icons-vue';
 import AddApp from '@/views/personal/app/AddApp.vue';
 import UpdateApp from '@/views/personal/app/UpdateApp.vue';
 import BindLib from '@/views/personal/app/BindLib.vue';
+import PublishApp from '@/views/personal/app/PublishApp.vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useResource } from '@/hooks/useResource';
@@ -131,8 +145,10 @@ import { useResource } from '@/hooks/useResource';
 let addDialogVisible = ref(false)
 let updateDialogVisible = ref(false)
 let bindLibDialogVisible = ref(false)
+let publishDialogVisible = ref(false)
 let idToUpdate = ref('')
 let idToBindLib = ref('')
+let idToPublish = ref('')
 
 let searchFormData = reactive({
   appName: ''
@@ -167,6 +183,10 @@ function openBindLibDialog(id: string) {
   idToBindLib.value = id
   bindLibDialogVisible.value = true
 }
+function openPublishDialog(id: string) {
+  idToPublish.value = id
+  publishDialogVisible.value = true
+}
 // 开启聊天
 function startChat(id: string) {
   checkChatConditionApi(id).then(result => {
@@ -185,6 +205,10 @@ function handleUpdateSuccess() {
 }
 function handleBindSuccess() {
   bindLibDialogVisible.value = false
+  loadTable()
+}
+function handlePublishSuccess() {
+  publishDialogVisible.value = false
   loadTable()
 }
 // 解绑知识库

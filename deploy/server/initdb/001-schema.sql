@@ -81,6 +81,23 @@ CREATE TABLE IF NOT EXISTS `app`
   KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB COMMENT='应用信息';
 
+CREATE TABLE IF NOT EXISTS `app_publish_config`
+(
+  `id`            bigint       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `app_id`        bigint       NOT NULL COMMENT 'app表主键',
+  `enabled`       tinyint      NOT NULL DEFAULT 0 COMMENT '是否启用公开访问,1:是,0:否',
+  `slug`          varchar(100) NOT NULL COMMENT '公开访问标识',
+  `access_type`   varchar(20)  NOT NULL DEFAULT 'PUBLIC' COMMENT '访问方式:PUBLIC/PASSWORD',
+  `password_hash` varchar(200) DEFAULT NULL COMMENT '访问密码哈希',
+  `custom_domain` varchar(200) DEFAULT NULL COMMENT '自定义访问域名',
+  `created_time`  datetime     NOT NULL DEFAULT current_timestamp() COMMENT '创建时间',
+  `modified_time` datetime     NOT NULL DEFAULT current_timestamp() COMMENT '修改时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_app_id` (`app_id`),
+  UNIQUE KEY `uk_slug` (`slug`),
+  UNIQUE KEY `uk_custom_domain` (`custom_domain`)
+) ENGINE=InnoDB COMMENT='应用公开发布配置';
+
 CREATE TABLE IF NOT EXISTS `knowledge_lib`
 (
   `id`              bigint       NOT NULL AUTO_INCREMENT COMMENT '主键',

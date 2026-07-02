@@ -8,7 +8,7 @@ const WHITE_URL_LIST = ['/', '/login', '/register', '/doc']
 
 router.beforeEach((toRoute, fromRoute, next) => {
   Nprogress.start()
-  if (WHITE_URL_LIST.includes(toRoute.path)) {
+  if (WHITE_URL_LIST.includes(toRoute.path) || toRoute.path.startsWith('/public/app/')) {
     return next()
   }
 

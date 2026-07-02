@@ -40,10 +40,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.Date;
@@ -61,6 +64,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AiChatServiceImpl implements AiChatService {
     private static final int REFERENCE_SNIPPET_LIMIT = 120;
+    private static final int SILENT_CHAT_MAX_ATTEMPTS = 3;
+    private static final long SILENT_CHAT_RETRY_SLEEP_MILLIS = 1500L;
     @Resource
     private VectorStore vectorStore;
     @Autowired(required = false)
@@ -137,29 +142,45 @@ public class AiChatServiceImpl implements AiChatService {
 
     @Override
     public String doChat(SseEmitter sseEmitter, AppDO app, InvokeRecordBuilder builder, boolean closeOnComplete) {
+        ChatAttemptResult attemptResult = executeChatAttempt(sseEmitter, app, builder, closeOnComplete);
+        persistChatAttempt(builder, attemptResult.detailBuilder());
+        return attemptResult.assistantMessage();
+    }
+
+    @Override
+    public String doChatSilently(AppDO app, InvokeRecordBuilder builder) {
+        ChatAttemptResult finalAttempt = null;
+        for (int attempt = 1; attempt <= SILENT_CHAT_MAX_ATTEMPTS; attempt++) {
+            finalAttempt = executeChatAttempt(new SseEmitter(0L), app, builder, true);
+            if (!shouldRetrySilentAttempt(finalAttempt, attempt)) {
+                break;
+            }
+            log.warn("silent chat transient failure, retrying attempt {}/{} for invokeRecordId={}, failReason={}",
+                attempt + 1, SILENT_CHAT_MAX_ATTEMPTS, builder.getId(), finalAttempt.detailBuilder().getFailReason());
+            sleepBeforeSilentRetry();
+        }
+        persistChatAttempt(builder, finalAttempt.detailBuilder());
+        return finalAttempt.assistantMessage();
+    }
+
+    private ChatAttemptResult executeChatAttempt(SseEmitter sseEmitter, AppDO app, InvokeRecordBuilder builder, boolean closeOnComplete) {
         StringBuilder retSb = new StringBuilder();
         InvokeRecordDetailBuilder detailBuilder4llm = initDetailBuilder4llm(builder, app);
         ChatResponsePlan responsePlan = obtainResponse(builder, app);
         Flux<ChatResponse> fluxResponse = responsePlan.response();
         String referencesMarkdown = responsePlan.referencesMarkdown();
         CountDownLatch cdl = new CountDownLatch(1);
-        // 记录每次响应结果
         AtomicReference<ChatResponse> lastResponseRef = new AtomicReference<>();
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
         fluxResponse
-            // 只要有结果返回就触发这个方法
-            .doOnNext(response -> {
-                processNext(sseEmitter,response,retSb,lastResponseRef);
-            })
-            .doOnCancel(() -> {
-                processCancel(cdl,detailBuilder4llm);
-            })
+            .doOnNext(response -> processNext(sseEmitter, response, retSb, lastResponseRef))
+            .doOnCancel(() -> processCancel(cdl, detailBuilder4llm))
             .doOnError(error -> {
-                processError(sseEmitter,error,cdl,detailBuilder4llm,retSb);
+                errorRef.set(error);
+                processError(sseEmitter, error, cdl, detailBuilder4llm, retSb);
             })
-            .doOnComplete(() -> {
-                // 所有的数据已经发送完毕
-                processComplete(sseEmitter,cdl,lastResponseRef,detailBuilder4llm,responsePlan.failReason(), referencesMarkdown, retSb, closeOnComplete);
-            })
+            .doOnComplete(() -> processComplete(sseEmitter, cdl, lastResponseRef, detailBuilder4llm,
+                responsePlan.failReason(), referencesMarkdown, retSb, closeOnComplete))
             .subscribe();
         try {
             boolean await = cdl.await(5, TimeUnit.MINUTES);
@@ -167,20 +188,42 @@ public class AiChatServiceImpl implements AiChatService {
                 detailBuilder4llm.setStatus(InvokeStatusEnum.FAIL.getCode());
                 detailBuilder4llm.setFailReason("等待超时");
             }
-            // 设置响应结果
-            detailBuilder4llm.setAssistantMessage(retSb.toString());
-            invokeRecordDetailService.add(detailBuilder4llm);
-            invokeRecordService.record(builder);
-        }catch (Exception e) {
-            log.error("await error",e);
+        } catch (Exception e) {
+            log.error("await error", e);
+            detailBuilder4llm.setStatus(InvokeStatusEnum.FAIL.getCode());
+            detailBuilder4llm.setFailReason("等待结果异常: " + e.getClass().getSimpleName());
+            errorRef.set(e);
         }
-        return retSb.toString();
+        detailBuilder4llm.setAssistantMessage(retSb.toString());
+        return new ChatAttemptResult(detailBuilder4llm, retSb.toString(), errorRef.get());
     }
 
-    @Override
-    public String doChatSilently(AppDO app, InvokeRecordBuilder builder) {
-        SseEmitter emitter = new SseEmitter(0L);
-        return doChat(emitter, app, builder, true);
+    private void persistChatAttempt(InvokeRecordBuilder builder, InvokeRecordDetailBuilder detailBuilder4llm) {
+        try {
+            invokeRecordDetailService.add(detailBuilder4llm);
+            invokeRecordService.record(builder);
+        } catch (Exception e) {
+            log.error("persist chat attempt error", e);
+        }
+    }
+
+    private boolean shouldRetrySilentAttempt(ChatAttemptResult attemptResult, int currentAttempt) {
+        if (attemptResult == null || currentAttempt >= SILENT_CHAT_MAX_ATTEMPTS) {
+            return false;
+        }
+        if (!InvokeStatusEnum.FAIL.getCode().equals(attemptResult.detailBuilder().getStatus())) {
+            return false;
+        }
+        return isTransientStreamError(attemptResult.error())
+            || isTransientStreamFailReason(attemptResult.detailBuilder().getFailReason());
+    }
+
+    private void sleepBeforeSilentRetry() {
+        try {
+            Thread.sleep(SILENT_CHAT_RETRY_SLEEP_MILLIS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private InvokeRecordDetailBuilder initDetailBuilder4llm(InvokeRecordBuilder builder, AppDO app) {
@@ -236,7 +279,7 @@ public class AiChatServiceImpl implements AiChatService {
                               InvokeRecordDetailBuilder detailBuilder4llm, StringBuilder retSb) {
         log.error("chat appear error",error);
         detailBuilder4llm.setStatus(InvokeStatusEnum.FAIL.getCode());
-        detailBuilder4llm.setFailReason(error.getMessage());
+        detailBuilder4llm.setFailReason(buildChatFailReason(error));
         String visibleMessage = StrUtil.isBlank(retSb.toString()) ? KNOWLEDGE_TEMP_UNAVAILABLE : STREAM_INTERRUPTED;
         if (StrUtil.isNotBlank(retSb.toString()) && !StrUtil.endWith(retSb.toString(), "\n")) {
             retSb.append("\n\n");
@@ -463,6 +506,69 @@ public class AiChatServiceImpl implements AiChatService {
         return reason;
     }
 
+    private String buildChatFailReason(Throwable error) {
+        if (error == null) {
+            return "聊天流处理失败";
+        }
+        WebClientResponseException responseException = findCause(error, WebClientResponseException.class);
+        if (responseException != null) {
+            return "上游模型流失败: " + responseException.getStatusCode().value() + " " + responseException.getStatusText();
+        }
+        EOFException eofException = findCause(error, EOFException.class);
+        if (eofException != null) {
+            return "上游模型流失败: EOF reached while reading";
+        }
+        WebClientRequestException requestException = findCause(error, WebClientRequestException.class);
+        if (requestException != null) {
+            String message = StrUtil.blankToDefault(requestException.getMessage(), requestException.getClass().getSimpleName());
+            return "上游模型流失败: " + truncateFailReason(message);
+        }
+        String message = StrUtil.blankToDefault(error.getMessage(), error.getClass().getSimpleName());
+        return truncateFailReason(message);
+    }
+
+    private String truncateFailReason(String message) {
+        if (StrUtil.isBlank(message)) {
+            return "聊天流处理失败";
+        }
+        return message.length() > 500 ? message.substring(0, 500) : message;
+    }
+
+    private boolean isTransientStreamFailReason(String failReason) {
+        if (StrUtil.isBlank(failReason)) {
+            return false;
+        }
+        return StrUtil.containsAnyIgnoreCase(failReason,
+            "上游模型流失败", "stream processing failed", "too many requests", "eof reached while reading");
+    }
+
+    private boolean isTransientStreamError(Throwable error) {
+        if (error == null) {
+            return false;
+        }
+        if (findCause(error, WebClientResponseException.TooManyRequests.class) != null) {
+            return true;
+        }
+        if (findCause(error, EOFException.class) != null) {
+            return true;
+        }
+        if (findCause(error, WebClientRequestException.class) != null) {
+            return true;
+        }
+        return StrUtil.containsIgnoreCase(StrUtil.blankToDefault(error.getMessage(), ""), "Stream processing failed");
+    }
+
+    private <T extends Throwable> T findCause(Throwable error, Class<T> targetType) {
+        Throwable current = error;
+        while (current != null) {
+            if (targetType.isInstance(current)) {
+                return targetType.cast(current);
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
     private String buildReferencesMarkdown(List<Document> documents) {
         if (CollUtil.isEmpty(documents)) {
             return null;
@@ -607,6 +713,9 @@ public class AiChatServiceImpl implements AiChatService {
             current = current.getCause();
         }
         return false;
+    }
+
+    private record ChatAttemptResult(InvokeRecordDetailBuilder detailBuilder, String assistantMessage, Throwable error) {
     }
 
     /**

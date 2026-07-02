@@ -1,6 +1,8 @@
 package com.osh.ai.assistant.consumer.controller;
 import com.osh.ai.assistant.common.bean.res.Result;
+import com.osh.ai.assistant.consumer.bean.req.app.AppPublishSaveReq;
 import com.osh.ai.assistant.consumer.bean.req.app.BindLibReq;
+import com.osh.ai.assistant.consumer.bean.vo.AppPublishConfigVO;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -10,6 +12,7 @@ import com.osh.ai.assistant.consumer.bean.req.app.AppPageReq;
 import com.osh.ai.assistant.consumer.bean.req.app.AppAddReq;
 import com.osh.ai.assistant.consumer.bean.req.app.AppUpdateReq;
 import com.osh.ai.assistant.consumer.bean.vo.AppVO;
+import com.osh.ai.assistant.consumer.service.AppPublishConfigService;
 import com.osh.ai.assistant.consumer.service.AppService;
 /**
   * 应用信息Controller层
@@ -24,6 +27,7 @@ import com.osh.ai.assistant.consumer.service.AppService;
 public class AppController {
 
     private final AppService appService;
+    private final AppPublishConfigService appPublishConfigService;
 
     /**
      * 应用信息新增
@@ -93,5 +97,30 @@ public class AppController {
     public Result<Void> bindLib(@RequestBody @Validated BindLibReq req) {
         appService.bindLib(req);
         return Result.buildSuccessMsg("绑定成功");
+    }
+
+    /**
+     * 查询公开发布配置
+     */
+    @GetMapping("/publishConfig/queryByAppId")
+    public Result<AppPublishConfigVO> queryPublishConfigByAppId(@RequestParam("id") Long id) {
+        return Result.buildSuccess(appPublishConfigService.queryByAppId(id));
+    }
+
+    /**
+     * 保存公开发布配置
+     */
+    @PostMapping("/publishConfig/save")
+    public Result<AppPublishConfigVO> savePublishConfig(@RequestBody @Validated AppPublishSaveReq req) {
+        return Result.buildSuccess(appPublishConfigService.saveConfig(req));
+    }
+
+    /**
+     * 关闭公开发布配置
+     */
+    @GetMapping("/publishConfig/disable")
+    public Result<Void> disablePublishConfig(@RequestParam("id") Long id) {
+        appPublishConfigService.disable(id);
+        return Result.buildSuccessMsg("关闭成功");
     }
 }

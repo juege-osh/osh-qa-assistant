@@ -6,6 +6,7 @@ RUNTIME_DIR="${LAUGHING_RUNTIME_DIR:-$ROOT_DIR/.laughing-runtime}"
 ENV_SOURCE="${LAUGHING_ENV_FILE:-$ROOT_DIR/.env.local}"
 COMPOSE_PROJECT="${LAUGHING_COMPOSE_PROJECT:-qa-assistant-laughing}"
 ENABLE_ALERT_SANDBOX="${LAUGHING_ENABLE_ALERT_SANDBOX:-0}"
+ENABLE_LOCAL_QDRANT="${LAUGHING_ENABLE_LOCAL_QDRANT:-0}"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -52,7 +53,7 @@ if [ ! -d "$ROOT_DIR/frontend/ai-assistant-web/dist" ]; then
 fi
 
 echo "[3/4] Preparing runtime directory: $RUNTIME_DIR"
-mkdir -p "$RUNTIME_DIR/config" "$RUNTIME_DIR/nginx" "$RUNTIME_DIR/html/ai" "$RUNTIME_DIR/logs/backend" "$RUNTIME_DIR/upload"
+mkdir -p "$RUNTIME_DIR/config" "$RUNTIME_DIR/nginx" "$RUNTIME_DIR/html/ai" "$RUNTIME_DIR/logs/backend" "$RUNTIME_DIR/upload" "$RUNTIME_DIR/qdrant"
 cp "$ROOT_DIR/backend/target/backend.jar" "$RUNTIME_DIR/backend.jar"
 cp "$ROOT_DIR/ops/laughing/backend-prod-laughing.yml" "$RUNTIME_DIR/config/backend-prod-laughing.yml"
 cp "$ROOT_DIR/ops/laughing/nginx.laughing.conf" "$RUNTIME_DIR/nginx/default.conf"
@@ -68,6 +69,8 @@ LAUGHING_BACKEND_PORT=${LAUGHING_BACKEND_PORT:-19088}
 LAUGHING_BACKEND_MEMORY_LIMIT=${LAUGHING_BACKEND_MEMORY_LIMIT:-1024m}
 LAUGHING_JAVA_INITIAL_RAM_PERCENTAGE=${LAUGHING_JAVA_INITIAL_RAM_PERCENTAGE:-20}
 LAUGHING_JAVA_MAX_RAM_PERCENTAGE=${LAUGHING_JAVA_MAX_RAM_PERCENTAGE:-60}
+LAUGHING_QDRANT_HTTP_PORT=${LAUGHING_QDRANT_HTTP_PORT:-16333}
+LAUGHING_QDRANT_GRPC_PORT=${LAUGHING_QDRANT_GRPC_PORT:-16334}
 AI_ASSISTANT_CONTAINER_UPLOAD_DIR=/opt/qa-assistant/upload
 EOF
 
@@ -92,15 +95,30 @@ EOF
   COMPOSE_ARGS+=(--profile mailpit)
 fi
 
+if [ "$ENABLE_LOCAL_QDRANT" = "1" ]; then
+  cat >> "$RUNTIME_DIR/.env" <<EOF
+AI_ASSISTANT_QDRANT_HOST=qa-assistant-qdrant-laughing
+AI_ASSISTANT_QDRANT_PORT=6334
+AI_ASSISTANT_QDRANT_COLLECTION=${AI_ASSISTANT_QDRANT_COLLECTION:-assistant_knowledge_lib}
+SPRING_AI_VECTORSTORE_QDRANT_INITIALIZE_SCHEMA=true
+EOF
+  COMPOSE_ARGS+=(--profile local-qdrant)
+fi
+
 echo "[4/4] Starting laughing app-only stack"
 docker compose "${COMPOSE_ARGS[@]}" up -d --remove-orphans --force-recreate
 
 echo
 docker compose "${COMPOSE_ARGS[@]}" ps
 echo
+echo "Note: if you manually replace $RUNTIME_DIR/backend.jar later, restart or recreate qa-assistant-backend-laughing before validating."
+echo "      Hot-swapping the jar file without a container restart can cause false runtime errors such as ZipException / NoClassDefFoundError."
 echo "Web:     http://127.0.0.1:${LAUGHING_HTTP_PORT:-18088}/ai/"
 echo "Backend: http://127.0.0.1:${LAUGHING_BACKEND_PORT:-19088}/auth/getCode"
 if [ "$ENABLE_ALERT_SANDBOX" = "1" ]; then
   echo "Mail UI: http://127.0.0.1:${LAUGHING_MAILPIT_UI_PORT:-18025}/"
+fi
+if [ "$ENABLE_LOCAL_QDRANT" = "1" ]; then
+  echo "Qdrant:  http://127.0.0.1:${LAUGHING_QDRANT_HTTP_PORT:-16333}/"
 fi
 echo "Monitor: ./scripts/laughing-monitor.sh"

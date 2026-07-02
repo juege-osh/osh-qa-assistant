@@ -39,6 +39,8 @@ TARGET_EXPERIMENT_NAME="${TARGET_EXPERIMENT_NAME:-脚本语义切分版}"
 BATCH_PREFIX="${BATCH_PREFIX:-真实问题集正式验收-补知识复跑}"
 PATCH_FILE_NAME="${PATCH_FILE_NAME:-rag-mvp-coverage-patch.md}"
 REPORT_PATH="${REPORT_PATH:-}"
+QUESTIONS_FILE="${QUESTIONS_FILE:-$ROOT_DIR/scripts/rag-mvp-real-questions.json}"
+QUESTION_FILTER="${QUESTION_FILTER:-}"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -120,9 +122,99 @@ cat > "$PATCH_DOC" <<'EOF'
 如果用户问的是外部法律、外部财税、外部医疗、外部合规等高风险问题，而当前知识库没有对应依据，系统应直接说明：
 
 当前知识库里没有足够依据支持这个回答，我不能直接给出结论。你可以补充对应制度名称、流程来源，或联系运营人补充知识后再提问。
+
+## 如何判断应该优先补知识、补切分还是补提示词
+如果用户直接问“当前应该优先补知识、补切分，还是补提示词”，建议按下面顺序判断：
+
+1. 先看正式验收批次里的四项结论和待跟进分类
+2. 再看同一组问题在不同切分版本之间是否出现明显差异
+3. 最后再决定进入补知识、补切分还是补提示词
+
+### 更适合优先补知识的场景
+- 问题本身就在知识库范围内，但回答反复说“没有足够依据”
+- 不同切分版本都答不稳同一类问题
+- 回答方向大体正确，但缺少明确规则、分类口径或操作边界
+
+这类问题更像知识内容本身没写清楚，应该优先补知识。
+
+### 更适合优先补切分的场景
+- 同一组真实问题里，某个切分版本明显掉分，另一个版本明显更稳
+- 长步骤题、覆盖范围题、总结型题更容易出现断裂、遗漏、顺序不稳
+- 待跟进分类已经出现 `chunking`
+
+这类问题应优先补切分，再复跑确认。
+
+### 更适合优先补提示词的场景
+- 知识依据本身存在，但答案组织顺序不好
+- 回答结论不够直接，或者失败反馈不够体面
+- 召回内容大体正确，但最终回答没有按“先结论、再依据、再下一步”组织
+
+这类问题更适合优先补提示词。
+
+## 切换生效切分版本后，如何验证是否真的生效
+如果用户问“我切换了知识库的生效切分版本之后，下一步应该怎么验证切换到底有没有真的生效”，推荐稳定回答下面这套闭环：
+
+1. 先确认目标实验版本已经发布为当前生效版本
+2. 再按当前生效版本重建索引
+3. 再按当前生效版本复跑同一组真实问题
+4. 查看新批次里的 `activeExperimentName` 和 `activeSplitStrategy`
+5. 再把新批次和上一轮正式验收批次做对比
+
+更短的一句话可以直接概括为：
+
+切换生效版本后，不要只看页面状态，要按当前生效版本复跑同一组真实问题，并核对批次里的 `activeExperimentName / activeSplitStrategy`，这样才能确认切换真的生效。
+
+## 忘了重建索引时最容易出现什么假象
+如果用户问“我切换了生效切分版本，但忘了重建索引，正式验收里最容易出现什么假象”，推荐明确回答下面这层区别：
+
+1. 页面状态或批次字段里会先显示“当前生效版本已经切换”
+2. 但真正被检索使用的内容可能还停留在旧索引
+3. 因此最常见的伪生效假象是：
+   - `activeExperimentName / activeSplitStrategy` 看起来已经是新版本
+   - 但同一组真实问题的回答质量、命中差异、召回表现仍然像旧版本
+   - 这会让人误以为“新版本没带来变化”或者误判成“模型 / 提示词问题”
+
+更稳的总结方式应是：
+
+- 切换生效版本，只是先切“标识”
+- 重建索引，才会切“实际被检索使用的内容”
+- 所以忘了重建索引时，最典型的假象就是“字段像新版本，结果像旧版本”
+
+推荐补一句操作闭环：
+
+1. 确认目标实验版本已发布为当前生效版本
+2. 按当前生效版本重建索引
+3. 再复跑同一组真实问题
+4. 同时核对 `activeExperimentName / activeSplitStrategy` 和回答效果
+
+如果字段已经切到新版本，但回答仍和旧版本几乎一样，应优先怀疑“索引还没按新版本重建完成”。
+
+## 最小可重复验收的标准动作顺序
+如果用户问“我只想做一轮最小可重复验收，开始前到复跑后的动作顺序应该怎么排”，推荐优先按下面这套标准闭环回答，而且不要只回答中间的跑测步骤。
+
+### 开始前必须先确认的 4 件事
+1. 先确认任务目标、任务名称和对应知识库
+2. 再确认当前生效的切分版本
+3. 再查看应用级 Prompt 和模型开关
+4. 再确认这次要复用哪一组问题集做验收
+
+### 最小可重复验收的推荐顺序
+1. 先确认任务目标、知识库、生效切分版本、Prompt 和模型开关
+2. 再准备文档并上传到知识库
+3. 再保存切分实验版本，并发布为当前生效版本
+4. 再重建索引并绑定应用
+5. 再运行默认问题集或真实问题集跑测
+6. 再查看正式验收批次里的四项结论和待跟进分类
+7. 再根据结果决定补知识、补切分还是补提示词
+8. 最后按当前生效版本复跑同一组问题，并核对 `activeExperimentName / activeSplitStrategy`
+
+### 更短的一句话概括
+如果要一句话说清楚，推荐直接回答：
+
+最小可重复验收不是只跑一次问题集，而是先确认任务和当前生效版本，再跑正式验收，根据结果修补，最后按当前生效版本复跑并核对批次字段，形成闭环。
 EOF
 
-python3 - "$BASE_URL" "$REDIS_HOST" "$REDIS_PORT" "$REDIS_PASSWORD" "$CONSUMER_USER" "$CONSUMER_PWD" "$APP_NAME" "$LIB_NAME" "$TARGET_EXPERIMENT_NAME" "$BATCH_PREFIX" "$PATCH_DOC" "$REPORT_PATH" <<'PY' > "$RESULT_FILE"
+python3 - "$BASE_URL" "$REDIS_HOST" "$REDIS_PORT" "$REDIS_PASSWORD" "$CONSUMER_USER" "$CONSUMER_PWD" "$APP_NAME" "$LIB_NAME" "$TARGET_EXPERIMENT_NAME" "$BATCH_PREFIX" "$PATCH_DOC" "$REPORT_PATH" "$QUESTIONS_FILE" "$QUESTION_FILTER" <<'PY' > "$RESULT_FILE"
 import json
 import socket
 import sys
@@ -134,47 +226,21 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 (base_url, redis_host, redis_port, redis_password, consumer_user, consumer_pwd,
- app_name, lib_name, target_experiment_name, batch_prefix, patch_doc, report_path) = sys.argv[1:]
+ app_name, lib_name, target_experiment_name, batch_prefix, patch_doc, report_path, questions_file, question_filter) = sys.argv[1:]
 redis_port = int(redis_port)
 
-REAL_QUESTIONS = [
-    {
-        "testCaseNo": "RQ-01",
-        "questionType": "真实业务问题",
-        "userQuestion": "这个知识库现在主要能回答哪些类型的问题？",
-        "expectedKnowledge": "明确概括三类覆盖范围：内部文档知识问答、训练测试任务起步与执行顺序、知识没命中时的体面反馈。"
-    },
-    {
-        "testCaseNo": "RQ-02",
-        "questionType": "真实业务问题",
-        "userQuestion": "如果我要开始做训练测试任务，第一步应该先做什么？",
-        "expectedKnowledge": "给出训练测试任务的最小起步动作和准备顺序。"
-    },
-    {
-        "testCaseNo": "RQ-03",
-        "questionType": "真实业务问题",
-        "userQuestion": "如果我要把这个流程真正走通，建议我按什么顺序做？",
-        "expectedKnowledge": "给出文档接入、实验版本、发布、重建索引和跑测的先后顺序。"
-    },
-    {
-        "testCaseNo": "RQ-04",
-        "questionType": "真实业务问题",
-        "userQuestion": "这个事情我该怎么弄？",
-        "expectedKnowledge": "识别问题模糊，提示补充关键词，同时给出安全的最小起步建议。"
-    },
-    {
-        "testCaseNo": "RQ-05",
-        "questionType": "真实业务问题",
-        "userQuestion": "请直接告诉我美国联邦所得税 2026 年怎么报。",
-        "expectedKnowledge": "明确说明知识库无依据，避免强答，并给出下一步建议。"
-    },
-    {
-        "testCaseNo": "RQ-06",
-        "questionType": "真实业务问题",
-        "userQuestion": "把训练测试任务真正走通的完整顺序、每一步为什么要做、以及如果知识没命中时怎么收尾，一次性讲完整。",
-        "expectedKnowledge": "同时覆盖准备文档、上传到知识库、保存实验版本、发布当前生效版本、重建索引、绑定应用、运行默认问题集跑测、根据结果修补知识切分提示词、未命中时的体面反馈。"
-    }
-]
+REAL_QUESTIONS = json.loads(Path(questions_file).read_text(encoding="utf-8"))
+
+def apply_question_filter(questions, raw_filter):
+    raw_filter = (raw_filter or "").strip()
+    if not raw_filter:
+        return questions
+    allowed = {item.strip() for item in raw_filter.split(",") if item.strip()}
+    return [item for item in questions if item.get("testCaseNo") in allowed]
+
+REAL_QUESTIONS = apply_question_filter(REAL_QUESTIONS, question_filter)
+if not REAL_QUESTIONS:
+    raise RuntimeError("no questions selected after QUESTION_FILTER")
 
 def redis_cmd(*parts):
     payload = f"*{len(parts)}\r\n".encode()
@@ -375,6 +441,14 @@ def add_upload_file(token, lib_id, store_path, file_name):
     if resp.get("code") != 200:
         raise RuntimeError(f"add upload file failed: {resp}")
 
+def require_latest_uploaded_file(token, lib_id, file_name):
+    files = list_upload_files(token, lib_id)
+    matched = [item for item in files if item.get("fileName") == file_name]
+    if not matched:
+        raise RuntimeError(f"uploaded file not found after add: {file_name}")
+    matched.sort(key=lambda item: int(item.get("id")), reverse=True)
+    return matched[0]
+
 def rebuild_lib(token, lib_id):
     resp = http_json("GET", f"/consumer/uploadFile/rebuildByLibId?libId={lib_id}", token=token)
     if resp.get("code") != 200:
@@ -519,9 +593,7 @@ patch_file_name = Path(patch_doc).name
 add_upload_file(token, lib["id"], relative_path, patch_file_name)
 
 updated_files = list_upload_files(token, lib["id"])
-uploaded_file = find_record(updated_files, "fileName", patch_file_name)
-if uploaded_file is None:
-    raise RuntimeError(f"uploaded file not found after add: {patch_file_name}")
+uploaded_file = require_latest_uploaded_file(token, lib["id"], patch_file_name)
 
 rebuild_msg = rebuild_lib(token, lib["id"])
 preview = preview_chunks(token, uploaded_file["id"], experiment)

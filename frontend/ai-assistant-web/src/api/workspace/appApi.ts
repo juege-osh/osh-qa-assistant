@@ -75,3 +75,33 @@ export function bindLibApi(data:object) {
       data: data
   })
 }
+
+/**
+ * 查询公开发布配置
+ */
+export function queryPublishConfigApi(id: string) {
+  return doGet({
+      url: "/consumer/app/publishConfig/queryByAppId",
+      params: {id}
+  })
+}
+
+/**
+ * 保存公开发布配置
+ */
+export function savePublishConfigApi(data: object) {
+  return appJsonPost({
+      url: "/consumer/app/publishConfig/save",
+      data: data
+  })
+}
+
+/**
+ * 关闭公开发布配置
+ */
+export function disablePublishConfigApi(id: string) {
+  return doGet({
+      url: "/consumer/app/publishConfig/disable",
+      params: {id}
+  })
+}

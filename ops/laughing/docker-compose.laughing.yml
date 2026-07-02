@@ -1,4 +1,24 @@
 services:
+  qa-assistant-qdrant-laughing:
+    image: qdrant/qdrant:v1.16.0
+    container_name: qa-assistant-qdrant-laughing
+    restart: unless-stopped
+    profiles:
+      - local-qdrant
+    volumes:
+      - ./qdrant:/qdrant/storage
+    ports:
+      - "${LAUGHING_QDRANT_HTTP_PORT:-16333}:6333"
+      - "${LAUGHING_QDRANT_GRPC_PORT:-16334}:6334"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc ': > /dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - qa-assistant-laughing-network
+
   qa-assistant-backend-laughing:
     image: eclipse-temurin:17-jre
     container_name: qa-assistant-backend-laughing

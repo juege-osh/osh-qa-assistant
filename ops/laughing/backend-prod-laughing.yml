@@ -16,6 +16,9 @@ spring:
       mail:
         smtp:
           auth: ${AI_ASSISTANT_ALERT_SMTP_AUTH:true}
+          ssl:
+            enable: ${AI_ASSISTANT_ALERT_SMTP_SSL_ENABLE:false}
+            trust: ${AI_ASSISTANT_ALERT_SMTP_SSL_TRUST:}
           starttls:
             enable: ${AI_ASSISTANT_ALERT_SMTP_STARTTLS:true}
   datasource:
@@ -31,7 +34,7 @@ spring:
       min-idle: 1
       validation-query: select 1
       test-while-idle: true
-      test-on-borrow: false
+      test-on-borrow: true
       test-on-return: false
       keep-alive: true
       time-between-eviction-runs-millis: 30000
@@ -139,6 +142,9 @@ auth:
     - /consumer/user/login
     - /consumer/user/register
     - /consumer/api/chat
+    - /consumer/public/app/detail
+    - /consumer/public/app/verifyPassword
+    - /consumer/public/app/chat
     - /consumer/sse/**
     - /manager/resources/**
     - /consumer/resources/**

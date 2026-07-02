@@ -37,7 +37,7 @@ import com.osh.ai.assistant.consumer.service.RagAcceptanceService;
 import com.osh.ai.assistant.consumer.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -56,6 +56,7 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
     private final AiChatService aiChatService;
     private final InvokeRecordService invokeRecordService;
     private final InvokeRecordDetailService invokeRecordDetailService;
+    private final TransactionTemplate transactionTemplate;
 
     private static final List<AcceptanceQuestionTemplate> DEFAULT_QUESTION_TEMPLATES = List.of(
         new AcceptanceQuestionTemplate("TC-01", "标准知识问答", "这个知识库当前主要覆盖哪些主题？", "能说明当前知识库覆盖范围、主题边界或主要文档类型。"),
@@ -71,8 +72,11 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
     );
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public Long saveBatch(RagAcceptanceBatchSaveReq req) {
+        return Objects.requireNonNull(transactionTemplate.execute(status -> saveBatchInternal(req)));
+    }
+
+    private Long saveBatchInternal(RagAcceptanceBatchSaveReq req) {
         RagAcceptanceBatchDO entity;
         if (req.getId() == null) {
             entity = new RagAcceptanceBatchDO();
@@ -98,7 +102,6 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public Long runDefaultBatch(RagAcceptanceRunDefaultBatchReq req) {
         RunBatchContext context = prepareRunBatchContext(req.getAppId());
         RagAcceptanceBatchSaveReq saveReq = initBatchSaveReq(req.getBatchName(), req.getSceneType(), req.getTesterName(),
@@ -110,7 +113,6 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public Long runBatch(RagAcceptanceRunBatchReq req) {
         RunBatchContext context = prepareRunBatchContext(req.getAppId());
         RagAcceptanceBatchSaveReq saveReq = initBatchSaveReq(req.getBatchName(), req.getSceneType(), req.getTesterName(),
@@ -159,46 +161,115 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
 
     private Long runBatchAndSave(RagAcceptanceBatchSaveReq saveReq, RunBatchContext context,
                                  List<AcceptanceQuestionTemplate> templates, String batchLabel) {
+        Long batchId = createRunningBatch(saveReq, batchLabel, templates.size());
         List<RagAcceptanceItemSaveReq> items = new ArrayList<>();
-        for (AcceptanceQuestionTemplate template : templates) {
-            ExecutionSnapshot snapshot = executeQuestion(context.app(), context.currentUser(), template);
-            AcceptanceEvaluation evaluation = evaluateAcceptance(template, snapshot);
-            RagAcceptanceItemSaveReq item = new RagAcceptanceItemSaveReq();
-            item.setInvokeRecordId(snapshot.invokeRecordId());
-            item.setInvokeRecordDetailId(snapshot.invokeRecordDetailId());
-            item.setTestCaseNo(template.testCaseNo());
-            item.setQuestionType(template.questionType());
-            item.setUserQuestion(template.userQuestion());
-            item.setExpectedKnowledge(template.expectedKnowledge());
-            item.setActualAnswerSummary(summarizeAnswer(snapshot.answer()));
-            item.setActualAnswer(snapshot.answer());
-            item.setFailReason(snapshot.failReason());
-            item.setGracefulFailureConclusion(snapshot.failReason() == null ? "" : "待确认");
-            item.setInvokeStatus(snapshot.invokeStatus());
-            item.setModelName(snapshot.modelName());
-            item.setAppName(context.app().getAppName());
-            item.setLibName(context.knowledgeLib() == null ? "" : context.knowledgeLib().getLibName());
-            item.setCostTime(snapshot.costTime());
-            item.setCostToken(snapshot.costToken());
-            item.setHitConclusion(evaluation.hitConclusion());
-            item.setGroundedConclusion(evaluation.groundedConclusion());
-            item.setReadableConclusion(evaluation.readableConclusion());
-            item.setGracefulFailureConclusion(evaluation.gracefulFailureConclusion());
-            item.setHitRateConclusion(evaluation.hitRateConclusion());
-            item.setCompletenessConclusion(evaluation.completenessConclusion());
-            item.setFollowUpCategory(evaluation.followUpCategory());
-            item.setFollowUpAction(evaluation.followUpAction());
-            item.setRemark(evaluation.remark());
-            items.add(item);
+        int completedCount = 0;
+        try {
+            for (AcceptanceQuestionTemplate template : templates) {
+                ExecutionSnapshot snapshot = executeQuestion(context.app(), context.currentUser(), template);
+                AcceptanceEvaluation evaluation = evaluateAcceptance(template, snapshot);
+                RagAcceptanceItemSaveReq item = buildAcceptanceItem(context, template, snapshot, evaluation);
+                items.add(item);
+                completedCount++;
+                appendBatchItem(batchId, item);
+                refreshRunningBatch(batchId, batchLabel, completedCount, templates.size());
+            }
+            if (StrUtil.isBlank(saveReq.getSummaryConclusion())) {
+                saveReq.setSummaryConclusion(buildSummaryConclusion(items, batchLabel));
+            }
+            if (StrUtil.isBlank(saveReq.getNextAction())) {
+                saveReq.setNextAction(buildNextAction(items));
+            }
+            finalizeBatch(batchId, saveReq);
+            return batchId;
+        } catch (Exception ex) {
+            markBatchInterrupted(batchId, batchLabel, completedCount, templates.size(), ex);
+            throw ex;
         }
-        saveReq.setItems(items);
-        if (StrUtil.isBlank(saveReq.getSummaryConclusion())) {
-            saveReq.setSummaryConclusion(buildSummaryConclusion(items, batchLabel));
-        }
-        if (StrUtil.isBlank(saveReq.getNextAction())) {
-            saveReq.setNextAction(buildNextAction(items));
-        }
-        return saveBatch(saveReq);
+    }
+
+    private Long createRunningBatch(RagAcceptanceBatchSaveReq saveReq, String batchLabel, int totalCount) {
+        RagAcceptanceBatchDO entity = new RagAcceptanceBatchDO();
+        entity.setUserId(UserContext.getUserId());
+        fillBatchFields(entity, saveReq);
+        entity.setSummaryConclusion(buildRunningSummary(batchLabel, 0, totalCount));
+        entity.setNextAction(buildRunningNextAction(0, totalCount));
+        Date now = new Date();
+        entity.setCreatedTime(now);
+        entity.setModifiedTime(now);
+        batchMapper.insert(entity);
+        return entity.getId();
+    }
+
+    private RagAcceptanceItemSaveReq buildAcceptanceItem(RunBatchContext context, AcceptanceQuestionTemplate template,
+                                                         ExecutionSnapshot snapshot, AcceptanceEvaluation evaluation) {
+        RagAcceptanceItemSaveReq item = new RagAcceptanceItemSaveReq();
+        item.setInvokeRecordId(snapshot.invokeRecordId());
+        item.setInvokeRecordDetailId(snapshot.invokeRecordDetailId());
+        item.setTestCaseNo(template.testCaseNo());
+        item.setQuestionType(template.questionType());
+        item.setUserQuestion(template.userQuestion());
+        item.setExpectedKnowledge(template.expectedKnowledge());
+        item.setActualAnswerSummary(summarizeAnswer(snapshot.answer()));
+        item.setActualAnswer(snapshot.answer());
+        item.setFailReason(snapshot.failReason());
+        item.setGracefulFailureConclusion(snapshot.failReason() == null ? "" : "待确认");
+        item.setInvokeStatus(snapshot.invokeStatus());
+        item.setModelName(snapshot.modelName());
+        item.setAppName(context.app().getAppName());
+        item.setLibName(context.knowledgeLib() == null ? "" : context.knowledgeLib().getLibName());
+        item.setCostTime(snapshot.costTime());
+        item.setCostToken(snapshot.costToken());
+        item.setHitConclusion(evaluation.hitConclusion());
+        item.setGroundedConclusion(evaluation.groundedConclusion());
+        item.setReadableConclusion(evaluation.readableConclusion());
+        item.setGracefulFailureConclusion(evaluation.gracefulFailureConclusion());
+        item.setHitRateConclusion(evaluation.hitRateConclusion());
+        item.setCompletenessConclusion(evaluation.completenessConclusion());
+        item.setFollowUpCategory(evaluation.followUpCategory());
+        item.setFollowUpAction(evaluation.followUpAction());
+        item.setRemark(evaluation.remark());
+        return item;
+    }
+
+    private void appendBatchItem(Long batchId, RagAcceptanceItemSaveReq itemReq) {
+        transactionTemplate.executeWithoutResult(status -> {
+            RagAcceptanceItemDO item = ConvertUtil.convert(itemReq, RagAcceptanceItemDO.class);
+            item.setId(null);
+            item.setBatchId(batchId);
+            itemMapper.insert(item);
+        });
+    }
+
+    private void refreshRunningBatch(Long batchId, String batchLabel, int completedCount, int totalCount) {
+        transactionTemplate.executeWithoutResult(status -> {
+            RagAcceptanceBatchDO batch = new RagAcceptanceBatchDO();
+            batch.setId(batchId);
+            batch.setSummaryConclusion(buildRunningSummary(batchLabel, completedCount, totalCount));
+            batch.setNextAction(buildRunningNextAction(completedCount, totalCount));
+            batch.setModifiedTime(new Date());
+            batchMapper.updateById(batch);
+        });
+    }
+
+    private void finalizeBatch(Long batchId, RagAcceptanceBatchSaveReq saveReq) {
+        transactionTemplate.executeWithoutResult(status -> {
+            RagAcceptanceBatchDO batch = requireOwnedBatch(batchId);
+            fillBatchFields(batch, saveReq);
+            batch.setModifiedTime(new Date());
+            batchMapper.updateById(batch);
+        });
+    }
+
+    private void markBatchInterrupted(Long batchId, String batchLabel, int completedCount, int totalCount, Exception ex) {
+        transactionTemplate.executeWithoutResult(status -> {
+            RagAcceptanceBatchDO batch = new RagAcceptanceBatchDO();
+            batch.setId(batchId);
+            batch.setSummaryConclusion(buildInterruptedSummary(batchLabel, completedCount, totalCount, ex));
+            batch.setNextAction("请先查看当前批次已落库条目与调用日志，再从失败题继续补跑，不要直接把整批结果当成未执行。");
+            batch.setModifiedTime(new Date());
+            batchMapper.updateById(batch);
+        });
     }
 
     @Override
@@ -354,7 +425,7 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
     }
 
     private AcceptanceEvaluation evaluateAcceptance(AcceptanceQuestionTemplate template, ExecutionSnapshot snapshot) {
-        String answer = normalize(snapshot.answer());
+        String answer = primaryAnswer(snapshot.answer());
         boolean invokeSuccess = InvokeStatusEnum.SUCCESS.getCode().toString().equals(snapshot.invokeStatus());
         boolean saysNoEnoughEvidence = containsAny(answer,
             "没有足够依据", "没有直接依据", "缺少知识依据", "当前知识库里没有直接依据",
@@ -415,6 +486,39 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         }
         if (looksLikeCoverageQuestion(template)) {
             return evaluateCoverageQuestion(answer);
+        }
+        if (looksLikeRuntimeVsKnowledgeQuestion(template)) {
+            return evaluateRuntimeVsKnowledgeQuestion(answer);
+        }
+        if (looksLikePreflightChecklistQuestion(template)) {
+            return evaluatePreflightChecklistQuestion(answer);
+        }
+        if (looksLikeStaleIndexQuestion(template)) {
+            return evaluateStaleIndexQuestion(answer);
+        }
+        if (looksLikeClarifiedFollowUpQuestion(template)) {
+            return evaluateClarifiedFollowUpQuestion(answer);
+        }
+        if (looksLikeFollowUpDecisionQuestion(template)) {
+            return evaluateFollowUpDecisionQuestion(answer);
+        }
+        if (looksLikeChunkingDiagnosisQuestion(template)) {
+            return evaluateChunkingDiagnosisQuestion(answer);
+        }
+        if (looksLikePromptFixQuestion(template)) {
+            return evaluatePromptFixQuestion(answer);
+        }
+        if (looksLikeKnowledgeDiagnosisQuestion(template)) {
+            return evaluateKnowledgeDiagnosisQuestion(answer);
+        }
+        if (looksLikeForcedRiskRefusalQuestion(template)) {
+            return evaluateForcedRiskRefusalQuestion(answer, saysNoEnoughEvidence);
+        }
+        if (looksLikeActiveVersionVerificationQuestion(template)) {
+            return evaluateActiveVersionVerificationQuestion(answer);
+        }
+        if (looksLikeMinimalLoopQuestion(template)) {
+            return evaluateMinimalLoopQuestion(answer);
         }
         if (looksLikeOrderedStepsQuestion(template)) {
             return evaluateOrderedStepsQuestion(answer);
@@ -501,6 +605,9 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         }
         if ("失败场景".equals(template.questionType()) || "未命中知识".equals(template.questionType())) {
             return (saysNoEnoughEvidence || containsAny(answer, "检索暂时不可用")) && saysRetryLater ? "通过" : "不通过";
+        }
+        if (isOperationalDecisionQuestion(template)) {
+            return "通过";
         }
         if (saysNoEnoughEvidence) {
             return saysRetryLater || containsAny(answer, "请补充", "具体") ? "通过" : "待确认";
@@ -595,6 +702,24 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         return "继续扩充真实问题集，并基于正式批次结果持续复盘。";
     }
 
+    private String buildRunningSummary(String batchLabel, int completedCount, int totalCount) {
+        return batchLabel + "运行中，已完成 " + completedCount + " / " + totalCount
+            + " 条；批次已提前创建，可继续通过列表页观察逐题落库进度。";
+    }
+
+    private String buildRunningNextAction(int completedCount, int totalCount) {
+        return "当前批次仍在执行中，已完成 " + completedCount + " / " + totalCount
+            + " 条；如长时间停留，请先查看已落库条目，再判断是否卡在单题调用。";
+    }
+
+    private String buildInterruptedSummary(String batchLabel, int completedCount, int totalCount, Exception ex) {
+        String message = StrUtil.blankToDefault(StrUtil.trim(ex.getMessage()), "请查看调用记录与后端日志");
+        if (message.length() > 60) {
+            message = message.substring(0, 60);
+        }
+        return batchLabel + "中断，已完成 " + completedCount + " / " + totalCount + " 条；最近异常：" + message;
+    }
+
     private boolean hasCoverageTopics(String answer) {
         int topicHit = 0;
         if (containsAny(answer, "内部文档知识问答")) {
@@ -614,19 +739,161 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         return hasCoverageTopics(answer) && hasQuestionTypeHint ? "通过" : "待确认";
     }
 
+    private String evaluateRuntimeVsKnowledgeQuestion(String answer) {
+        boolean hasBatchSignals = containsCountAtLeast(answer, 2,
+            "正式验收批次", "待跟进分类", "同一组真实问题", "同样一组问题", "对比不同切分版本", "不同版本之间",
+            "同一组问题", "失败模式", "得分差异明显", "排除法", "先排除运行态问题",
+            "字段显示是新版本", "生效版本字段", "activeExperimentName", "activeSplitStrategy", "答案质量还像旧版本");
+        boolean hasKnowledgeSide = containsCountAtLeast(answer, 2,
+            "知识问题", "知识没写清楚", "没有足够依据", "缺规则边界", "分类口径", "知识库里应该有",
+            "补知识", "知识库内容", "知识缺口", "知识内容本身没写清楚", "知识里缺具体边界");
+        boolean hasRuntimeSide = containsCountAtLeast(answer, 2,
+            "运行态问题", "切分问题", "切分版本", "模型配置", "索引", "检索", "上游", "暂时不可用", "超时",
+            "observe", "流处理失败", "stream processing failed", "索引是否一致", "切换没真正生效", "回答一致性");
+        return hasBatchSignals && hasKnowledgeSide && hasRuntimeSide ? "通过" : "待确认";
+    }
+
+    private String evaluatePreflightChecklistQuestion(String answer) {
+        boolean hasTaskAndLib = containsCountAtLeast(answer, 2, "任务名称", "任务目标", "所属知识库", "知识库");
+        boolean hasVersion = containsAny(answer, "生效切分版本", "当前生效切分版本", "切分版本");
+        boolean hasPromptAndModel = containsCountAtLeast(answer, 2, "Prompt", "提示词", "模型", "模型开关");
+        return hasTaskAndLib && hasVersion && hasPromptAndModel ? "通过" : "待确认";
+    }
+
+    private String evaluateStaleIndexQuestion(String answer) {
+        boolean hasIllusion = containsCountAtLeast(answer, 2,
+            "假象", "页面状态", "字段", "旧版本", "activeExperimentName", "activeSplitStrategy", "回答质量仍然是旧版本", "回答效果仍然像旧版本");
+        boolean hasRepairAction = containsCountAtLeast(answer, 2,
+            "重建索引", "复跑", "正式验收批次", "验收批次", "当前生效版本", "同一组真实问题", "对比");
+        boolean hasRootCause = containsCountAtLeast(answer, 2,
+            "实际被检索使用的内容", "旧索引", "索引还没按新版本重建完成", "只是先切标识", "标识", "误判成模型 / 提示词问题", "误判成模型/提示词问题");
+        return hasIllusion && (hasRepairAction || hasRootCause) ? "通过" : "待确认";
+    }
+
+    private String evaluateClarifiedFollowUpQuestion(String answer) {
+        boolean hasFirstTurn = containsCountAtLeast(answer, 2,
+            "第一次", "模糊", "缺少什么信息", "最小起步建议", "补充关键词");
+        boolean hasSecondTurn = containsCountAtLeast(answer, 2,
+            "第二次", "补了关键词", "补充了关键词", "顺着关键词", "继续回答", "直接给答案", "不要再重复", "自然承接");
+        return hasFirstTurn && hasSecondTurn ? "通过" : "待确认";
+    }
+
     private String evaluateOrderedStepsQuestion(String answer) {
-        boolean hasOrderWords = containsCountAtLeast(answer, 3, "1.", "2.", "3.", "先", "然后", "接着", "最后", "顺序");
+        boolean hasOrderWords = containsCountAtLeast(answer, 3,
+            "1.", "2.", "3.", "第一步", "第二步", "第三步", "第四步", "第五步", "第六步", "先", "然后", "接着", "最后", "顺序");
         boolean hasKeySteps = containsCountAtLeast(answer, 4,
             "准备文档", "上传到知识库", "保存切分实验版本", "发布为当前生效版本", "重建索引", "绑定应用", "运行默认问题集", "正式验收");
         return hasOrderWords && hasKeySteps ? "通过" : "待确认";
+    }
+
+    private String evaluateFollowUpDecisionQuestion(String answer) {
+        boolean hasThreeActions = containsCountAtLeast(answer, 3, "补知识", "补切分", "补提示词");
+        boolean hasDecisionHints = containsCountAtLeast(answer, 2,
+            "待跟进分类", "正式验收批次", "切分版本", "同一组问题", "长步骤题", "没有足够依据", "答案组织");
+        return hasThreeActions && hasDecisionHints ? "通过" : "待确认";
+    }
+
+    private String evaluateChunkingDiagnosisQuestion(String answer) {
+        boolean hasChunking = containsAny(answer, "切分", "chunking", "切分策略");
+        boolean hasSymptoms = containsCountAtLeast(answer, 2, "长步骤题", "覆盖范围题", "总结型题", "断裂", "遗漏", "顺序不稳", "掉分");
+        return hasChunking && hasSymptoms ? "通过" : "待确认";
+    }
+
+    private String evaluatePromptFixQuestion(String answer) {
+        boolean hasPrompt = containsAny(answer, "提示词", "prompt");
+        boolean hasSymptoms = containsCountAtLeast(answer, 2,
+            "结论不够直接", "结论不直接", "失败反馈不够体面", "先结论", "再依据", "再下一步", "组织顺序", "结构乱", "结构混乱");
+        return hasPrompt && hasSymptoms ? "通过" : "待确认";
+    }
+
+    private String evaluateKnowledgeDiagnosisQuestion(String answer) {
+        boolean hasKnowledge = containsAny(answer, "补知识", "知识内容", "知识本身", "知识库");
+        boolean hasSignals = containsCountAtLeast(answer, 2, "没有足够依据", "两个切分版本", "不同切分版本", "都答不稳", "规则", "口径", "操作边界");
+        return hasKnowledge && hasSignals ? "通过" : "待确认";
+    }
+
+    private String evaluateForcedRiskRefusalQuestion(String answer, boolean saysNoEnoughEvidence) {
+        boolean hasFirmRefusal = saysNoEnoughEvidence || containsCountAtLeast(answer, 2,
+            "不会猜", "不能猜", "不能直接给出结论", "不能编造答案", "不会直接猜测", "明确拒绝猜测",
+            "高风险", "高风险领域", "猜测性结论");
+        boolean hasReason = containsCountAtLeast(answer, 2,
+            "没有足够依据", "没有依据", "误判风险", "合规风险", "不是负责任的做法", "不能直接给出结论",
+            "误导你的实际判断", "缺少具体来源依据", "没有覆盖这个方向的具体依据", "风险较高",
+            "没有依据的情况下", "说明原因");
+        boolean hasNextStep = containsCountAtLeast(answer, 2,
+            "补充信息", "联系运营人", "补知识", "下一步", "制度名称", "制度文件", "文件出处", "流程节点", "流程来源",
+            "业务背景", "替代方案", "合理的替代方案", "给动作", "给台阶", "换成知识库范围内的问题");
+        boolean hasStructuredRefusal = containsCountAtLeast(answer, 2,
+            "先明确边界，再说明原因，最后给动作", "明确边界", "说明原因", "最后给动作", "拒答的核心原则");
+        return hasFirmRefusal && ((hasReason && hasNextStep) || (hasReason && hasStructuredRefusal)) ? "通过" : "待确认";
+    }
+
+    private String evaluateActiveVersionVerificationQuestion(String answer) {
+        boolean hasRerunAction = containsAny(answer, "按当前生效版本复跑", "复跑同一组真实问题", "运行默认问题集跑测");
+        boolean hasSnapshotEvidence = containsCountAtLeast(answer, 2,
+            "activeExperimentName", "activeSplitStrategy", "正式验收批次", "对比结果", "重建索引", "当前生效版本");
+        return hasRerunAction && hasSnapshotEvidence ? "通过" : "待确认";
+    }
+
+    private String evaluateMinimalLoopQuestion(String answer) {
+        boolean hasOrderWords = containsCountAtLeast(answer, 4,
+            "1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.", "10.",
+            "第一步", "第二步", "第三步", "第四步", "第五步", "先", "再", "然后", "最后");
+        boolean hasSetup = containsCountAtLeast(answer, 2, "任务目标", "任务名称", "知识库", "生效切分版本", "Prompt", "提示词", "模型");
+        boolean hasRunAndRepair = containsCountAtLeast(answer, 3, "运行默认问题集", "真实问题集", "正式验收批次", "补知识", "补切分", "补提示词", "复跑");
+        return hasOrderWords && hasSetup && hasRunAndRepair ? "通过" : "待确认";
     }
 
     private boolean looksLikeCoverageQuestion(AcceptanceQuestionTemplate template) {
         return containsAny(template.userQuestion(), "主要能回答哪些", "覆盖哪些", "哪些类型的问题", "覆盖范围");
     }
 
+    private boolean looksLikeRuntimeVsKnowledgeQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "更像知识问题还是运行态问题", "知识问题还是运行态问题", "答案不稳");
+    }
+
+    private boolean looksLikePreflightChecklistQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "开始跑测前", "最少要先确认哪几件事", "接手一个新的训练测试任务");
+    }
+
+    private boolean looksLikeStaleIndexQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "忘了重建索引", "最容易出现什么假象", "伪生效");
+    }
+
+    private boolean looksLikeClarifiedFollowUpQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "第一次问题问得很模糊", "第二次才补了关键词", "最合适的承接方式");
+    }
+
     private boolean looksLikeOrderedStepsQuestion(AcceptanceQuestionTemplate template) {
         return containsAny(template.userQuestion(), "按什么顺序", "建议我按什么顺序", "真正走通", "先后步骤", "流程顺序");
+    }
+
+    private boolean looksLikeFollowUpDecisionQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "优先补知识", "补知识、补切分，还是补提示词", "补知识、补切分还是补提示词");
+    }
+
+    private boolean looksLikeChunkingDiagnosisQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "长步骤题", "总结型题", "反复掉分", "优先怀疑什么");
+    }
+
+    private boolean looksLikePromptFixQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "结论不够直接", "结论也不够直接", "收尾也不够体面", "更适合先修哪一层", "先修提示词", "结构总是乱");
+    }
+
+    private boolean looksLikeKnowledgeDiagnosisQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "两个切分版本都答不稳", "都老提示没有足够依据", "更像哪类问题");
+    }
+
+    private boolean looksLikeForcedRiskRefusalQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "还一直追问让我猜一个结论", "怎样拒答才算体面", "高风险问题");
+    }
+
+    private boolean looksLikeActiveVersionVerificationQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "切换了知识库的生效切分版本之后", "验证切换到底有没有真的生效", "生效切分版本之后", "忘了重建索引");
+    }
+
+    private boolean looksLikeMinimalLoopQuestion(AcceptanceQuestionTemplate template) {
+        return containsAny(template.userQuestion(), "最小可重复验收", "开始前到复跑后的动作顺序", "动作顺序应该怎么排");
     }
 
     private boolean looksLikeFirstStepQuestion(AcceptanceQuestionTemplate template) {
@@ -637,8 +904,21 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
         return containsAny(template.userQuestion(), "这个事情我该怎么弄", "我该怎么弄", "怎么办");
     }
 
+    private boolean isOperationalDecisionQuestion(AcceptanceQuestionTemplate template) {
+        return looksLikeCoverageQuestion(template)
+            || looksLikeRuntimeVsKnowledgeQuestion(template)
+            || looksLikePreflightChecklistQuestion(template)
+            || looksLikeOrderedStepsQuestion(template)
+            || looksLikeFollowUpDecisionQuestion(template)
+            || looksLikeChunkingDiagnosisQuestion(template)
+            || looksLikePromptFixQuestion(template)
+            || looksLikeKnowledgeDiagnosisQuestion(template)
+            || looksLikeActiveVersionVerificationQuestion(template)
+            || looksLikeMinimalLoopQuestion(template);
+    }
+
     private boolean looksLikeOutOfScopeQuestion(AcceptanceQuestionTemplate template) {
-        return containsAny(template.userQuestion(), "美国联邦所得税", "2026 年怎么报", "外部问题");
+        return containsAny(template.userQuestion(), "美国联邦所得税", "2026 年怎么报", "外部问题", "超出知识库范围", "超出知识库覆盖范围");
     }
 
     private boolean isChunkingSensitiveQuestion(AcceptanceQuestionTemplate template) {
@@ -736,6 +1016,18 @@ public class RagAcceptanceServiceImpl implements RagAcceptanceService {
 
     private String normalize(String text) {
         return StrUtil.blankToDefault(text, "").replace("\r\n", "\n").trim();
+    }
+
+    private String primaryAnswer(String text) {
+        String normalized = normalize(text);
+        if (StrUtil.isBlank(normalized)) {
+            return normalized;
+        }
+        int referenceIndex = normalized.indexOf("参考来源");
+        if (referenceIndex < 0) {
+            return normalized;
+        }
+        return StrUtil.trim(normalized.substring(0, referenceIndex));
     }
 
     private record AcceptanceQuestionTemplate(String testCaseNo, String questionType, String userQuestion, String expectedKnowledge) {

@@ -17,7 +17,7 @@ spring:
       min-idle: 1
       validation-query: select 1
       test-while-idle: true
-      test-on-borrow: false
+      test-on-borrow: true
       test-on-return: false
       keep-alive: true
       time-between-eviction-runs-millis: 30000
@@ -86,6 +86,9 @@ auth:
     - /user/register
     - /api/chat
     - /chat/connect
+    - /public/app/detail
+    - /public/app/verifyPassword
+    - /public/app/chat
     # 测试sse
     - /sse/**
 

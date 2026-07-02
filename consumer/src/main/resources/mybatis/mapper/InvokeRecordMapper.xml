@@ -82,7 +82,9 @@
   <select id="queryList" resultMap="invokeRecordMap">
     <include refid="pageColumn"/>
     from (
-      select invokeRecord.* from invoke_record invokeRecord
+      select invokeRecord.*
+      from invoke_record invokeRecord
+      join app app on invokeRecord.app_id = app.id
       <include refid="pageWhere"></include>
       order by invokeRecord.id desc
       limit #{start},#{pageSize}

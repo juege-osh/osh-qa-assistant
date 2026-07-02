@@ -1,10 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env.local}"
+
+load_env_file_if_present() {
+  if [ ! -f "$1" ]; then
+    return
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ''|\#*)
+        continue
+        ;;
+    esac
+    key="${line%%=*}"
+    value="${line#*=}"
+    if [ -z "$key" ]; then
+      continue
+    fi
+    if [ -z "${!key+x}" ]; then
+      export "$key=$value"
+    fi
+  done < "$1"
+}
+
+load_env_file_if_present "$ENV_FILE"
+
 BASE_URL="${1:-http://127.0.0.1:19088}"
-REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
-REDIS_PORT="${REDIS_PORT:-6379}"
-REDIS_PASSWORD="${REDIS_PASSWORD:-}"
+REDIS_HOST="${REDIS_HOST:-${AI_ASSISTANT_REDIS_HOST:-127.0.0.1}}"
+REDIS_PORT="${REDIS_PORT:-${AI_ASSISTANT_REDIS_PORT:-6379}}"
+REDIS_PASSWORD="${REDIS_PASSWORD:-${AI_ASSISTANT_REDIS_PASSWORD:-}}"
 CONSUMER_USER="${CONSUMER_USER:-course_demo_user}"
 CONSUMER_PWD="${CONSUMER_PWD:-123456}"
 APP_NAME="${APP_NAME:-RAG MVP 验收助手}"
@@ -14,6 +40,13 @@ RIGHT_EXPERIMENT_NAME="${RIGHT_EXPERIMENT_NAME:-脚本Token切分版}"
 LEFT_BATCH_PREFIX="${LEFT_BATCH_PREFIX:-真实问题集正式验收-语义切分}"
 RIGHT_BATCH_PREFIX="${RIGHT_BATCH_PREFIX:-真实问题集正式验收-Token切分}"
 REPORT_PATH="${REPORT_PATH:-}"
+QUESTIONS_FILE="${QUESTIONS_FILE:-$ROOT_DIR/scripts/rag-mvp-real-questions.json}"
+QUESTION_FILTER="${QUESTION_FILTER:-}"
+RUN_BATCH_REQUEST_TIMEOUT_SECONDS="${RUN_BATCH_REQUEST_TIMEOUT_SECONDS:-30}"
+BATCH_POLL_WAIT_SECONDS="${BATCH_POLL_WAIT_SECONDS:-600}"
+BATCH_POLL_INTERVAL_SECONDS="${BATCH_POLL_INTERVAL_SECONDS:-5}"
+HTTP_RETRY_ATTEMPTS="${HTTP_RETRY_ATTEMPTS:-4}"
+HTTP_RETRY_DELAY_SECONDS="${HTTP_RETRY_DELAY_SECONDS:-3}"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -29,10 +62,11 @@ TMP_DIR="$(mktemp -d)"
 RESULT_FILE="$TMP_DIR/rag-real-compare-result.json"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-python3 - "$BASE_URL" "$REDIS_HOST" "$REDIS_PORT" "$REDIS_PASSWORD" "$CONSUMER_USER" "$CONSUMER_PWD" "$APP_NAME" "$LIB_NAME" "$LEFT_EXPERIMENT_NAME" "$RIGHT_EXPERIMENT_NAME" "$LEFT_BATCH_PREFIX" "$RIGHT_BATCH_PREFIX" "$REPORT_PATH" <<'PY' > "$RESULT_FILE"
+python3 - "$BASE_URL" "$REDIS_HOST" "$REDIS_PORT" "$REDIS_PASSWORD" "$CONSUMER_USER" "$CONSUMER_PWD" "$APP_NAME" "$LIB_NAME" "$LEFT_EXPERIMENT_NAME" "$RIGHT_EXPERIMENT_NAME" "$LEFT_BATCH_PREFIX" "$RIGHT_BATCH_PREFIX" "$REPORT_PATH" "$QUESTIONS_FILE" "$QUESTION_FILTER" "$RUN_BATCH_REQUEST_TIMEOUT_SECONDS" "$BATCH_POLL_WAIT_SECONDS" "$BATCH_POLL_INTERVAL_SECONDS" "$HTTP_RETRY_ATTEMPTS" "$HTTP_RETRY_DELAY_SECONDS" <<'PY' > "$RESULT_FILE"
 import json
 import socket
 import sys
+import time
 import urllib.error
 import urllib.request
 from collections import Counter
@@ -42,47 +76,29 @@ from urllib.parse import urljoin
 
 (base_url, redis_host, redis_port, redis_password, consumer_user, consumer_pwd,
  app_name, lib_name, left_exp_name, right_exp_name, left_batch_prefix,
- right_batch_prefix, report_path) = sys.argv[1:]
+ right_batch_prefix, report_path, questions_file, question_filter,
+ run_batch_request_timeout_seconds, batch_poll_wait_seconds,
+ batch_poll_interval_seconds, http_retry_attempts,
+ http_retry_delay_seconds) = sys.argv[1:]
 redis_port = int(redis_port)
+run_batch_request_timeout_seconds = int(run_batch_request_timeout_seconds)
+batch_poll_wait_seconds = int(batch_poll_wait_seconds)
+batch_poll_interval_seconds = int(batch_poll_interval_seconds)
+http_retry_attempts = int(http_retry_attempts)
+http_retry_delay_seconds = int(http_retry_delay_seconds)
 
-REAL_QUESTIONS = [
-    {
-        "testCaseNo": "RQ-01",
-        "questionType": "真实业务问题",
-        "userQuestion": "这个知识库现在主要能回答哪些类型的问题？",
-        "expectedKnowledge": "概括知识库覆盖范围、主题边界和适合提问的问题类型。"
-    },
-    {
-        "testCaseNo": "RQ-02",
-        "questionType": "真实业务问题",
-        "userQuestion": "如果我要开始做训练测试任务，第一步应该先做什么？",
-        "expectedKnowledge": "给出训练测试任务的最小起步动作和准备顺序。"
-    },
-    {
-        "testCaseNo": "RQ-03",
-        "questionType": "真实业务问题",
-        "userQuestion": "如果我要把这个流程真正走通，建议我按什么顺序做？",
-        "expectedKnowledge": "给出文档接入、实验版本、发布、重建索引和跑测的先后顺序。"
-    },
-    {
-        "testCaseNo": "RQ-04",
-        "questionType": "真实业务问题",
-        "userQuestion": "这个事情我该怎么弄？",
-        "expectedKnowledge": "识别问题模糊，提示补充关键词，同时给出安全的最小起步建议。"
-    },
-    {
-        "testCaseNo": "RQ-05",
-        "questionType": "真实业务问题",
-        "userQuestion": "请直接告诉我美国联邦所得税 2026 年怎么报。",
-        "expectedKnowledge": "明确说明知识库无依据，避免强答，并给出下一步建议。"
-    },
-    {
-        "testCaseNo": "RQ-06",
-        "questionType": "真实业务问题",
-        "userQuestion": "把训练测试任务真正走通的完整顺序、每一步为什么要做、以及如果知识没命中时怎么收尾，一次性讲完整。",
-        "expectedKnowledge": "同时覆盖准备文档、上传到知识库、保存实验版本、发布当前生效版本、重建索引、绑定应用、运行默认问题集跑测、根据结果修补知识切分提示词、未命中时的体面反馈。"
-    }
-]
+REAL_QUESTIONS = json.loads(Path(questions_file).read_text(encoding="utf-8"))
+
+def apply_question_filter(questions, raw_filter):
+    raw_filter = (raw_filter or "").strip()
+    if not raw_filter:
+        return questions
+    allowed = {item.strip() for item in raw_filter.split(",") if item.strip()}
+    return [item for item in questions if item.get("testCaseNo") in allowed]
+
+REAL_QUESTIONS = apply_question_filter(REAL_QUESTIONS, question_filter)
+if not REAL_QUESTIONS:
+    raise RuntimeError("no questions selected after QUESTION_FILTER")
 
 def redis_cmd(*parts):
     payload = f"*{len(parts)}\r\n".encode()
@@ -140,7 +156,7 @@ def redis_get(key):
             return raw.strip('"')
     return raw
 
-def http_json(method, path, data=None, token=None):
+def http_json(method, path, data=None, token=None, timeout_seconds=180):
     req = urllib.request.Request(urljoin(base_url, path), method=method)
     if data is not None:
         req.add_header("Content-Type", "application/json")
@@ -150,11 +166,109 @@ def http_json(method, path, data=None, token=None):
     if token:
         req.add_header("Authorization", token)
     try:
-        with urllib.request.urlopen(req, data=body, timeout=180) as resp:
+        with urllib.request.urlopen(req, data=body, timeout=timeout_seconds) as resp:
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
         payload = exc.read().decode()
         raise RuntimeError(f"http error {exc.code} {path}: {payload}") from exc
+
+def with_retry(label, func, retryable_result=None, attempts=None, base_delay_seconds=None):
+    attempts = attempts or http_retry_attempts
+    base_delay_seconds = base_delay_seconds or http_retry_delay_seconds
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            result = func()
+            if retryable_result and retryable_result(result):
+                last_error = RuntimeError(f"{label} returned retryable result: {result}")
+            else:
+                return result
+        except (TimeoutError, socket.timeout, urllib.error.URLError, RuntimeError) as exc:
+            last_error = exc
+        if attempt < attempts:
+            time.sleep(base_delay_seconds * attempt)
+    raise RuntimeError(f"{label} failed after {attempts} attempts: {last_error}") from last_error
+
+def list_rag_batches(token):
+    def fetch():
+        resp = http_json("GET", "/consumer/ragAcceptance/listMine", token=token)
+        if resp.get("code") != 200:
+            raise RuntimeError(f"list rag batches failed: {resp}")
+        return resp
+    resp = with_retry(
+        "listMine",
+        fetch,
+        retryable_result=lambda payload: payload.get("code") == 90000,
+    )
+    return resp.get("data") or []
+
+def load_batch_detail(token, batch_id):
+    def fetch():
+        detail_resp = http_json("GET", f"/consumer/ragAcceptance/detail?id={batch_id}", token=token)
+        if detail_resp.get("code") != 200:
+            raise RuntimeError(f"load batch detail failed: {detail_resp}")
+        return detail_resp
+    detail_resp = with_retry(
+        f"detail({batch_id})",
+        fetch,
+        retryable_result=lambda payload: payload.get("code") == 90000,
+    )
+    return detail_resp["data"]
+
+def is_batch_running(detail, expect_count=None):
+    item_count = detail.get("itemCount") or 0
+    if expect_count and item_count >= expect_count:
+        return False
+    summary = (detail.get("summaryConclusion") or "").strip()
+    next_action = (detail.get("nextAction") or "").strip()
+    return "运行中" in summary or "仍在执行中" in next_action
+
+def ensure_batch_completed(detail, batch_name, expect_count=None):
+    item_count = detail.get("itemCount") or 0
+    if is_batch_running(detail, expect_count):
+        raise TimeoutError(
+            f"batch still running after polling: {batch_name}, batchId={detail.get('id')}, "
+            f"itemCount={item_count}, summary={detail.get('summaryConclusion')}"
+        )
+    if expect_count and item_count != expect_count:
+        raise RuntimeError(
+            f"batch finished without full item count: {batch_name}, batchId={detail.get('id')}, "
+            f"itemCount={item_count}/{expect_count}, summary={detail.get('summaryConclusion')}"
+        )
+    return detail
+
+def find_recent_batch_by_name(token, batch_name, existing_ids=None, expect_count=None, wait_seconds=None, poll_interval=None):
+    existing_ids = set(existing_ids or [])
+    wait_seconds = wait_seconds or batch_poll_wait_seconds
+    poll_interval = poll_interval or batch_poll_interval_seconds
+    deadline = time.time() + wait_seconds
+    batch_id = None
+    last_running_detail = None
+    while time.time() < deadline:
+        if batch_id is None:
+            batches = list_rag_batches(token)
+            for batch in batches:
+                if batch.get("batchName") != batch_name:
+                    continue
+                if batch.get("id") in existing_ids:
+                    continue
+                batch_id = batch.get("id")
+                break
+            if batch_id is None:
+                time.sleep(poll_interval)
+                continue
+        detail = load_batch_detail(token, batch_id)
+        if not is_batch_running(detail, expect_count):
+            return detail
+        last_running_detail = detail
+        time.sleep(poll_interval)
+    if last_running_detail is not None:
+        raise TimeoutError(
+            f"batch still running after {wait_seconds}s: {batch_name}, "
+            f"batchId={last_running_detail.get('id')}, itemCount={last_running_detail.get('itemCount')}, "
+            f"summary={last_running_detail.get('summaryConclusion')}"
+        )
+    raise TimeoutError(f"batch not visible after fallback polling: {batch_name}")
 
 def get_captcha():
     result = http_json("GET", "/consumer/user/getCode")
@@ -253,23 +367,36 @@ def publish_experiment(token, lib_id, experiment):
         raise RuntimeError(f"publish experiment failed: {publish_resp}")
 
 def preview_chunks(token, file_id, experiment):
-    preview_resp = http_json("POST", "/consumer/file/previewSplit", {
-        "id": file_id,
-        "strategy": experiment.get("splitStrategy"),
-        "previewChunkLimit": 8
-    }, token)
-    if preview_resp.get("code") != 200:
-        raise RuntimeError(f"preview split failed: {preview_resp}")
-    data = preview_resp.get("data") or {}
-    return {
-        "chunkCount": data.get("chunkCount"),
-        "chunks": data.get("chunks") or []
-    }
+    try:
+        preview_resp = http_json("POST", "/consumer/file/previewSplit", {
+            "id": file_id,
+            "strategy": experiment.get("splitStrategy"),
+            "previewChunkLimit": 8
+        }, token)
+        if preview_resp.get("code") != 200:
+            raise RuntimeError(f"preview split failed: {preview_resp}")
+        data = preview_resp.get("data") or {}
+        return {
+            "chunkCount": data.get("chunkCount"),
+            "chunks": data.get("chunks") or [],
+            "warning": ""
+        }
+    except Exception as exc:
+        return {
+            "chunkCount": None,
+            "chunks": [],
+            "warning": f"preview unavailable: {exc}"
+        }
 
 def run_real_batch(token, app_id, experiment, batch_prefix):
     publish_experiment(token, app_id_to_lib[app_id], experiment)
     batch_name = f"{datetime.now().strftime('%Y-%m-%d')} {batch_prefix}"
-    run_resp = http_json("POST", "/consumer/ragAcceptance/runBatch", {
+    existing_ids = {
+        item.get("id")
+        for item in list_rag_batches(token)
+        if item.get("batchName") == batch_name
+    }
+    payload = {
         "appId": app_id,
         "batchName": batch_name,
         "sceneType": "真实业务问题",
@@ -277,14 +404,23 @@ def run_real_batch(token, app_id, experiment, batch_prefix):
         "summaryConclusion": "",
         "nextAction": "",
         "questions": REAL_QUESTIONS
-    }, token)
+    }
+    try:
+        run_resp = http_json(
+            "POST",
+            "/consumer/ragAcceptance/runBatch",
+            payload,
+            token=token,
+            timeout_seconds=run_batch_request_timeout_seconds
+        )
+    except (TimeoutError, socket.timeout, urllib.error.URLError):
+        detail = find_recent_batch_by_name(token, batch_name, existing_ids, len(REAL_QUESTIONS))
+        return ensure_batch_completed(detail, batch_name, len(REAL_QUESTIONS))
     if run_resp.get("code") != 200:
         raise RuntimeError(f"run real batch failed: {run_resp}")
     batch_id = run_resp["data"]
-    detail_resp = http_json("GET", f"/consumer/ragAcceptance/detail?id={batch_id}", token=token)
-    if detail_resp.get("code") != 200:
-        raise RuntimeError(f"load batch detail failed: {detail_resp}")
-    return detail_resp["data"]
+    detail = load_batch_detail(token, batch_id)
+    return ensure_batch_completed(detail, batch_name, len(REAL_QUESTIONS))
 
 def category_stats(items):
     counter = Counter()
@@ -350,8 +486,15 @@ def build_compare_markdown(left_batch, right_batch, left_exp, right_exp):
         "",
         "## 切分预览",
         "",
-        f"- A chunk 总数：{left_exp.get('chunkCount')}",
-        f"- B chunk 总数：{right_exp.get('chunkCount')}",
+        f"- A chunk 总数：{left_exp.get('chunkCount') if left_exp.get('chunkCount') is not None else '预览失败'}",
+        f"- B chunk 总数：{right_exp.get('chunkCount') if right_exp.get('chunkCount') is not None else '预览失败'}",
+        "",
+    ]
+    if left_exp.get("previewWarning"):
+        lines.append(f"- A 预览告警：{left_exp.get('previewWarning')}")
+    if right_exp.get("previewWarning"):
+        lines.append(f"- B 预览告警：{right_exp.get('previewWarning')}")
+    lines.extend([
         "",
         "## 汇总对比",
         "",
@@ -373,7 +516,7 @@ def build_compare_markdown(left_batch, right_batch, left_exp, right_exp):
         "",
         "| 编号 | 问题 | A 结论 | B 结论 |",
         "| --- | --- | --- | --- |",
-    ]
+    ])
     right_by_case = {item.get("testCaseNo"): item for item in right_items}
     for left_item in left_items:
         right_item = right_by_case.get(left_item.get("testCaseNo"), {})
@@ -410,8 +553,10 @@ left_preview = preview_chunks(token, preview_file["id"], left_experiment)
 right_preview = preview_chunks(token, preview_file["id"], right_experiment)
 left_experiment["chunkCount"] = left_preview["chunkCount"]
 left_experiment["previewChunks"] = left_preview["chunks"]
+left_experiment["previewWarning"] = left_preview.get("warning") or ""
 right_experiment["chunkCount"] = right_preview["chunkCount"]
 right_experiment["previewChunks"] = right_preview["chunks"]
+right_experiment["previewWarning"] = right_preview.get("warning") or ""
 left_batch = run_real_batch(token, app["id"], left_experiment, left_batch_prefix)
 right_batch = run_real_batch(token, app["id"], right_experiment, right_batch_prefix)
 report_markdown = build_compare_markdown(left_batch, right_batch, left_experiment, right_experiment)
@@ -438,6 +583,7 @@ result = {
         "splitStrategy": left_experiment["splitStrategy"],
         "chunkCount": left_preview["chunkCount"],
         "previewChunks": left_preview["chunks"],
+        "previewWarning": left_preview.get("warning") or "",
     },
     "rightExperiment": {
         "id": right_experiment["id"],
@@ -445,6 +591,7 @@ result = {
         "splitStrategy": right_experiment["splitStrategy"],
         "chunkCount": right_preview["chunkCount"],
         "previewChunks": right_preview["chunks"],
+        "previewWarning": right_preview.get("warning") or "",
     },
     "leftBatch": {
         "id": left_batch["id"],
@@ -486,6 +633,10 @@ print(f"- 应用: {result['app']['name']} #{result['app']['id']}")
 print(f"- 知识库: {result['lib']['name']} #{result['lib']['id']}")
 print(f"- A 切分预览 chunk 总数: {result['leftExperiment']['chunkCount']}")
 print(f"- B 切分预览 chunk 总数: {result['rightExperiment']['chunkCount']}")
+if result['leftExperiment'].get('previewWarning'):
+    print(f"- A 切分预览告警: {result['leftExperiment']['previewWarning']}")
+if result['rightExperiment'].get('previewWarning'):
+    print(f"- B 切分预览告警: {result['rightExperiment']['previewWarning']}")
 print(f"- A 批次 #{result['leftBatch']['id']}: {result['leftBatch']['batchName']} | {result['leftExperiment']['versionName']} ({result['leftExperiment']['splitStrategy']}) | items={result['leftBatch']['itemCount']} pass={result['leftBatch']['passCount']} followUp={result['leftBatch']['followUpCount']}")
 print(f"- B 批次 #{result['rightBatch']['id']}: {result['rightBatch']['batchName']} | {result['rightExperiment']['versionName']} ({result['rightExperiment']['splitStrategy']}) | items={result['rightBatch']['itemCount']} pass={result['rightBatch']['passCount']} followUp={result['rightBatch']['followUpCount']}")
 PY

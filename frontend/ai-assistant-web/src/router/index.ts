@@ -29,6 +29,12 @@ const staticRoutes = [
         meta: { authorityName: '接口文档' }
       },
       {
+        path: 'public/app/:slug',
+        name: 'PublicAppChat',
+        component: () => import('@/views/public/PublicAppChat.vue'),
+        meta: { authorityName: '公开应用' }
+      },
+      {
         path: 'admin',
         component: () => import('@/views/admin/manager/ManagerHome.vue'),
         meta: { authorityName: '管理控制台', role: 'ADMIN' },
