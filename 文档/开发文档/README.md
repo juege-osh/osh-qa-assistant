@@ -10,6 +10,16 @@
 - [需求方案与验收模板.md](./需求方案与验收模板.md) - 新功能需求、方案设计、验收与上线记录模板
 - [2026-06-28_RAG_MVP测试问题集与效果记录.md](./2026-06-28_RAG_MVP测试问题集与效果记录.md) - RAG MVP 默认测试问题池、效果判断口径与记录模板
 - [2026-06-28_RAG切分策略效果对比方案.md](./2026-06-28_RAG切分策略效果对比方案.md) - 定义切分实验、效果对比、记录方式与后续智能判断演进路径
+- [2026-06-30_RAG_MVP剩余关键闭环与任务池.md](./2026-06-30_RAG_MVP剩余关键闭环与任务池.md) - 汇总当前主 goal 的已完成闭环、剩余任务与 `P0 / P1` 任务池建议
+- [2026-07-01_RAG_MVP_ZenTao任务草案.md](./2026-07-01_RAG_MVP_ZenTao任务草案.md) - 把当前主 goal 的剩余事项整理成可直接落 ZenTao 的 `P0 / P1` 任务草案
+- [2026-07-01_RAG_MVP_ZenTao执行正文模板.md](./2026-07-01_RAG_MVP_ZenTao执行正文模板.md) - 提供可直接复制到 ZenTao 的现有任务回填正文与新建任务正文模板
+- [2026-07-01_RAG_MVP_ZenTao最终提交顺序清单.md](./2026-07-01_RAG_MVP_ZenTao最终提交顺序清单.md) - 把当前主 goal 落到 ZenTao 的推荐提交顺序收敛成最少歧义的操作清单
+- [2026-07-01_RAG_MVP_P0P1任务池落地清单.md](./2026-07-01_RAG_MVP_P0P1任务池落地清单.md) - 把当前主 goal 收敛成可直接执行的 `P0 / P1` 任务池、回归样例与下一步动作
+- `scripts/zentao-rag-audit.sh` - 只读审计当前 ZenTao 执行下与 `RAG MVP` 相关的任务，并给出“建议复用 / 建议新建”的初步映射
+- `scripts/zentao-task-append-note.sh` - 安全追加 ZenTao 任务执行记录：先备份原描述，再追加新内容，最后回读尾部确认
+- `scripts/qaenv-laughing-remote-audit.sh` - 在拿到 QA 凭据后只读收集远端 `.env`、docker 状态和 backend 告警相关日志，用于排查 `alertReadiness=90000`
+- `scripts/rag-mvp-real-batch-compare.sh` - 当前已补“`runBatch` 请求超时后自动回查最新同名批次”的兜底，并允许 `previewSplit` 失败时只记 warning、不阻塞正式批次对比
+- `scripts/rag-mvp-real-questions-candidate.json` - 真实问题候选扩题池，先用于筛选新样本，再决定是否并入正式题库基线
 
 ### Bug 修复文档
 - [REDIS_TIMEOUT_DIAGNOSIS.md](./REDIS_TIMEOUT_DIAGNOSIS.md) - Redis 连接超时问题诊断
@@ -58,3 +68,13 @@
 
 - 2026-06-17: 初始化开发文档目录，整理现有文档
 - 2026-06-27: 新增产品开发标准流程与需求方案模板，作为后续功能开发默认入口
+- 2026-06-30: 新增 RAG MVP 剩余关键闭环与任务池文档，用于收敛当前主 goal 的真实状态
+- 2026-07-01: 新增 RAG MVP ZenTao 任务草案文档，作为当前主 goal 的执行入口
+- 2026-07-01: 新增 RAG MVP ZenTao 执行正文模板，提供现有任务回填与新建任务的可复制文本
+- 2026-07-01: 新增 RAG MVP ZenTao 最终提交顺序清单，把当前落库顺序收敛成可直接照着执行的步骤
+- 2026-07-01: 新增 RAG MVP P0/P1 任务池落地清单，把当前剩余项压成可直接执行的任务池
+- 2026-07-01: 新增 `scripts/zentao-rag-audit.sh`，把 ZenTao 现有任务复用关系固化成可重复执行的只读审计脚本
+- 2026-07-01: 新增 `scripts/zentao-task-append-note.sh`，把现有 ZenTao 任务的执行记录回填动作固化为安全追加脚本
+- 2026-07-01: 新增 `scripts/qaenv-laughing-remote-audit.sh`，为共享 QA 告警 `90000` 排查准备远端只读审计入口
+- 2026-07-01: 更新 `scripts/rag-mvp-real-batch-compare.sh`，允许切分预览失败时继续执行正式批次，避免 `previewSplit` 单点异常卡住主验收链路
+- 2026-07-01: 补充运行态经验：本地替换 `.laughing-runtime/backend.jar` 后需要显式重建或重启容器，否则可能触发 `ZipException / NoClassDefFoundError` 这类热替换假故障
