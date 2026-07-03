@@ -45,16 +45,15 @@ const {
 
 <style scoped>
 .public-header {
-  padding: 22px 28px;
+  padding: 18px 22px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  border: 1px solid #e6ecf3;
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.05);
-  backdrop-filter: blur(18px);
+  border: 1px solid var(--public-border);
+  border-radius: var(--public-radius-panel);
+  background: var(--public-panel);
+  box-shadow: var(--public-shadow-soft);
 }
 
 .public-header-main {
@@ -69,23 +68,31 @@ const {
 }
 
 .public-header-title {
-  color: #111827;
-  font-size: 26px;
+  color: var(--public-text);
+  font-size: 28px;
   line-height: 1.2;
-  font-weight: 700;
+  font-weight: 750;
   letter-spacing: -0.02em;
 }
 
 .public-header-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .header-meta-item {
-  color: #667085;
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--public-border);
+  border-radius: 999px;
+  background: var(--public-panel-muted);
+  color: var(--public-text-muted);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .public-header-actions {
@@ -97,18 +104,19 @@ const {
 
 .header-btn {
   min-width: 112px;
-  height: 44px;
-  border-radius: 16px;
-  border-color: #dfe6ef;
-  color: #344054;
-  background: #ffffff !important;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04) !important;
+  height: 40px;
+  border-radius: var(--public-radius-control);
+  border-color: var(--public-border) !important;
+  color: var(--public-text-soft) !important;
+  background: var(--public-panel-strong) !important;
+  box-shadow: none !important;
 }
 
 .header-btn--primary {
-  border: 0 !important;
+  border-color: var(--public-accent) !important;
   color: #ffffff !important;
-  background: linear-gradient(180deg, #4da3ff 0%, #2c8cff 100%) !important;
+  background: linear-gradient(180deg, var(--public-accent) 0%, var(--public-accent-strong) 100%) !important;
+  box-shadow: 0 10px 18px rgba(99, 91, 255, 0.22) !important;
 }
 
 @media (max-width: 900px) {
@@ -123,7 +131,7 @@ const {
   }
 
   .public-header-title {
-    font-size: 20px;
+    font-size: 22px;
     line-height: 1.35;
   }
 

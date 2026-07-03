@@ -25,37 +25,51 @@ providePublicAppFeatureModel()
 
 <style scoped>
 .public-page {
-  min-height: 100dvh;
-  padding: 14px;
+  --public-accent: #635bff;
+  --public-accent-strong: #4b44e8;
+  --public-accent-soft: #eff1ff;
+  --public-success: #12b76a;
+  --public-bg: #f6f9fc;
+  --public-bg-soft: #eef3f8;
+  --public-panel: #ffffff;
+  --public-panel-strong: #ffffff;
+  --public-panel-muted: #f9fbff;
+  --public-border: #e6ebf2;
+  --public-border-strong: #d7dfeb;
+  --public-text: #101828;
+  --public-text-soft: #344054;
+  --public-text-muted: #667085;
+  --public-shadow: 0 12px 32px rgba(15, 23, 42, 0.04);
+  --public-shadow-soft: 0 4px 12px rgba(15, 23, 42, 0.03);
+  --public-radius-panel: 20px;
+  --public-radius-control: 12px;
+  height: 100dvh;
+  padding: 20px 22px 24px;
   background:
-    radial-gradient(circle at top left, rgba(225, 238, 252, 0.82), transparent 24%),
-    linear-gradient(180deg, #f0f5fb 0%, #f7f8fb 18%, #f4f7fb 100%);
+    radial-gradient(circle at top left, rgba(210, 221, 244, 0.54), transparent 24%),
+    radial-gradient(circle at top right, rgba(235, 240, 249, 0.72), transparent 18%),
+    linear-gradient(180deg, #f9fbfe 0%, #f6f9fc 18%, #f4f8fc 100%);
   position: relative;
-}
-
-.public-page::before {
-  content: '';
-  position: fixed;
-  inset: 14px;
-  border-radius: 28px;
-  border: 1px solid rgba(214, 224, 236, 0.92);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.85);
-  pointer-events: none;
+  overflow: hidden;
 }
 
 .public-shell {
-  min-height: calc(100dvh - 28px);
+  max-width: 1500px;
+  margin: 0 auto;
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
 .public-body {
   display: grid;
-  grid-template-columns: 310px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 296px minmax(0, 1fr);
+  gap: 16px;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 @media (max-width: 1180px) {
@@ -74,14 +88,8 @@ providePublicAppFeatureModel()
 
 @media (max-width: 900px) {
   .public-page {
-    padding: 10px;
+    padding: 12px;
   }
-
-  .public-page::before {
-    inset: 10px;
-    border-radius: 22px;
-  }
-
   .public-body {
     gap: 14px;
   }

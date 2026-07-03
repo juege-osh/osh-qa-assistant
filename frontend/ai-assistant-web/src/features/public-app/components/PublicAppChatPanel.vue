@@ -9,14 +9,16 @@
     </section>
 
     <template v-else>
-      <header class="chat-panel-head">
+      <header :class="['chat-panel-head', activeSessionMessageCount ? 'chat-panel-head--compact' : '']">
         <div class="chat-panel-head-copy">
-          <div class="chat-brand-mark">
-            <el-avatar :src="iconUrl" :size="72"></el-avatar>
-          </div>
-          <h1>{{ detail.appName || '公开问答入口' }}</h1>
-          <div class="chat-panel-head-subtitle">{{ detail.slug || routeSlug || '公开应用' }}</div>
-          <p>{{ detail.appDesc || '直接在当前页面提问即可。' }}</p>
+          <template v-if="!activeSessionMessageCount">
+            <div class="chat-brand-mark">
+              <el-avatar :src="iconUrl" :size="72"></el-avatar>
+            </div>
+            <h1>{{ detail.appName || '公开问答入口' }}</h1>
+            <div class="chat-panel-head-subtitle">{{ detail.slug || routeSlug || '公开应用' }}</div>
+            <p>{{ detail.appDesc || '直接在当前页面提问即可。' }}</p>
+          </template>
         </div>
 
         <div class="chat-panel-head-actions">
@@ -65,20 +67,16 @@
 
       <section ref="chatBoxRef" class="chat-stream">
         <div v-if="!activeSessionMessageCount" class="chat-welcome">
-          <div class="welcome-message">
-            <div class="welcome-brand">
-              <el-avatar :src="iconUrl" :size="58"></el-avatar>
-            </div>
-            <div class="welcome-kicker">公开应用</div>
-            <div class="assistant-label assistant-label--welcome">{{ detail.appName || '公开应用' }}</div>
-            <div class="welcome-message-text">
+          <div class="chat-empty">
+            <div class="chat-empty-title">直接输入问题开始对话</div>
+            <div class="chat-empty-desc">
               {{ detail.appDesc || '你可以直接输入问题、业务场景或想验证的内容。' }}
             </div>
           </div>
 
-          <div class="welcome-grid">
+          <div class="welcome-grid welcome-grid--compact">
             <button
-              v-for="prompt in suggestedPrompts"
+              v-for="prompt in suggestedPrompts.slice(0, 4)"
               :key="prompt"
               type="button"
               class="welcome-card"
@@ -99,8 +97,19 @@
 
             <div class="message-body">
               <div class="message-bubble">
-                <div v-if="message.role === 'assistant'" class="assistant-label">{{ detail.appName || '公开应用' }}</div>
-                <div v-if="message.role === 'assistant'" class="message-content" v-html="renderMessage(message)"></div>
+                <div v-if="message.role === 'assistant'" class="assistant-meta">
+                  <div class="assistant-label">{{ detail.appName || '公开应用' }}</div>
+                  <span v-if="isStreamingMessage(message)" class="stream-status">生成中</span>
+                </div>
+                <div
+                  v-if="message.role === 'assistant' && isStreamingMessage(message)"
+                  class="message-content message-content--streaming"
+                >
+                  <span v-if="getStreamingMessageText(message)">{{ getStreamingMessageText(message) }}</span>
+                  <span v-else class="stream-placeholder">正在整理回答</span>
+                  <span class="stream-caret"></span>
+                </div>
+                <div v-else-if="message.role === 'assistant'" class="message-content" v-html="renderMessage(message)"></div>
                 <div v-else class="user-content">{{ message.content }}</div>
               </div>
               <div class="message-time">{{ formatMessageTime(message.createdAt) }}</div>
@@ -110,25 +119,13 @@
       </section>
 
       <div class="composer-bar">
-        <div v-if="!activeSessionMessageCount" class="composer-shortcuts">
-          <button
-            v-for="prompt in suggestedPrompts.slice(0, 3)"
-            :key="prompt"
-            type="button"
-            class="shortcut-chip"
-            @click="usePrompt(prompt)"
-          >
-            {{ prompt }}
-          </button>
-        </div>
-
         <div class="composer-shell">
           <el-input
             v-model="userInput"
             type="textarea"
             :rows="3"
             :disabled="sending || !!loadError"
-            placeholder="有什么需要问我的吗"
+            placeholder="输入业务问题、场景或文档中的关键词"
             @keydown="handleEditorKeydown"
           ></el-input>
 
@@ -178,6 +175,8 @@ const {
   composerTipText,
   sendDisabled,
   formatMessageTime,
+  isStreamingMessage,
+  getStreamingMessageText,
   renderMessage,
   startNewConversation,
   usePrompt,
@@ -194,65 +193,73 @@ const {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #e7edf4;
-  border-radius: 30px;
-  background: #ffffff;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--public-border);
+  border-radius: var(--public-radius-panel);
+  background: var(--public-panel-strong);
+  box-shadow: var(--public-shadow-soft);
 }
 
 .chat-panel-head {
   position: relative;
-  padding: 30px 34px 26px;
-  border-bottom: 1px solid #edf1f6;
-  min-height: 198px;
+  padding: 28px 30px 24px;
+  border-bottom: 1px solid var(--public-border);
+  min-height: 156px;
   background:
-    linear-gradient(180deg, rgba(248, 250, 253, 0.92) 0%, rgba(255, 255, 255, 0.96) 72%),
-    radial-gradient(circle at top center, rgba(232, 239, 249, 0.65), transparent 48%);
+    linear-gradient(180deg, rgba(250, 252, 255, 0.98) 0%, rgba(255, 255, 255, 0.96) 72%),
+    radial-gradient(circle at top right, rgba(222, 232, 248, 0.68), transparent 42%);
+}
+
+.chat-panel-head--compact {
+  min-height: auto;
+  padding: 18px 24px;
+  background: #ffffff;
 }
 
 .chat-panel-head-copy {
   max-width: 760px;
-  margin: 0 auto;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
 }
 
 .chat-brand-mark {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   margin-bottom: 16px;
 }
 
 .chat-brand-mark :deep(.el-avatar) {
-  border: 8px solid #f5f7fb;
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.06);
+  border: 6px solid #f5f7fb;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
 }
 
 .chat-panel-head-copy h1 {
   margin: 0;
-  color: #101828;
-  font-size: 42px;
+  color: var(--public-text);
+  font-size: 36px;
   line-height: 1.08;
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  font-weight: 760;
+  letter-spacing: -0.035em;
 }
 
 .chat-panel-head-subtitle {
-  margin-top: 14px;
-  color: #667085;
-  font-size: 14px;
+  margin-top: 12px;
+  color: var(--public-text-muted);
+  font-size: 13px;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .chat-panel-head-copy p {
-  margin: 18px auto 0;
-  max-width: 760px;
-  color: #4b5563;
+  margin: 16px 0 0;
+  max-width: 720px;
+  color: var(--public-text-soft);
   font-size: 15px;
-  line-height: 1.85;
-  text-align: center;
+  line-height: 1.8;
+  text-align: left;
 }
 
 .chat-panel-head-actions,
@@ -268,42 +275,52 @@ const {
 .chat-panel-head-actions {
   position: absolute;
   top: 28px;
-  right: 34px;
+  right: 30px;
   justify-content: flex-end;
   max-width: 45%;
+}
+
+.chat-panel-head--compact .chat-panel-head-copy {
+  display: none;
+}
+
+.chat-panel-head--compact .chat-panel-head-actions {
+  position: static;
+  max-width: none;
+  justify-content: flex-end;
 }
 
 .status-pill {
   display: inline-flex;
   align-items: center;
-  height: 40px;
-  padding: 0 16px;
+  height: 34px;
+  padding: 0 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.96);
-  color: #4b5563;
+  background: #ffffff;
+  color: var(--public-text-soft);
   font-size: 12px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.03);
+  border: 1px solid var(--public-border);
+  box-shadow: none;
   white-space: nowrap;
 }
 
 .status-pill--running {
-  background: #eff6ff;
-  color: #246bdb;
-  border-color: #bfdbfe;
+  background: var(--public-accent-soft);
+  color: var(--public-accent-strong);
+  border-color: rgba(99, 91, 255, 0.24);
 }
 
 .head-text-btn {
-  color: #1570ef;
+  color: var(--public-accent);
   font-weight: 600;
 }
 
 .auth-banner {
-  margin: 20px 28px 0;
+  margin: 20px 24px 0;
   padding: 20px 22px;
-  border-radius: 22px;
-  background: #fff9f1;
-  border: 1px solid #f5dfb8;
+  border-radius: 16px;
+  background: #fffaf3;
+  border: 1px solid #f2dfbc;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 18px;
@@ -312,7 +329,7 @@ const {
 
 .auth-banner-title,
 .panel-state-title {
-  color: #111827;
+  color: var(--public-text);
   font-weight: 700;
 }
 
@@ -322,7 +339,7 @@ const {
 
 .auth-banner-desc {
   margin-top: 8px;
-  color: #6b7280;
+  color: var(--public-text-muted);
   font-size: 13px;
   line-height: 1.65;
 }
@@ -335,45 +352,27 @@ const {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 18px 34px 22px;
-  background: linear-gradient(180deg, rgba(250, 252, 255, 0.84) 0%, rgba(255, 255, 255, 0) 16%);
+  padding: 18px 24px 24px;
+  background:
+    linear-gradient(180deg, rgba(250, 252, 255, 0.92) 0%, rgba(255, 255, 255, 0) 14%),
+    linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
 }
 
 .chat-welcome {
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 18px 0 30px;
+  width: 100%;
+  padding: 8px 0 16px;
 }
 
-.welcome-message {
-  max-width: 920px;
-  margin: 0 auto 34px;
-  text-align: center;
-}
-
-.welcome-brand {
+.assistant-meta {
   display: flex;
-  justify-content: center;
-  margin-bottom: 18px;
-}
-
-.welcome-brand :deep(.el-avatar) {
-  border: 8px solid #f6f8fb;
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
-}
-
-.welcome-kicker {
-  color: #1570ef;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .assistant-label {
-  margin-bottom: 12px;
-  color: #111827;
-  font-size: 15px;
+  color: var(--public-text);
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -383,54 +382,82 @@ const {
   letter-spacing: -0.03em;
 }
 
-.welcome-message-text {
-  max-width: 780px;
-  margin: 18px auto 0;
-  color: #374151;
-  font-size: 16px;
-  line-height: 1.9;
-  text-align: center;
+.chat-empty {
+  padding: 8px 0 20px;
+}
+
+.chat-empty-title {
+  color: var(--public-text);
+  font-size: 20px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.chat-empty-desc {
+  max-width: 720px;
+  margin-top: 8px;
+  color: var(--public-text-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.stream-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--public-accent-soft);
+  color: var(--public-accent-strong);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .welcome-grid {
-  max-width: 1040px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 14px;
+}
+
+.welcome-grid--compact {
+  max-width: 100%;
 }
 
 .welcome-card,
 .shortcut-chip {
-  border: 1px solid #e4e9f0;
+  border: 1px solid var(--public-border);
   background: #ffffff;
-  color: #111827;
+  color: var(--public-text);
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
 }
 
 .welcome-card {
-  min-height: 74px;
-  padding: 22px 24px;
-  border-radius: 22px;
+  min-height: 68px;
+  padding: 18px 20px;
+  border-radius: 16px;
   text-align: left;
   cursor: pointer;
   font-size: 14px;
   line-height: 1.75;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.03);
+  box-shadow: none;
 }
 
 .welcome-card:hover,
 .shortcut-chip:hover {
   transform: translateY(-1px);
-  border-color: #d7dfea;
-  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
+  border-color: var(--public-border-strong);
+  box-shadow: var(--public-shadow-soft);
 }
 
 .message-row {
   display: flex;
   gap: 12px;
-  max-width: 1060px;
-  margin: 0 auto 30px;
+  width: 100%;
+  max-width: none;
+  margin: 0 0 24px;
 }
 
 .message-row--user {
@@ -442,57 +469,89 @@ const {
 }
 
 .message-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 14px;
-  background: #eef4ff;
-  color: #246bdb;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--public-accent-soft);
+  color: var(--public-accent-strong);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   font-size: 12px;
   font-weight: 700;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05);
+  box-shadow: none;
+  border: 1px solid rgba(99, 91, 255, 0.14);
 }
 
 .message-row--user .message-avatar {
   order: 2;
-  background: #f3f4f6;
-  color: #4b5563;
+  background: #eef2f6;
+  color: var(--public-text-soft);
+  border-color: rgba(52, 64, 84, 0.08);
 }
 
 .message-body {
-  max-width: min(920px, 80%);
+  max-width: min(920px, 84%);
   min-width: 0;
+}
+
+.message-row--assistant .message-body {
+  max-width: none;
+  flex: 1;
 }
 
 .message-row--user .message-body {
   order: 1;
+  max-width: min(920px, 72%);
 }
 
 .message-bubble {
-  border-radius: 22px;
-  padding: 0;
-}
-
-.message-row--assistant .message-bubble {
-  background: transparent;
+  border-radius: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--public-border);
+  background: #ffffff;
+  box-shadow: var(--public-shadow-soft);
 }
 
 .message-row--user .message-bubble {
-  padding: 15px 18px;
-  background: #f3f5f8;
-  border: 1px solid #e7ebf1;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.03);
+  background: linear-gradient(180deg, var(--public-accent) 0%, var(--public-accent-strong) 100%);
+  border-color: rgba(99, 91, 255, 0.26);
+  box-shadow: 0 10px 18px rgba(99, 91, 255, 0.18);
+}
+
+.message-row--assistant .message-bubble {
+  width: 100%;
 }
 
 .message-content,
 .user-content {
-  color: #374151;
+  color: var(--public-text-soft);
   font-size: 15px;
-  line-height: 1.92;
+  line-height: 1.86;
   word-break: break-word;
+}
+
+.user-content {
+  color: #ffffff;
+}
+
+.message-content--streaming {
+  white-space: pre-wrap;
+}
+
+.stream-placeholder {
+  color: var(--public-text-muted);
+}
+
+.stream-caret {
+  display: inline-block;
+  width: 1px;
+  height: 1.1em;
+  margin-left: 3px;
+  background: var(--public-accent);
+  vertical-align: -0.12em;
+  animation: public-stream-caret 1s steps(1, end) infinite;
 }
 
 .message-content :deep(h1),
@@ -500,7 +559,7 @@ const {
 .message-content :deep(h3),
 .message-content :deep(h4) {
   margin: 0 0 12px;
-  color: #111827;
+  color: var(--public-text);
   line-height: 1.35;
 }
 
@@ -523,12 +582,14 @@ const {
   overflow-x: auto;
   border-collapse: collapse;
   font-size: 13px;
+  border: 1px solid var(--public-border);
+  border-radius: 12px;
 }
 
 .message-content :deep(th),
 .message-content :deep(td) {
   padding: 8px 10px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--public-border);
   text-align: left;
   vertical-align: top;
   white-space: nowrap;
@@ -549,7 +610,7 @@ const {
 
 .message-time {
   margin-top: 8px;
-  color: #9ca3af;
+  color: var(--public-text-muted);
   font-size: 12px;
 }
 
@@ -558,40 +619,32 @@ const {
 }
 
 .composer-bar {
-  padding: 0 28px 22px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.92) 14%, #ffffff 100%);
-}
-
-.composer-shortcuts {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-bottom: 18px;
+  padding: 0 24px 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.95) 16%, #ffffff 100%);
 }
 
 .shortcut-chip {
-  min-height: 42px;
-  padding: 9px 16px;
+  min-height: 36px;
+  padding: 7px 14px;
   border-radius: 999px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.4;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.03);
+  box-shadow: none;
 }
 
 .composer-shell {
-  padding: 18px 20px 16px;
-  border: 1px solid #e5eaf2;
-  border-radius: 28px;
+  padding: 14px 16px;
+  border: 1px solid var(--public-border);
+  border-radius: 18px;
   background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
-  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.05);
+  box-shadow: var(--public-shadow-soft);
 }
 
 .composer-shell :deep(.el-textarea__inner) {
-  min-height: 128px !important;
-  border-radius: 22px !important;
-  padding: 10px 12px;
+  min-height: 108px !important;
+  border-radius: 14px !important;
+  padding: 8px 4px;
   font-size: 15px;
   line-height: 1.7;
   box-shadow: none !important;
@@ -613,44 +666,42 @@ const {
   gap: 4px;
 }
 
-.composer-btn-group :deep(.el-button) {
-  min-width: 92px;
-  height: 44px;
-  border-radius: 16px;
-}
-
-.composer-btn-group :deep(.el-button--primary) {
-  border: 0;
-  box-shadow: 0 12px 24px rgba(44, 140, 255, 0.24);
-}
-
-.composer-tip,
-.panel-state-desc {
-  color: #6b7280;
-  line-height: 1.65;
-}
-
 .composer-tip {
+  color: var(--public-text-muted);
   font-size: 12px;
 }
 
+.composer-btn-group :deep(.el-button) {
+  min-width: 92px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+.composer-btn-group :deep(.el-button--primary) {
+  border-color: var(--public-accent) !important;
+  background: linear-gradient(180deg, var(--public-accent) 0%, var(--public-accent-strong) 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 18px rgba(99, 91, 255, 0.18) !important;
+}
+
 .composer-footer-note {
-  margin-top: 14px;
-  text-align: center;
-  color: #9ca3af;
+  margin-top: 10px;
+  color: var(--public-text-muted);
   font-size: 12px;
 }
 
 .panel-state {
-  margin: 28px 32px;
+  margin: auto;
+  width: min(560px, calc(100% - 48px));
   padding: 24px;
-  border-radius: 20px;
+  border-radius: 16px;
   background: #ffffff;
+  box-shadow: var(--public-shadow-soft);
 }
 
 .panel-state--error {
-  border: 1px solid #fecaca;
-  background: #fffafa;
+  border: 1px solid #f1d7d9;
+  background: #fffaf9;
 }
 
 .panel-state-title {
@@ -659,7 +710,21 @@ const {
 
 .panel-state-desc {
   margin-top: 8px;
+  color: var(--public-text-muted);
   font-size: 14px;
+  line-height: 1.7;
+}
+
+@keyframes public-stream-caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 @media (max-width: 1180px) {
@@ -667,90 +732,67 @@ const {
     grid-template-columns: 1fr;
   }
 
-  .chat-panel-head {
-    min-height: auto;
-    padding-top: 22px;
-  }
-
   .chat-panel-head-actions {
     position: static;
     max-width: none;
-    justify-content: center;
-    margin-top: 22px;
+    justify-content: flex-start;
+    margin-top: 18px;
+  }
+
+  .chat-panel-head-copy {
+    max-width: none;
+  }
+
+  .chat-panel-head--compact .chat-panel-head-actions {
+    margin-top: 0;
   }
 }
 
 @media (max-width: 900px) {
   .chat-panel-head {
-    padding: 18px 16px 14px;
+    padding: 22px 18px 18px;
+  }
+
+  .chat-panel-head--compact {
+    padding: 16px 18px;
   }
 
   .chat-brand-mark :deep(.el-avatar) {
     width: 56px !important;
     height: 56px !important;
-    border-width: 6px !important;
   }
 
   .chat-panel-head-copy h1 {
     font-size: 28px;
   }
 
-  .chat-panel-head-copy p {
-    font-size: 14px;
-    margin-top: 14px;
+  .auth-banner {
+    margin: 16px 18px 0;
   }
 
-  .auth-banner,
-  .chat-stream,
-  .composer-bar {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  .auth-banner,
-  .panel-state {
-    margin-left: 16px;
-    margin-right: 16px;
+  .chat-stream {
+    padding: 18px;
   }
 
   .welcome-grid {
     grid-template-columns: 1fr;
   }
 
-  .welcome-message-text {
-    font-size: 15px;
-  }
-
-  .assistant-label--welcome {
-    font-size: 26px;
+  .message-row {
+    margin-bottom: 20px;
   }
 
   .message-body {
     max-width: 100%;
   }
 
+  .composer-bar {
+    padding: 0 18px 18px;
+  }
+
   .composer-actions {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .composer-shell {
-    padding: 16px;
-    border-radius: 24px;
-  }
-
-  .composer-shell :deep(.el-textarea__inner) {
-    min-height: 108px !important;
-    padding: 8px 6px;
-  }
-
-  .composer-btn-group {
-    justify-content: flex-end;
-    width: 100%;
-  }
-
-  .composer-tip-group {
-    width: 100%;
   }
 }
 
@@ -760,29 +802,30 @@ const {
   }
 
   .status-pill {
-    height: 36px;
-    padding: 0 12px;
+    height: 32px;
   }
 
-  .welcome-card {
-    padding: 18px 18px;
+  .assistant-label--welcome {
+    font-size: 26px;
   }
 
   .message-row {
     gap: 10px;
-    margin-bottom: 24px;
-  }
-
-  .message-avatar {
-    width: 34px;
-    height: 34px;
-    border-radius: 12px;
   }
 
   .message-content,
   .user-content {
     font-size: 14px;
     line-height: 1.84;
+  }
+
+  .composer-btn-group {
+    width: 100%;
+    display: flex;
+  }
+
+  .composer-btn-group :deep(.el-button) {
+    flex: 1;
   }
 }
 </style>

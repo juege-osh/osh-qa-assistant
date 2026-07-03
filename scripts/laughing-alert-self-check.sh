@@ -35,6 +35,8 @@ CONSUMER_USER="${CONSUMER_USER:-course_demo_user}"
 CONSUMER_PWD="${CONSUMER_PWD:-123456}"
 SCENE="${SCENE:-generic}"
 NOTE="${NOTE:-laughing 本地告警链路演练}"
+EXPECT_READINESS_STATUS="${EXPECT_READINESS_STATUS:-}"
+EXPECT_SELF_CHECK_STATUS="${EXPECT_SELF_CHECK_STATUS:-}"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -169,16 +171,30 @@ print(json.dumps({
 }, ensure_ascii=False))
 PY
 
-python3 - "$RESULT_FILE" <<'PY'
+python3 - "$RESULT_FILE" "$EXPECT_READINESS_STATUS" "$EXPECT_SELF_CHECK_STATUS" <<'PY'
 import json
 import sys
 
 with open(sys.argv[1], "r", encoding="utf-8") as f:
     result = json.load(f)
 
+expect_readiness = sys.argv[2].strip()
+expect_self_check = sys.argv[3].strip()
+readiness_status = result["readiness"]["data"]["status"] if result["readiness"].get("data") else result["readiness"]["msg"]
+self_check_status = result["selfCheck"]["data"]["status"] if result["selfCheck"].get("data") else result["selfCheck"]["msg"]
+
 print("Laughing 告警自检已执行")
 print(f"- 目标环境: {result['baseUrl']}")
 print(f"- 用户状态: {result['userStatus']} ({result['user']})")
-print(f"- readiness: {result['readiness']['data']['status'] if result['readiness'].get('data') else result['readiness']['msg']}")
-print(f"- selfCheck: {result['selfCheck']['data']['status'] if result['selfCheck'].get('data') else result['selfCheck']['msg']}")
+print(f"- readiness: {readiness_status}")
+print(f"- selfCheck: {self_check_status}")
+
+failures = []
+if expect_readiness and readiness_status != expect_readiness:
+    failures.append(f"readiness 期望 {expect_readiness}，实际 {readiness_status}")
+if expect_self_check and self_check_status != expect_self_check:
+    failures.append(f"selfCheck 期望 {expect_self_check}，实际 {self_check_status}")
+
+if failures:
+    raise SystemExit("告警自检未通过:\n- " + "\n- ".join(failures))
 PY

@@ -39,6 +39,9 @@ PUBLIC_PASSWORD="${PUBLIC_PASSWORD:-codex-public-123}"
 PUBLIC_VISITOR_ID="${PUBLIC_VISITOR_ID:-codex-verify-visitor}"
 PUBLIC_PROMPT_PUBLIC="${PUBLIC_PROMPT_PUBLIC:-请用一句话说明这个公开应用现在是否可用}"
 PUBLIC_PROMPT_PASSWORD="${PUBLIC_PROMPT_PASSWORD:-请再用一句话确认密码访问模式也已经打通}"
+PUBLIC_PROMPT_HIGH_RISK="${PUBLIC_PROMPT_HIGH_RISK:-如果我现在追问一个知识库范围外的高风险问题，比如 2026 年美国联邦所得税怎么报，你会怎么处理？}"
+EXPECT_REFERENCE_BLOCK="${EXPECT_REFERENCE_BLOCK:-1}"
+EXPECT_GRACEFUL_FAILURE="${EXPECT_GRACEFUL_FAILURE:-1}"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -53,7 +56,7 @@ TMP_DIR="$(mktemp -d)"
 RESULT_FILE="$TMP_DIR/public-app-acceptance.json"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-python3 - "$BASE_URL" "$REDIS_HOST" "$REDIS_PORT" "$REDIS_PASSWORD" "$CONSUMER_USER" "$CONSUMER_PWD" "$APP_NAME" "$APP_ID" "$PUBLIC_PASSWORD" "$PUBLIC_VISITOR_ID" "$PUBLIC_PROMPT_PUBLIC" "$PUBLIC_PROMPT_PASSWORD" <<'PY' > "$RESULT_FILE"
+python3 - "$BASE_URL" "$REDIS_HOST" "$REDIS_PORT" "$REDIS_PASSWORD" "$CONSUMER_USER" "$CONSUMER_PWD" "$APP_NAME" "$APP_ID" "$PUBLIC_PASSWORD" "$PUBLIC_VISITOR_ID" "$PUBLIC_PROMPT_PUBLIC" "$PUBLIC_PROMPT_PASSWORD" "$PUBLIC_PROMPT_HIGH_RISK" <<'PY' > "$RESULT_FILE"
 import json
 import socket
 import sys
@@ -65,7 +68,7 @@ from urllib.parse import urljoin
 
 (base_url, redis_host, redis_port, redis_password, consumer_user, consumer_pwd,
  app_name, app_id, public_password, public_visitor_id, public_prompt_public,
- public_prompt_password) = sys.argv[1:]
+ public_prompt_password, public_prompt_high_risk) = sys.argv[1:]
 
 redis_port = int(redis_port)
 app_id = app_id.strip()
@@ -330,6 +333,11 @@ try:
         "visitorId": public_visitor_id,
         "userInput": public_prompt_public,
     })
+    graceful_failure_text = consume_public_chat({
+        "slug": slug,
+        "visitorId": public_visitor_id,
+        "userInput": public_prompt_high_risk,
+    })
     time.sleep(2)
     public_records = query_invoke_records(token, public_prompt_public)
     public_record, public_detail_record = find_trace_record(public_records, visitor_short, public_prompt_public)
@@ -338,6 +346,7 @@ try:
         "detail": public_detail,
         "verifyPassword": public_verify,
         "chatText": public_chat_text,
+        "gracefulFailureText": graceful_failure_text,
         "invokeRecordId": public_record.get("id") if public_record else None,
         "invokeRecordUsername": public_record.get("username") if public_record else None,
         "invokeRecordDetailId": public_detail_record.get("id") if public_detail_record else None,
@@ -409,15 +418,23 @@ print(json.dumps({
 }, ensure_ascii=False))
 PY
 
-python3 - "$RESULT_FILE" <<'PY'
+python3 - "$RESULT_FILE" "$EXPECT_REFERENCE_BLOCK" "$EXPECT_GRACEFUL_FAILURE" <<'PY'
 import json
 import sys
 
 with open(sys.argv[1], "r", encoding="utf-8") as f:
     result = json.load(f)
 
+expect_reference_block = sys.argv[2] == "1"
+expect_graceful_failure = sys.argv[3] == "1"
 public_mode = result["publicMode"]
 password_mode = result["passwordMode"]
+
+def contains_any(text, tokens):
+    normalized = str(text or "").lower()
+    return any(token.lower() in normalized for token in tokens)
+
+failures = []
 
 print("公开应用最小验收已执行")
 print(f"- 目标环境: {result['baseUrl']}")
@@ -427,6 +444,27 @@ print(f"- slug: {result['slug']}")
 print(f"- PUBLIC detail: code={public_mode['detail'].get('code')} passwordRequired={public_mode['detail'].get('data', {}).get('passwordRequired')}")
 print(f"- PUBLIC verifyPassword: code={public_mode['verifyPassword'].get('code')} msg={public_mode['verifyPassword'].get('msg')}")
 print(f"- PUBLIC chat trace: invokeRecordId={public_mode.get('invokeRecordId')} username={public_mode.get('invokeRecordUsername')}")
+print(f"- PUBLIC graceful failure preview: {str(public_mode.get('gracefulFailureText') or '')[:80]}")
+
+if public_mode["detail"].get("code") != 200:
+    failures.append("PUBLIC detail 未返回 code=200")
+if public_mode["detail"].get("data", {}).get("passwordRequired") is not False:
+    failures.append("PUBLIC detail 未返回 passwordRequired=false")
+if public_mode["verifyPassword"].get("code") != 30000:
+    failures.append("PUBLIC 模式 verifyPassword 未返回预期业务提示")
+if not public_mode.get("invokeRecordId"):
+    failures.append("PUBLIC 模式未查到调用记录留痕")
+if "公开访客:" not in str(public_mode.get("invokeRecordUsername") or ""):
+    failures.append("PUBLIC 模式调用记录未标记公开访客")
+if expect_reference_block and "参考来源" not in str(public_mode.get("chatText") or ""):
+    failures.append("PUBLIC 模式回答未带出参考来源")
+
+graceful_text = str(public_mode.get("gracefulFailureText") or "")
+if expect_graceful_failure:
+    if not contains_any(graceful_text, ["没有足够依据", "没有直接依据", "高风险", "联系对应专业负责人", "制度名称", "流程来源"]):
+        failures.append("高风险超范围问题未返回体面拒答文案")
+    if contains_any(graceful_text, ["Exception", "Traceback", "java.lang", "org.springframework"]):
+        failures.append("高风险超范围问题暴露了技术异常细节")
 
 if password_mode.get("skipped"):
     print(f"- PASSWORD mode: skipped ({password_mode.get('reason')})")
@@ -435,9 +473,24 @@ else:
     print(f"- PASSWORD wrong password: code={password_mode['verifyWrong'].get('code')} msg={password_mode['verifyWrong'].get('msg')}")
     print(f"- PASSWORD right password: code={password_mode['verifyRight'].get('code')} expireSeconds={password_mode['verifyRight'].get('data', {}).get('expireSeconds')}")
     print(f"- PASSWORD chat trace: invokeRecordId={password_mode.get('invokeRecordId')} username={password_mode.get('invokeRecordUsername')}")
+    if password_mode["detail"].get("code") != 200:
+        failures.append("PASSWORD detail 未返回 code=200")
+    if password_mode["detail"].get("data", {}).get("passwordRequired") is not True:
+        failures.append("PASSWORD detail 未返回 passwordRequired=true")
+    if password_mode["verifyWrong"].get("code") != 30000:
+        failures.append("PASSWORD 错误密码未返回预期业务提示")
+    if password_mode["verifyRight"].get("code") != 200:
+        failures.append("PASSWORD 正确密码未返回 code=200")
+    if not password_mode.get("invokeRecordId"):
+        failures.append("PASSWORD 模式未查到调用记录留痕")
+    if "公开访客:" not in str(password_mode.get("invokeRecordUsername") or ""):
+        failures.append("PASSWORD 模式调用记录未标记公开访客")
 
 if result["restore"].get("skipped"):
     print(f"- 配置恢复: skipped ({result['restore'].get('reason')})")
 else:
     print("- 配置恢复: done")
+
+if failures:
+    raise SystemExit("公开应用最小验收未通过:\n- " + "\n- ".join(failures))
 PY

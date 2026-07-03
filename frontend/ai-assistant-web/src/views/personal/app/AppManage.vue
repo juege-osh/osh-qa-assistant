@@ -70,6 +70,14 @@
                     知识库:
                     <span>{{ row.libName }}</span>
                   </el-text>
+                  <el-link
+                    v-if="row.libId"
+                    class="bind-unbind-link"
+                    @click="openRecallDebug(row.libId)"
+                    type="primary"
+                  >
+                    检索调试
+                  </el-link>
                   <el-link v-if="row.libName" class="bind-unbind-link" @click="unbindLib(row.id)" type="primary">解绑</el-link>
                   <el-link v-else class="bind-unbind-link" @click="openBindLibDialog(row.id)" type="primary">绑定</el-link>
                 </div>
@@ -187,6 +195,20 @@ function openBindLibDialog(id: string) {
 function openPublishDialog(id: string) {
   idToPublish.value = id
   publishDialogVisible.value = true
+}
+
+function openRecallDebug(libId?: string | number | null) {
+  const targetLibId = String(libId || '').trim()
+  if (!targetLibId) {
+    ElMessage.warning('请先绑定知识库后再进行检索调试')
+    return
+  }
+  router.push({
+    path: '/workspace/knowledgeLib/manage',
+    query: {
+      debugLibId: targetLibId
+    }
+  })
 }
 // 开启聊天
 function startChat(id: string) {

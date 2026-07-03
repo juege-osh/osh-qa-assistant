@@ -55,6 +55,26 @@ const {
 </script>
 
 <style scoped>
+:deep(.el-dialog) {
+  border-radius: 18px;
+  border: 1px solid var(--public-border, #e6ebf2);
+  box-shadow: var(--public-shadow, 0 12px 32px rgba(15, 23, 42, 0.04));
+}
+
+:deep(.el-dialog__header) {
+  margin-right: 0;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--public-border, #e6ebf2);
+}
+
+:deep(.el-dialog__body) {
+  padding: 18px 20px 20px;
+}
+
+:deep(.el-dialog__footer) {
+  padding: 0 20px 18px;
+}
+
 .app-info-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -63,9 +83,9 @@ const {
 
 .app-info-item {
   padding: 14px;
-  border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #eef1f5;
+  border-radius: 14px;
+  background: var(--public-panel-muted, #f9fbff);
+  border: 1px solid var(--public-border, #e6ebf2);
 }
 
 .app-info-item--full {
@@ -74,7 +94,7 @@ const {
 
 .app-info-label {
   display: block;
-  color: #111827;
+  color: var(--public-text, #101828);
   font-size: 13px;
   font-weight: 700;
 }
@@ -82,7 +102,7 @@ const {
 .app-info-value {
   display: block;
   margin-top: 8px;
-  color: #6b7280;
+  color: var(--public-text-muted, #667085);
   font-size: 14px;
   line-height: 1.65;
 }

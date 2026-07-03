@@ -38,6 +38,11 @@ LIB_NAME="${LIB_NAME:-RAG MVP 验收知识库}"
 LEFT_EXPERIMENT_NAME="${LEFT_EXPERIMENT_NAME:-脚本语义切分版}"
 RIGHT_EXPERIMENT_NAME="${RIGHT_EXPERIMENT_NAME:-脚本Token切分版}"
 REPORT_PATH="${REPORT_PATH:-}"
+EXPECT_FORMAL_BATCH_PRESENT="${EXPECT_FORMAL_BATCH_PRESENT:-}"
+EXPECT_COMPARE_STATUS="${EXPECT_COMPARE_STATUS:-}"
+EXPECT_ACTIVE_SPLIT_STATUS="${EXPECT_ACTIVE_SPLIT_STATUS:-}"
+EXPECT_PROMPT_MODEL_STATUS="${EXPECT_PROMPT_MODEL_STATUS:-}"
+EXPECT_ALERT_READINESS_STATUS="${EXPECT_ALERT_READINESS_STATUS:-}"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -319,13 +324,20 @@ if report_path:
 print(json.dumps(result, ensure_ascii=False))
 PY
 
-python3 - "$RESULT_FILE" <<'PY'
+python3 - "$RESULT_FILE" "$EXPECT_FORMAL_BATCH_PRESENT" "$EXPECT_COMPARE_STATUS" "$EXPECT_ACTIVE_SPLIT_STATUS" "$EXPECT_PROMPT_MODEL_STATUS" "$EXPECT_ALERT_READINESS_STATUS" <<'PY'
 import json
 import sys
 
 with open(sys.argv[1], "r", encoding="utf-8") as f:
     result = json.load(f)
 
+expect_formal_batch_present = sys.argv[2] == "1"
+expect_compare_status = sys.argv[3].strip()
+expect_active_split_status = sys.argv[4].strip()
+expect_prompt_model_status = sys.argv[5].strip()
+expect_alert_readiness_status = sys.argv[6].strip()
+
+checks_by_name = {item["name"]: item["result"] for item in result["checks"]}
 print("RAG MVP P0 审计已执行")
 print(f"- 目标环境: {result['baseUrl']}")
 print(f"- 用户状态: {result['userStatus']} ({result['user']})")
@@ -335,4 +347,19 @@ for item in result["checks"]:
     check_result = item["result"]
     status = check_result.get("status", "UNKNOWN") if isinstance(check_result, dict) else "UNKNOWN"
     print(f"- {item['name']}: {status}")
+
+failures = []
+if expect_formal_batch_present and checks_by_name["正式验收批次"].get("status") == "MISSING":
+    failures.append("正式验收批次缺失")
+if expect_compare_status and checks_by_name["跨切分版本对比"].get("status") != expect_compare_status:
+    failures.append(f"跨切分版本对比期望 {expect_compare_status}，实际 {checks_by_name['跨切分版本对比'].get('status')}")
+if expect_active_split_status and checks_by_name["生效切分版本"].get("status") != expect_active_split_status:
+    failures.append(f"生效切分版本期望 {expect_active_split_status}，实际 {checks_by_name['生效切分版本'].get('status')}")
+if expect_prompt_model_status and checks_by_name["Prompt/模型开关"].get("status") != expect_prompt_model_status:
+    failures.append(f"Prompt/模型开关期望 {expect_prompt_model_status}，实际 {checks_by_name['Prompt/模型开关'].get('status')}")
+if expect_alert_readiness_status and checks_by_name["告警 readiness"].get("status") != expect_alert_readiness_status:
+    failures.append(f"告警 readiness 期望 {expect_alert_readiness_status}，实际 {checks_by_name['告警 readiness'].get('status')}")
+
+if failures:
+    raise SystemExit("RAG MVP P0 审计未通过:\n- " + "\n- ".join(failures))
 PY

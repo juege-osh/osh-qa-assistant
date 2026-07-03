@@ -117,6 +117,10 @@ export function createPublicAppFeatureModel() {
   const loadError = ref('')
   const accessToken = ref('')
   const browserScopeId = ref('')
+  const streamingSessionId = ref('')
+  const streamingMessageId = ref('')
+  const streamingDisplayContent = ref('')
+  const streamingTargetContent = ref('')
 
   const suggestedPrompts = [
     '请先概括这个应用最适合回答哪些问题。',
@@ -131,6 +135,8 @@ export function createPublicAppFeatureModel() {
   let passwordVerifyToken = 0
   let activeChatRequestToken = 0
   let activeChatController: AbortController | null = null
+  let streamingPlaybackTimer: number | undefined
+  let shouldAutoScrollStream = true
 
   const routeSlug = computed(() => String(route.params.slug || '').trim())
   const iconUrl = computed(() => detail.iconPath ? toAddressable(detail.iconPath) : getImage('default.png'))
@@ -310,12 +316,58 @@ export function createPublicAppFeatureModel() {
     detail.passwordRequired = false
   }
 
+  function clearStreamingPlaybackTimer() {
+    if (streamingPlaybackTimer) {
+      window.clearTimeout(streamingPlaybackTimer)
+      streamingPlaybackTimer = undefined
+    }
+  }
+
+  function resetStreamingState() {
+    clearStreamingPlaybackTimer()
+    streamingSessionId.value = ''
+    streamingMessageId.value = ''
+    streamingDisplayContent.value = ''
+    streamingTargetContent.value = ''
+  }
+
+  function flushStreamingPlayback() {
+    streamingPlaybackTimer = undefined
+    if (streamingDisplayContent.value.length >= streamingTargetContent.value.length) {
+      return
+    }
+    const remaining = streamingTargetContent.value.length - streamingDisplayContent.value.length
+    const step = remaining > 120 ? 12 : remaining > 48 ? 6 : remaining > 18 ? 3 : 1
+    streamingDisplayContent.value = streamingTargetContent.value.slice(
+      0,
+      Math.min(streamingTargetContent.value.length, streamingDisplayContent.value.length + step)
+    )
+    if (streamingDisplayContent.value.length < streamingTargetContent.value.length) {
+      streamingPlaybackTimer = window.setTimeout(flushStreamingPlayback, remaining > 80 ? 14 : 22)
+    }
+  }
+
+  function ensureStreamingPlayback() {
+    if (streamingPlaybackTimer || streamingDisplayContent.value.length >= streamingTargetContent.value.length) {
+      return
+    }
+    streamingPlaybackTimer = window.setTimeout(flushStreamingPlayback, 16)
+  }
+
+  function finishStreamingMessage(sessionId: string, messageId: string) {
+    if (streamingSessionId.value !== sessionId || streamingMessageId.value !== messageId) {
+      return
+    }
+    resetStreamingState()
+  }
+
   function cancelActiveChat(resetSending = true) {
     activeChatRequestToken += 1
     if (activeChatController) {
       activeChatController.abort()
       activeChatController = null
     }
+    resetStreamingState()
     if (resetSending) {
       sending.value = false
     }
@@ -527,6 +579,10 @@ export function createPublicAppFeatureModel() {
         content: chunk
       })
     })
+    if (streamingSessionId.value === sessionId && streamingMessageId.value === messageSeed.id) {
+      streamingTargetContent.value += chunk
+      ensureStreamingPlayback()
+    }
   }
 
   function appendAssistantError(sessionId: string, messageSeed: PublicMessage, fallbackMessage: string) {
@@ -543,6 +599,12 @@ export function createPublicAppFeatureModel() {
         content: fallbackMessage
       })
     })
+    if (streamingSessionId.value === sessionId && streamingMessageId.value === messageSeed.id) {
+      streamingTargetContent.value = streamingTargetContent.value
+        ? `${streamingTargetContent.value}\n\n${fallbackMessage}`
+        : fallbackMessage
+      ensureStreamingPlayback()
+    }
   }
 
   function shouldResetAccessTokenOnChatError(message: string) {
@@ -553,6 +615,20 @@ export function createPublicAppFeatureModel() {
     await nextTick()
     if (chatBoxRef.value) {
       chatBoxRef.value.scrollTop = chatBoxRef.value.scrollHeight
+    }
+  }
+
+  function isNearChatBottom(offset = 120) {
+    if (!chatBoxRef.value) {
+      return true
+    }
+    const { scrollTop, clientHeight, scrollHeight } = chatBoxRef.value
+    return scrollHeight - (scrollTop + clientHeight) <= offset
+  }
+
+  async function scrollBottomIfNeeded(force = false) {
+    if (force || shouldAutoScrollStream || isNearChatBottom()) {
+      await scrollBottom()
     }
   }
 
@@ -691,6 +767,11 @@ export function createPublicAppFeatureModel() {
     activeChatRequestToken = requestToken
     const controller = new AbortController()
     activeChatController = controller
+    streamingSessionId.value = session.id
+    streamingMessageId.value = assistantMessage.id
+    streamingDisplayContent.value = ''
+    streamingTargetContent.value = ''
+    shouldAutoScrollStream = isNearChatBottom()
     sending.value = true
     await scrollBottom()
 
@@ -729,6 +810,7 @@ export function createPublicAppFeatureModel() {
       ElMessage.error(fallbackMessage)
     } finally {
       if (requestToken === activeChatRequestToken) {
+        finishStreamingMessage(session.id, assistantMessage.id)
         activeChatController = null
         sending.value = false
         persistSessions()
@@ -769,12 +851,13 @@ export function createPublicAppFeatureModel() {
           return
         }
         appendAssistantContent(sessionId, assistantMessage, data)
-        await scrollBottom()
+        await scrollBottomIfNeeded()
       }
     }
     const tailData = parseSseFrame(buffer)
     if (requestToken === activeChatRequestToken && tailData && tailData !== STREAM_END) {
       appendAssistantContent(sessionId, assistantMessage, tailData)
+      await scrollBottomIfNeeded()
     }
   }
 
@@ -809,6 +892,17 @@ export function createPublicAppFeatureModel() {
         sendMessage()
       }
     }
+  }
+
+  function isStreamingMessage(message: PublicMessage) {
+    return message.role === 'assistant'
+      && message.id === streamingMessageId.value
+      && activeSessionId.value === streamingSessionId.value
+      && sending.value
+  }
+
+  function getStreamingMessageText(message: PublicMessage) {
+    return isStreamingMessage(message) ? streamingDisplayContent.value : message.content
   }
 
   watch(routeSlug, () => {
@@ -883,6 +977,8 @@ export function createPublicAppFeatureModel() {
     sendDisabled,
     formatMessageTime,
     formatSessionTime,
+    isStreamingMessage,
+    getStreamingMessageText,
     resetRenameDialogState,
     renderMessage,
     selectSession,

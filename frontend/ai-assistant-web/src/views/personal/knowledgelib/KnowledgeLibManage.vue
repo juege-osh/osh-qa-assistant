@@ -333,7 +333,7 @@
   </div>
 </template>
 <script setup name='KnowledgeLibManage' lang='ts'>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useTable } from '@/hooks/useTable';
 import {
   pageKnowledgeLibApi,
@@ -352,6 +352,7 @@ import { Plus, Folder } from '@element-plus/icons-vue';
 import { useResource } from '@/hooks/useResource';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { writeClipboardText } from '@/util/clipboard';
+import { useRoute, useRouter } from 'vue-router';
 
 // 添加对话框是否显示
 let addDialogVisible = ref(false)
@@ -359,6 +360,8 @@ let updateDialogVisible = ref(false)
 let idToUpdate = ref('')
 let recallDebugVisible = ref(false)
 let recallDebugLoading = ref(false)
+const route = useRoute()
+const router = useRouter()
 const followUpCategoryOptions = [
   { value: 'knowledge', label: '补知识' },
   { value: 'chunking', label: '补切分' },
@@ -489,6 +492,26 @@ function openRecallDebug() {
   }
   recallDebugVisible.value = true
   loadRecallSnapshots()
+}
+
+function openRecallDebugFromRoute() {
+  const targetLibId = String(route.query.debugLibId || '').trim()
+  if (!targetLibId || !tableData.rows.length) {
+    return
+  }
+  const targetLib = tableData.rows.find((row: any) => String(row.id) === targetLibId)
+  if (!targetLib) {
+    return
+  }
+  recallDebugForm.libId = targetLib.id
+  recallDebugVisible.value = true
+  loadRecallSnapshots()
+  const nextQuery = { ...route.query }
+  delete nextQuery.debugLibId
+  router.replace({
+    path: route.path,
+    query: nextQuery
+  })
 }
 
 function runRecallDebug() {
@@ -842,6 +865,13 @@ async function copySnapshotExperimentDraft() {
 onMounted(() => {
   loadTable()
 })
+
+watch(
+  () => tableData.rows,
+  () => {
+    openRecallDebugFromRoute()
+  }
+)
 
 function loadRecallSnapshots() {
   if (!recallDebugForm.libId) {
