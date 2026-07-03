@@ -8,6 +8,7 @@ import { BASE_URL } from '@/config/constants'
 import { useResource } from '@/hooks/useResource'
 import { useUserStore } from '@/store/useUserStore'
 import { getImage } from '@/util/AssetsImageUtil'
+import { normalizeAssistantMarkdown } from '@/util/markdown'
 import { queryPublicAppDetailApi, verifyPublicAppPasswordApi } from '../api/publicAppApi'
 import { usePublicAppSessionStore } from '../stores/usePublicAppSessionStore'
 import type { PublicAppDetail, PublicChatSession, PublicMessage, PublicPasswordForm } from '../types'
@@ -395,7 +396,7 @@ export function createPublicAppFeatureModel() {
     if (message.role === 'user') {
       return `<p>${md.utils.escapeHtml(String(message.content || '')).replace(/\n/g, '<br>')}</p>`
     }
-    return md.render(String(message.content || ''))
+    return md.render(normalizeAssistantMarkdown(String(message.content || '')))
   }
 
   function selectSession(sessionId: string) {

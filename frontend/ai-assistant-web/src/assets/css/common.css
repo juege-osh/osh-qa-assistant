@@ -254,6 +254,35 @@ a {
   height: 1em;
 }
 
+.space-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(176, 188, 205, 0.98) transparent;
+}
+
+.space-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.space-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.space-scrollbar::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: rgba(176, 188, 205, 0.98);
+}
+
+.space-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(145, 160, 181, 1);
+}
+
+.space-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .space-icon--xs {
   width: var(--space-icon-xs) !important;
   height: var(--space-icon-xs) !important;

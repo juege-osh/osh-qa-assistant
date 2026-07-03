@@ -15,6 +15,7 @@ import xml from 'highlight.js/lib/languages/xml'
 import 'highlight.js/styles/github.css'
 import { BASE_URL } from '@/config/constants'
 import { writeClipboardText } from '@/util/clipboard'
+import { normalizeAssistantMarkdown } from '@/util/markdown'
 import { useUserStore } from '@/store/useUserStore'
 import { chatApi, listHistoryMessageApi, listRecentChatApi } from '../api/chatApi'
 import {
@@ -142,7 +143,7 @@ export function useWorkspaceChatConversationFeature() {
     if (message.typeDesc === 'user') {
       return `<p>${renderPlainText(message.message)}</p>`
     }
-    return md.render(String(message.message || ''))
+    return md.render(normalizeAssistantMarkdown(String(message.message || '')))
   }
 
   async function scrollBottom() {

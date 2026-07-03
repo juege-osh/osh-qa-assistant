@@ -11,7 +11,7 @@
         最近对话
       </div>
 
-      <div v-if="sessions.length" class="session-list">
+      <el-scrollbar v-if="sessions.length" class="session-list session-list-scrollbar">
         <div
           v-for="session in sessions"
           :key="session.id"
@@ -57,7 +57,7 @@
             <span>{{ session.messages.length }} 条消息</span>
           </div>
         </div>
-      </div>
+      </el-scrollbar>
 
       <div v-else class="history-empty">
         还没有历史对话，先开启一轮新的公开问答。
@@ -156,13 +156,36 @@ const {
 }
 
 .session-list {
-  display: flex;
-  flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+
+.session-list-scrollbar :deep(.el-scrollbar__wrap) {
+  overflow-x: hidden;
+}
+
+.session-list-scrollbar :deep(.el-scrollbar__view) {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 2px;
+}
+
+.session-list-scrollbar :deep(.el-scrollbar__bar.is-vertical) {
+  top: 4px;
+  right: 0;
+  width: 8px;
+  bottom: 4px;
+}
+
+.session-list-scrollbar :deep(.el-scrollbar__thumb) {
+  opacity: 1;
+  border-radius: 999px;
+  background: rgba(176, 188, 205, 0.98);
+}
+
+.session-list-scrollbar:hover :deep(.el-scrollbar__thumb) {
+  background: rgba(145, 160, 181, 1);
 }
 
 .session-item {

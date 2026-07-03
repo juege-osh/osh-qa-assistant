@@ -57,7 +57,7 @@
         </div>
       </div>
 
-      <section ref="chatBoxRef" class="chat-stream">
+      <section ref="chatBoxRef" class="chat-stream space-scrollbar">
         <div v-if="!activeSessionMessageCount" class="chat-welcome">
           <div class="chat-empty">
             <div class="chat-empty-title">直接输入问题开始对话</div>
