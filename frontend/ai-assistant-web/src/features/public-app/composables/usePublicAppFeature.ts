@@ -166,15 +166,6 @@ export function createPublicAppFeatureModel() {
     }
     return `${PUBLIC_ACTIVE_SESSION_PREFIX}${routeSlug.value}:${identityScope.value}`
   })
-  const composerTipText = computed(() => {
-    if (loadError.value) {
-      return '当前公开链接不可用，请先重试。'
-    }
-    if (needsPasswordAuth.value) {
-      return '当前应用需要访问密码，验证通过后即可继续提问。'
-    }
-    return '当前公开页历史保存在本地浏览器，会按应用和访问身份隔离。'
-  })
   const sendDisabled = computed(() => {
     return interactionLocked.value || !userInput.value.trim() || Boolean(loadError.value) || needsPasswordAuth.value
   })
@@ -973,7 +964,6 @@ export function createPublicAppFeatureModel() {
     activeSessionMessageCount,
     needsPasswordAuth,
     interactionLocked,
-    composerTipText,
     sendDisabled,
     formatMessageTime,
     formatSessionTime,

@@ -13,10 +13,6 @@
         <span class="app-info-label">应用描述</span>
         <strong class="app-info-value">{{ detail.appDesc || '未填写描述' }}</strong>
       </div>
-      <div class="app-info-item app-info-item--full">
-        <span class="app-info-label">历史记录策略</span>
-        <strong class="app-info-value">当前公开页历史记录保存在本地浏览器，并按应用与访问身份隔离。</strong>
-      </div>
     </div>
   </el-dialog>
 

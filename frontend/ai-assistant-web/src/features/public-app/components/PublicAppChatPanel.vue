@@ -9,34 +9,6 @@
     </section>
 
     <template v-else>
-      <header :class="['chat-panel-head', activeSessionMessageCount ? 'chat-panel-head--compact' : '']">
-        <div class="chat-panel-head-copy">
-          <template v-if="!activeSessionMessageCount">
-            <div class="chat-brand-mark">
-              <el-avatar :src="iconUrl" :size="72"></el-avatar>
-            </div>
-            <h1>{{ detail.appName || '公开问答入口' }}</h1>
-            <div class="chat-panel-head-subtitle">{{ detail.slug || routeSlug || '公开应用' }}</div>
-            <p>{{ detail.appDesc || '直接在当前页面提问即可。' }}</p>
-          </template>
-        </div>
-
-        <div class="chat-panel-head-actions">
-          <span class="status-pill" :class="{ 'status-pill--running': sending }">
-            {{ sending ? '正在生成' : '准备就绪' }}
-          </span>
-          <span class="status-pill">当前会话 {{ activeSessionMessageCount }} 条消息</span>
-          <el-button
-            text
-            class="head-text-btn"
-            :disabled="interactionLocked || !activeSessionMessageCount"
-            @click="startNewConversation"
-          >
-            新会话
-          </el-button>
-        </div>
-      </header>
-
       <section v-if="needsPasswordAuth" class="auth-banner">
         <div class="auth-banner-copy">
           <div class="auth-banner-title">这个公开应用需要访问密码</div>
@@ -65,13 +37,30 @@
         </el-form>
       </section>
 
+      <div class="chat-topbar">
+        <div class="chat-topbar-inner">
+          <div class="composer-app-brief composer-app-brief--top">
+            <el-avatar :src="iconUrl" :size="28"></el-avatar>
+            <div class="composer-app-brief-copy">
+              <div class="composer-app-brief-title">{{ detail.appName || '公开应用' }}</div>
+              <div class="composer-app-brief-meta">
+                <span class="composer-app-chip">{{ detail.slug || routeSlug || '未发布' }}</span>
+                <span class="composer-app-chip">{{ accessModeLabel }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-topbar-actions">
+            <el-button class="topbar-action-btn" @click="showAppInfoDialog = true">应用信息</el-button>
+            <el-button class="topbar-action-btn" @click="jumpToWorkspace">进入工作台</el-button>
+          </div>
+        </div>
+      </div>
+
       <section ref="chatBoxRef" class="chat-stream">
         <div v-if="!activeSessionMessageCount" class="chat-welcome">
           <div class="chat-empty">
             <div class="chat-empty-title">直接输入问题开始对话</div>
-            <div class="chat-empty-desc">
-              {{ detail.appDesc || '你可以直接输入问题、业务场景或想验证的内容。' }}
-            </div>
           </div>
 
           <div class="welcome-grid welcome-grid--compact">
@@ -130,12 +119,11 @@
           ></el-input>
 
           <div class="composer-actions">
-            <div class="composer-tip-group">
-              <span class="composer-tip">{{ composerTipText }}</span>
-              <span class="composer-tip">Enter 发送，Shift + Enter 换行</span>
-            </div>
-
             <div class="composer-btn-group">
+              <span class="status-pill" :class="{ 'status-pill--running': sending }">
+                {{ sending ? '正在生成' : '准备就绪' }}
+              </span>
+              <span class="status-pill">当前会话 {{ activeSessionMessageCount }} 条消息</span>
               <el-button :disabled="interactionLocked || !userInput" @click="userInput = ''">清空</el-button>
               <el-button type="primary" :loading="sending" :disabled="sendDisabled" @click="sendMessage">
                 发送
@@ -144,7 +132,7 @@
           </div>
         </div>
 
-        <div class="composer-footer-note">内容由 AI 生成，仅供参考，请结合实际情况判断。</div>
+        <div class="composer-footer-note">内容由 AI 生成，仅供参考，请结合实际情况判断。Enter 发送，Shift + Enter 换行</div>
       </div>
     </template>
   </main>
@@ -158,6 +146,7 @@ const {
   chatPanelRef,
   chatBoxRef,
   passwordFormRef,
+  showAppInfoDialog,
   detail,
   passwordForm,
   passwordRules,
@@ -168,17 +157,17 @@ const {
   suggestedPrompts,
   routeSlug,
   iconUrl,
+  accessModeLabel,
   activeSessionMessages,
   activeSessionMessageCount,
   needsPasswordAuth,
   interactionLocked,
-  composerTipText,
   sendDisabled,
   formatMessageTime,
   isStreamingMessage,
   getStreamingMessageText,
   renderMessage,
-  startNewConversation,
+  jumpToWorkspace,
   usePrompt,
   loadDetail,
   verifyPassword,
@@ -199,70 +188,6 @@ const {
   box-shadow: var(--public-shadow-soft);
 }
 
-.chat-panel-head {
-  position: relative;
-  padding: 28px 30px 24px;
-  border-bottom: 1px solid var(--public-border);
-  min-height: 156px;
-  background:
-    linear-gradient(180deg, rgba(250, 252, 255, 0.98) 0%, rgba(255, 255, 255, 0.96) 72%),
-    radial-gradient(circle at top right, rgba(222, 232, 248, 0.68), transparent 42%);
-}
-
-.chat-panel-head--compact {
-  min-height: auto;
-  padding: 18px 24px;
-  background: #ffffff;
-}
-
-.chat-panel-head-copy {
-  max-width: 760px;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-}
-
-.chat-brand-mark {
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: 16px;
-}
-
-.chat-brand-mark :deep(.el-avatar) {
-  border: 6px solid #f5f7fb;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
-}
-
-.chat-panel-head-copy h1 {
-  margin: 0;
-  color: var(--public-text);
-  font-size: 36px;
-  line-height: 1.08;
-  font-weight: 760;
-  letter-spacing: -0.035em;
-}
-
-.chat-panel-head-subtitle {
-  margin-top: 12px;
-  color: var(--public-text-muted);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.chat-panel-head-copy p {
-  margin: 16px 0 0;
-  max-width: 720px;
-  color: var(--public-text-soft);
-  font-size: 15px;
-  line-height: 1.8;
-  text-align: left;
-}
-
-.chat-panel-head-actions,
 .panel-state-actions,
 .composer-btn-group,
 .auth-form-actions {
@@ -270,24 +195,6 @@ const {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.chat-panel-head-actions {
-  position: absolute;
-  top: 28px;
-  right: 30px;
-  justify-content: flex-end;
-  max-width: 45%;
-}
-
-.chat-panel-head--compact .chat-panel-head-copy {
-  display: none;
-}
-
-.chat-panel-head--compact .chat-panel-head-actions {
-  position: static;
-  max-width: none;
-  justify-content: flex-end;
 }
 
 .status-pill {
@@ -310,13 +217,8 @@ const {
   border-color: rgba(99, 91, 255, 0.24);
 }
 
-.head-text-btn {
-  color: var(--public-accent);
-  font-weight: 600;
-}
-
 .auth-banner {
-  margin: 20px 24px 0;
+  margin: 16px 24px 0;
   padding: 20px 22px;
   border-radius: 16px;
   background: #fffaf3;
@@ -348,11 +250,35 @@ const {
   min-width: 0;
 }
 
+.chat-topbar {
+  padding: 0 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+  border-bottom: 1px solid rgba(230, 235, 242, 0.92);
+}
+
+.chat-topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 72px;
+  padding: 14px 0;
+}
+
+.chat-topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .chat-stream {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 18px 24px 24px;
+  padding: 16px 24px 24px;
   background:
     linear-gradient(180deg, rgba(250, 252, 255, 0.92) 0%, rgba(255, 255, 255, 0) 14%),
     linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
@@ -376,14 +302,8 @@ const {
   font-weight: 700;
 }
 
-.assistant-label--welcome {
-  margin-top: 14px;
-  font-size: 34px;
-  letter-spacing: -0.03em;
-}
-
 .chat-empty {
-  padding: 8px 0 20px;
+  padding: 8px 0 16px;
 }
 
 .chat-empty-title {
@@ -392,14 +312,6 @@ const {
   line-height: 1.3;
   font-weight: 700;
   letter-spacing: -0.02em;
-}
-
-.chat-empty-desc {
-  max-width: 720px;
-  margin-top: 8px;
-  color: var(--public-text-muted);
-  font-size: 14px;
-  line-height: 1.7;
 }
 
 .stream-status {
@@ -642,11 +554,11 @@ const {
 }
 
 .composer-shell :deep(.el-textarea__inner) {
-  min-height: 108px !important;
+  min-height: 56px !important;
   border-radius: 14px !important;
-  padding: 8px 4px;
+  padding: 6px 4px;
   font-size: 15px;
-  line-height: 1.7;
+  line-height: 1.6;
   box-shadow: none !important;
   border: 0 !important;
   background: transparent !important;
@@ -655,20 +567,76 @@ const {
 .composer-actions {
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   margin-top: 8px;
 }
 
-.composer-tip-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.composer-app-brief {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
-.composer-tip {
+.composer-app-brief--top {
+  flex: 1;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.composer-app-brief :deep(.el-avatar) {
+  flex-shrink: 0;
+  border: 1px solid var(--public-border);
+  background: #ffffff;
+}
+
+.composer-app-brief-copy {
+  min-width: 0;
+}
+
+.composer-app-brief-title {
+  color: var(--public-text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.composer-app-brief-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.composer-app-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--public-border);
+  border-radius: 999px;
   color: var(--public-text-muted);
-  font-size: 12px;
+  font-size: 11px;
+  background: var(--public-panel-muted);
+}
+
+.chat-topbar-actions :deep(.el-button) {
+  min-width: 92px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--public-border) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: var(--public-text-soft) !important;
+  box-shadow: none !important;
+}
+
+.chat-topbar-actions :deep(.el-button:hover) {
+  border-color: var(--public-border-strong) !important;
+  background: #ffffff !important;
+  color: var(--public-text) !important;
 }
 
 .composer-btn-group :deep(.el-button) {
@@ -688,6 +656,7 @@ const {
   margin-top: 10px;
   color: var(--public-text-muted);
   font-size: 12px;
+  line-height: 1.5;
 }
 
 .panel-state {
@@ -731,47 +700,26 @@ const {
   .auth-banner {
     grid-template-columns: 1fr;
   }
-
-  .chat-panel-head-actions {
-    position: static;
-    max-width: none;
-    justify-content: flex-start;
-    margin-top: 18px;
-  }
-
-  .chat-panel-head-copy {
-    max-width: none;
-  }
-
-  .chat-panel-head--compact .chat-panel-head-actions {
-    margin-top: 0;
-  }
 }
 
 @media (max-width: 900px) {
-  .chat-panel-head {
-    padding: 22px 18px 18px;
-  }
-
-  .chat-panel-head--compact {
-    padding: 16px 18px;
-  }
-
-  .chat-brand-mark :deep(.el-avatar) {
-    width: 56px !important;
-    height: 56px !important;
-  }
-
-  .chat-panel-head-copy h1 {
-    font-size: 28px;
-  }
-
   .auth-banner {
     margin: 16px 18px 0;
   }
 
+  .chat-topbar,
   .chat-stream {
     padding: 18px;
+  }
+
+  .chat-topbar {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .chat-topbar-inner {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .welcome-grid {
@@ -794,19 +742,20 @@ const {
     flex-direction: column;
     align-items: stretch;
   }
+
+  .composer-app-brief,
+  .composer-btn-group {
+    width: 100%;
+  }
+
+  .composer-btn-group {
+    justify-content: flex-end;
+  }
 }
 
 @media (max-width: 640px) {
-  .chat-panel-head-actions {
-    gap: 8px;
-  }
-
   .status-pill {
     height: 32px;
-  }
-
-  .assistant-label--welcome {
-    font-size: 26px;
   }
 
   .message-row {
@@ -817,6 +766,14 @@ const {
   .user-content {
     font-size: 14px;
     line-height: 1.84;
+  }
+
+  .chat-topbar-actions {
+    width: 100%;
+  }
+
+  .chat-topbar-actions :deep(.el-button) {
+    flex: 1;
   }
 
   .composer-btn-group {

@@ -1,8 +1,6 @@
 <template>
   <div class="public-page">
     <div class="public-shell">
-      <PublicAppHeader />
-
       <section class="public-body">
         <PublicAppSidebar />
         <PublicAppChatPanel />
@@ -16,7 +14,6 @@
 <script setup lang="ts">
 import PublicAppChatPanel from './PublicAppChatPanel.vue'
 import PublicAppDialogs from './PublicAppDialogs.vue'
-import PublicAppHeader from './PublicAppHeader.vue'
 import PublicAppSidebar from './PublicAppSidebar.vue'
 import { providePublicAppFeatureModel } from '../composables/usePublicAppFeature'
 

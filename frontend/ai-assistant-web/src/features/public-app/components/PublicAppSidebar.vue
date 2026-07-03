@@ -64,12 +64,6 @@
       </div>
     </div>
 
-    <div class="history-note">
-      <div class="history-note-title">历史记录</div>
-      <div class="history-note-text">
-        当前公开页历史保存在本地浏览器，仅当前设备和当前身份可见。
-      </div>
-    </div>
   </aside>
 </template>
 
@@ -282,27 +276,6 @@ const {
   border-radius: 16px;
   border: 1px dashed var(--public-border-strong);
   background: rgba(248, 250, 252, 0.86);
-  font-size: 13px;
-}
-
-.history-note {
-  margin-top: auto;
-  padding: 18px;
-  border: 1px solid var(--public-border);
-  border-radius: 16px;
-  background: linear-gradient(180deg, #fbfcff 0%, #f4f7fb 100%);
-  flex-shrink: 0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-.history-note-title {
-  color: var(--public-text);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.history-note-text {
-  margin-top: 8px;
   font-size: 13px;
 }
 
