@@ -35,39 +35,7 @@
           <div class="stat-value workspace-stat-value--success">{{ boundAppCountDisplay }}</div>
           <div class="stat-help">已经接入知识内容，适合继续验证命中和回答效果。</div>
         </article>
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--token">
-          <div class="stat-label">待绑定应用</div>
-          <div class="stat-value workspace-stat-value--warning">{{ unboundAppCountDisplay }}</div>
-          <div class="stat-help">还没绑定知识库的应用，更适合先验证交互和基础链路。</div>
-        </article>
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--time">
-          <div class="stat-label">自定义模型</div>
-          <div class="stat-value">{{ customModelCountDisplay }}</div>
-          <div class="stat-help">已经指定专用模型的应用，适合继续看效果差异和配置稳定性。</div>
-        </article>
       </section>
-    </section>
-
-    <section class="workspace-section-card app-focus-panel">
-      <div class="workspace-overview-head">
-        <div>
-          <div class="panel-title panel-title--md">当前关注点</div>
-          <div class="workspace-panel-desc">把当前结果翻译成更直接的动作，方便决定先补绑定、继续验证对话，还是细化模型配置。</div>
-        </div>
-      </div>
-      <div class="workspace-tip-grid app-tip-grid">
-        <article
-          v-for="item in appFocusCards"
-          :key="item.title"
-          :class="['workspace-tip-card', 'app-tip-card', `app-tip-card--${item.tone}`]"
-        >
-          <div class="app-tip-card__head">
-            <span :class="['app-tip-card__dot', `app-tip-card__dot--${item.tone}`]"></span>
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-          </div>
-          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-        </article>
-      </div>
     </section>
 
     <section class="toolbar-panel workspace-section-card workspace-toolbar-panel">
@@ -111,31 +79,43 @@
               </div>
               <div class="workspace-inline-tags">
                 <span class="workspace-inline-tag workspace-inline-tag--soft">ID {{ row.id }}</span>
-                <span :class="['workspace-inline-tag', row.libId ? 'workspace-inline-tag--success' : 'workspace-inline-tag--warning']">
-                  {{ row.libId ? '已绑定知识库' : '待绑定知识库' }}
-                </span>
                 <span class="workspace-inline-tag workspace-inline-tag--soft">{{ row.chatModel || '系统默认模型' }}</span>
               </div>
               <div class="workspace-resource-card__section">
-                <div class="workspace-resource-card__row">
+                <div class="workspace-resource-card__row workspace-resource-card__row--tight">
                   <span class="workspace-resource-card__label">知识库</span>
-                  <span class="workspace-resource-card__value">{{ row.libName || '暂未绑定知识库' }}</span>
-                </div>
-                <div class="workspace-resource-card__actions-inline">
-                  <el-link
-                    v-if="row.libId"
-                    class="bind-unbind-link"
-                    @click="openRecallDebug(row.libId)"
-                    type="primary"
+                  <el-tooltip
+                    :content="row.libName || '暂未绑定知识库'"
+                    placement="top"
+                    :disabled="!(row.libName && String(row.libName).length > 18)"
                   >
-                    检索调试
-                  </el-link>
-                  <el-link v-if="row.libName" class="bind-unbind-link" @click="unbindLib(row.id)" type="primary">解绑</el-link>
-                  <el-link v-else class="bind-unbind-link" @click="openBindLibDialog(row.id)" type="primary">绑定</el-link>
+                    <span class="workspace-resource-card__value workspace-resource-card__value--truncate">
+                      {{ row.libName || '暂未绑定知识库' }}
+                    </span>
+                  </el-tooltip>
+                  <div class="workspace-resource-card__actions-inline workspace-resource-card__actions-inline--compact">
+                    <el-link
+                      v-if="row.libId"
+                      class="bind-unbind-link"
+                      @click="openRecallDebug(row.libId)"
+                      type="primary"
+                    >
+                      检索调试
+                    </el-link>
+                    <el-link v-if="row.libName" class="bind-unbind-link" @click="unbindLib(row.id)" type="primary">解绑</el-link>
+                    <el-link v-else class="bind-unbind-link" @click="openBindLibDialog(row.id)" type="primary">绑定</el-link>
+                  </div>
                 </div>
                 <div class="workspace-resource-card__row">
                   <span class="workspace-resource-card__label">公开访问</span>
-                  <span class="workspace-resource-card__value">可单独设置</span>
+                  <span
+                    :class="[
+                      'workspace-resource-card__value',
+                      getPublishStatusClass(row.id)
+                    ]"
+                  >
+                    {{ getPublishStatusText(row.id) }}
+                  </span>
                 </div>
               </div>
               <div class="workspace-resource-card__desc">
@@ -178,9 +158,9 @@
   </div>
 </template>
 <script setup name='AppManage' lang='ts'>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useTable } from '@/hooks/useTable';
-import { pageAppApi, deleteAppByIdApi, checkChatConditionApi, unBindLibApi } from '@/api/workspace/appApi';
+import { pageAppApi, deleteAppByIdApi, checkChatConditionApi, queryPublishConfigApi, unBindLibApi } from '@/api/workspace/appApi';
 import { getImage } from '@/util/AssetsImageUtil';
 import { Plus } from '@element-plus/icons-vue';
 import AddApp from '@/views/personal/app/AddApp.vue';
@@ -215,35 +195,12 @@ let {
 
 let router = useRouter()
 let {toAddressable} = useResource()
+const publishStatusMap = ref<Record<string, { enabled: number; accessType: string }>>({})
 const currentRows = computed(() => tableData.rows || [])
 const totalAppCountDisplay = computed(() => tableData.total || 0)
 const currentResultCountDisplay = computed(() => currentRows.value.length)
 const boundAppCountDisplay = computed(() => currentRows.value.filter((row: { libId?: string | number | null }) => Boolean(row.libId)).length)
 const unboundAppCountDisplay = computed(() => currentRows.value.filter((row: { libId?: string | number | null }) => !row.libId).length)
-const customModelCountDisplay = computed(() => currentRows.value.filter((row: { chatModel?: string | null }) => Boolean(String(row.chatModel || '').trim())).length)
-const appFocusCards = computed(() => [
-  {
-    title: boundAppCountDisplay.value === 0 ? '优先补齐知识库绑定关系' : '已绑定应用可以继续验证回答效果',
-    desc: boundAppCountDisplay.value === 0
-      ? '当前结果里的应用都还没有绑定知识库，更适合先明确内容来源，再进入公开访问或正式问答。'
-      : `当前已有 ${boundAppCountDisplay.value} 个应用接入知识库，适合继续从开始聊天和检索调试里看真实回答表现。`,
-    tone: boundAppCountDisplay.value === 0 ? 'warning' : 'success'
-  },
-  {
-    title: unboundAppCountDisplay.value > 0 ? '未绑定应用适合先做轻量链路验证' : '当前应用配置完整度相对更高',
-    desc: unboundAppCountDisplay.value > 0
-      ? `当前还有 ${unboundAppCountDisplay.value} 个应用未绑定知识库，这一批更适合先确认交互、提示词和公开访问配置是否顺畅。`
-      : '当前结果里的应用都已经接入知识内容，下一步更适合继续检查问答稳定性和命中质量。',
-    tone: unboundAppCountDisplay.value > 0 ? 'warning' : 'success'
-  },
-  {
-    title: customModelCountDisplay.value > 0 ? '可继续比较默认模型与自定义模型差异' : '仍可按业务场景细化模型策略',
-    desc: customModelCountDisplay.value > 0
-      ? `当前已有 ${customModelCountDisplay.value} 个应用指定了专用模型，适合继续验证不同模型下的成本、风格和回答稳定性。`
-      : '当前应用还主要使用默认模型，如果不同业务场景回答差异明显，可以继续补专用模型策略。',
-    tone: customModelCountDisplay.value > 0 ? 'success' : 'warning'
-  }
-] as const)
 // 应用图片处理
 function convertIconPath(iconPath: string) {
   if (iconPath) {
@@ -304,6 +261,45 @@ function handlePublishSuccess() {
   publishDialogVisible.value = false
   loadTable()
 }
+
+function getPublishStatusText(appId: string | number) {
+  const status = publishStatusMap.value[String(appId)]
+  if (!status || Number(status.enabled) !== 1) {
+    return '关闭'
+  }
+  return status.accessType === 'PASSWORD' ? '密码访问' : '公开访问'
+}
+
+function getPublishStatusClass(appId: string | number) {
+  const statusText = getPublishStatusText(appId)
+  if (statusText === '公开访问') {
+    return 'workspace-resource-card__value--success'
+  }
+  if (statusText === '密码访问') {
+    return 'workspace-resource-card__value--warning'
+  }
+  return 'workspace-resource-card__value--muted'
+}
+
+async function loadPublishStatuses() {
+  const rows = currentRows.value
+  if (!rows.length) {
+    publishStatusMap.value = {}
+    return
+  }
+
+  const statusEntries = await Promise.all(rows.map(async (row: { id: string | number }) => {
+    try {
+      const result = await queryPublishConfigApi(String(row.id))
+      const data = result.data || {}
+      return [String(row.id), { enabled: Number(data.enabled ?? 0), accessType: String(data.accessType || 'PUBLIC') }] as const
+    } catch {
+      return [String(row.id), { enabled: 0, accessType: 'PUBLIC' }] as const
+    }
+  }))
+
+  publishStatusMap.value = Object.fromEntries(statusEntries)
+}
 // 解绑知识库
 function unbindLib(appId:string) {
   unBindLibApi(appId).then(result => {
@@ -314,6 +310,13 @@ function unbindLib(appId:string) {
 onMounted(() => {
   loadTable()
 })
+
+watch(
+  () => tableData.rows,
+  () => {
+    loadPublishStatuses()
+  }
+)
 </script>
 <style scoped>
 .app-manage-page {
@@ -321,41 +324,50 @@ onMounted(() => {
 }
 
 .app-summary-panel,
-.app-focus-panel,
 .card-list-panel {
   padding: 18px 20px;
 }
 
-.app-tip-grid {
-  margin-top: 14px;
+.workspace-resource-card__row--tight {
+  flex-wrap: nowrap;
 }
 
-.app-tip-card {
-  position: relative;
+.workspace-resource-card__actions-inline--compact {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  margin-left: auto;
+  gap: 10px;
+}
+
+.workspace-resource-card__value--truncate {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.app-tip-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  border-radius: 4px 0 0 4px;
-  background: rgba(148, 163, 184, 0.42);
+.workspace-resource-card__value--success {
+  color: #027a48;
 }
 
-.app-tip-card--success::before {
-  background: linear-gradient(180deg, #12b76a 0%, #0f9f5f 100%);
+.workspace-resource-card__value--warning {
+  color: #b54708;
 }
 
-.app-tip-card--warning::before {
-  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+.workspace-resource-card__value--muted {
+  color: var(--space-text-soft);
 }
 
-.app-tip-card__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+@media (max-width: 640px) {
+  .workspace-resource-card__row--tight {
+    flex-wrap: wrap;
+  }
+
+  .workspace-resource-card__actions-inline--compact {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 
 .app-tip-card__dot {

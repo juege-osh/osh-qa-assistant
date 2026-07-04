@@ -34,17 +34,6 @@
         </div>
       </div>
 
-      <div class="session-list-head workspace-overview-head">
-        <div>
-          <div class="workspace-section-title workspace-section-title--md">会话列表</div>
-          <div class="workspace-panel-desc">{{ listSummary }}</div>
-        </div>
-        <div class="workspace-inline-tags">
-          <span class="workspace-inline-tag workspace-inline-tag--soft">展示 {{ filteredChatCount }}</span>
-          <span class="workspace-inline-tag workspace-inline-tag--soft">全部 {{ totalChatCount }}</span>
-        </div>
-      </div>
-
       <div class="session-grid workspace-selection-list workspace-selection-list--scroll space-scrollbar space-scrollbar--strong">
         <div v-for="session in filteredChats" :key="session.id" class="session-item workspace-selection-card" @click="openChat(session.id)">
           <div class="workspace-selection-card__main">
@@ -136,17 +125,7 @@ const {
 
 const totalChatCount = computed(() => pageData.chats.length)
 const filteredChatCount = computed(() => filteredChats.value.length)
-const hasKeyword = computed(() => Boolean(sessionKeyword.value.trim()))
 const latestUpdateLabel = computed(() => latestUpdateTime.value || '暂无')
-const listSummary = computed(() => {
-  if (!pageData.chats.length) {
-    return '创建会话后会自动进入对话页，后续可以回到这里继续追问或整理命名。'
-  }
-  if (hasKeyword.value) {
-    return `当前按“${sessionKeyword.value.trim()}”缩小到 ${filteredChatCount.value} 个会话，适合直接定位某个主题继续追问。`
-  }
-  return '按更新时间继续历史对话，也可以先把关键会话重命名，方便后续回看和整理。'
-})
 </script>
 
 <style scoped>
@@ -162,21 +141,18 @@ const listSummary = computed(() => {
   min-height: 0;
 }
 
-.session-list-head {
-  align-items: center;
-  gap: 16px;
-}
-
 .session-head-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  flex-wrap: wrap;
+  flex: 0 1 540px;
+  min-width: 0;
 }
 
 .session-search-input {
-  width: min(360px, 100%);
+  flex: 1 1 320px;
+  min-width: 220px;
 }
 
 .panel-title-row {
@@ -233,7 +209,6 @@ const listSummary = computed(() => {
 
 @media (max-width: 768px) {
   .panel-header,
-  .session-list-head,
   .session-item,
   .session-head-actions {
     flex-direction: column;

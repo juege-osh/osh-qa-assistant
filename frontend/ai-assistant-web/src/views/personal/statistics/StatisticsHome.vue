@@ -63,35 +63,6 @@
       </div>
     </section>
 
-    <section class="workspace-section-card summary-panel statistics-summary-panel">
-      <div class="panel-title">当前判断</div>
-      <div class="summary-list">
-        <div class="summary-item">{{ healthSummary }}</div>
-        <div class="summary-item" v-for="item in insightList" :key="item">{{ item }}</div>
-      </div>
-    </section>
-
-    <section class="workspace-section-card statistics-focus-panel">
-      <div class="workspace-overview-head">
-        <div>
-          <div class="panel-title panel-title--md">优化方向</div>
-          <div class="workspace-panel-desc">把当前数据翻译成下一步动作，方便继续决定先调知识库、提示词还是调用链路。</div>
-        </div>
-      </div>
-      <div class="workspace-tip-grid statistics-tip-grid">
-        <article
-          v-for="item in focusCards"
-          :key="item.title"
-          :class="['workspace-tip-card', 'statistics-tip-card', `statistics-tip-card--${item.tone}`]"
-        >
-          <div class="statistics-tip-card__head">
-            <span :class="['statistics-tip-card__dot', `statistics-tip-card__dot--${item.tone}`]"></span>
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-          </div>
-          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-        </article>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -139,70 +110,6 @@ const healthToneClass = computed(() => {
   return 'workspace-inline-tag--danger'
 })
 
-const healthSummary = computed(() => {
-  if (successRateValue.value >= 95) {
-    return '当前整体稳定性较好，可以继续关注调用量和耗时变化，优先做体验优化与成本优化。'
-  }
-  if (successRateValue.value >= 80) {
-    return '当前成功率处于可用但需要关注的区间，建议结合调用记录页重点复盘失败原因和慢请求。'
-  }
-  return '当前成功率偏低，建议优先排查异常链路、知识库状态、模型配置和请求参数。'
-})
-
-const insightList = computed(() => {
-  const items: string[] = []
-  const avgCostTime = normalizeNumber(stats.value.avgCostTime)
-  const failCalls = normalizeNumber(stats.value.failCalls)
-  const todayCalls = normalizeNumber(stats.value.todayCalls)
-  const totalCalls = normalizeNumber(stats.value.totalCalls)
-
-  if (failCalls > 0) {
-    items.push(`当前累计失败 ${formatCount(failCalls)} 次，建议到调用记录页按失败和慢请求优先复盘。`)
-  }
-  if (avgCostTime >= 5000) {
-    items.push('平均耗时已经偏高，建议优先检查检索、重排和模型响应链路。')
-  } else {
-    items.push('平均耗时目前相对可控，可以把更多精力放在答案质量和命中效果上。')
-  }
-  if (todayCalls > 0 && totalCalls > 0) {
-    items.push(`今日调用 ${formatCount(todayCalls)} 次，可结合最近会话和调用记录观察当天波动。`)
-  }
-  items.push(`累计 Token 为 ${formatCount(stats.value.totalCostToken)}，如果增长过快，可以回头优化问题长度、提示词和召回策略。`)
-  return items
-})
-
-const focusCards = computed(() => {
-  const cards: Array<{ title: string, desc: string, tone: 'success' | 'warning' | 'danger' }> = []
-
-  cards.push({
-    title: successRateValue.value >= 95 ? '当前回答链路较稳' : successRateValue.value >= 80 ? '需要继续关注稳定性' : '优先排查失败原因',
-    desc: successRateValue.value >= 95
-      ? '可以把注意力更多放在知识覆盖和答案质量上，而不是先排查稳定性问题。'
-      : successRateValue.value >= 80
-        ? '建议结合调用记录重点看失败原因和慢请求，再判断问题来自模型还是检索。'
-        : '先优先确认模型配置、参数、知识库状态与请求内容是否存在明显异常。',
-    tone: successRateValue.value >= 95 ? 'success' : successRateValue.value >= 80 ? 'warning' : 'danger'
-  })
-
-  cards.push({
-    title: normalizeNumber(stats.value.avgCostTime) >= 5000 ? '优先优化响应速度' : '速度表现目前可控',
-    desc: normalizeNumber(stats.value.avgCostTime) >= 5000
-      ? '建议先看检索、重排和模型响应时间，再决定是否要简化上下文或裁剪召回范围。'
-      : '当前速度没有明显瓶颈，可以继续把时间放在提示词和知识组织方式上。',
-    tone: normalizeNumber(stats.value.avgCostTime) >= 5000 ? 'warning' : 'success'
-  })
-
-  cards.push({
-    title: normalizeNumber(stats.value.todayCalls) > 0 ? '今天已有真实使用数据' : '等待更多当天调用样本',
-    desc: normalizeNumber(stats.value.todayCalls) > 0
-      ? `今日调用 ${formatCount(stats.value.todayCalls)} 次，适合结合最近会话一起判断今天的问题分布和波动。`
-      : '当前当天样本较少，可以先持续观察，等更多真实调用后再判断是不是阶段性问题。',
-    tone: normalizeNumber(stats.value.todayCalls) > 0 ? 'warning' : 'success'
-  })
-
-  return cards
-})
-
 onMounted(() => {
   getOverviewApi().then((res: any) => {
     stats.value = res.data || {}
@@ -213,69 +120,5 @@ onMounted(() => {
 <style scoped>
 .statistics-home-page {
   gap: 16px;
-}
-
-.statistics-summary-panel,
-.statistics-focus-panel {
-  padding: 18px 20px;
-}
-
-.statistics-tip-grid {
-  margin-top: 14px;
-}
-
-.statistics-tip-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.statistics-tip-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  border-radius: 4px 0 0 4px;
-  background: rgba(148, 163, 184, 0.42);
-}
-
-.statistics-tip-card--success::before {
-  background: linear-gradient(180deg, #12b76a 0%, #0f9f5f 100%);
-}
-
-.statistics-tip-card--warning::before {
-  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
-}
-
-.statistics-tip-card--danger::before {
-  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-}
-
-.statistics-tip-card__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.statistics-tip-card__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  background: rgba(148, 163, 184, 0.9);
-}
-
-.statistics-tip-card__dot--success {
-  background: #12b76a;
-  box-shadow: 0 0 0 4px rgba(18, 183, 106, 0.12);
-}
-
-.statistics-tip-card__dot--warning {
-  background: #f59e0b;
-  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14);
-}
-
-.statistics-tip-card__dot--danger {
-  background: #ef4444;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
 }
 </style>

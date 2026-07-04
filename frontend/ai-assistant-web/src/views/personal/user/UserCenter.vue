@@ -44,49 +44,6 @@
         </article>
       </div>
 
-      <div class="workspace-context-strip account-context-strip">
-        <div class="workspace-context-copy">
-          <span class="workspace-chip workspace-chip--primary">对外接入统一使用 App Key</span>
-          <span class="workspace-context-note">登录密码不用于外部系统对接，接口或脚本接入优先使用这里的凭证。</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="workspace-auth-metric-strip">
-      <article class="workspace-auth-metric">
-        <div class="workspace-auth-metric__value">App Key</div>
-        <div class="workspace-auth-metric__label">外部系统接入统一使用 App Key，不直接暴露登录密码。</div>
-      </article>
-      <article class="workspace-auth-metric">
-        <div class="workspace-auth-metric__value">先核验</div>
-        <div class="workspace-auth-metric__label">对接失败时先确认当前凭证、应用和接口环境是否一致。</div>
-      </article>
-      <article class="workspace-auth-metric">
-        <div class="workspace-auth-metric__value">再排查</div>
-        <div class="workspace-auth-metric__label">确认凭证后，再去调用记录页看失败原因、耗时和请求内容。</div>
-      </article>
-    </section>
-
-    <section class="workspace-section-card account-focus-panel">
-      <div class="workspace-overview-head">
-        <div>
-          <div class="panel-title panel-title--md">账户关注点</div>
-          <div class="workspace-panel-desc">从凭证使用、环境确认和问题排查三个角度，快速判断下一步该先看哪里。</div>
-        </div>
-      </div>
-      <div class="workspace-tip-grid account-tip-grid">
-        <article
-          v-for="item in accountFocusCards"
-          :key="item.title"
-          :class="['workspace-tip-card', 'account-tip-card', `account-tip-card--${item.tone}`]"
-        >
-          <div class="account-tip-card__head">
-            <span :class="['account-tip-card__dot', `account-tip-card__dot--${item.tone}`]"></span>
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-          </div>
-          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-        </article>
-      </div>
     </section>
 
     <section class="workspace-auth-note-card">
@@ -126,26 +83,6 @@ const userStore = useUserStore()
 
 const credentialToneLabel = computed(() => pageData.user.appKey ? '建议定期核验环境' : '当前暂无可用凭证')
 
-const accountFocusCards = computed(() => [
-  {
-    title: pageData.user.appKey ? '当前可以直接对外接入' : '当前还没有可用凭证',
-    desc: pageData.user.appKey
-      ? '脚本、外部系统和联调环境都优先使用 App Key，不要直接暴露登录密码。'
-      : '如果这里没有可用 App Key，建议先确认当前账号状态或返回应用页继续检查。',
-    tone: pageData.user.appKey ? 'success' : 'danger'
-  },
-  {
-    title: '对接失败先核对目标环境',
-    desc: '调用异常时，优先确认当前账号、应用、知识库和接口地址是不是来自同一个环境。',
-    tone: 'warning'
-  },
-  {
-    title: '问题定位优先结合调用记录',
-    desc: '如果已经确认凭证没问题，再去调用记录页看失败原因、耗时和具体请求内容会更高效。',
-    tone: 'warning'
-  }
-] as const)
-
 function queryUserInfo() {
   queryUserByIdApi(userStore.userInfo.id).then((result) => {
     pageData.user = result.data
@@ -184,83 +121,9 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
-.account-focus-panel {
-  padding: 18px 20px;
-}
-
-.account-tip-grid {
-  margin-top: 14px;
-}
-
-.account-tip-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.account-tip-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  border-radius: 4px 0 0 4px;
-  background: rgba(148, 163, 184, 0.42);
-}
-
-.account-tip-card--success::before {
-  background: linear-gradient(180deg, #12b76a 0%, #0f9f5f 100%);
-}
-
-.account-tip-card--warning::before {
-  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
-}
-
-.account-tip-card--danger::before {
-  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-}
-
-.account-tip-card__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.account-tip-card__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.78);
-  flex-shrink: 0;
-}
-
-.account-tip-card__dot--success {
-  background: #12b76a;
-}
-
-.account-tip-card__dot--warning {
-  background: #f59e0b;
-}
-
-.account-tip-card__dot--danger {
-  background: #ef4444;
-}
-
 .account-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-}
-
-.account-context-strip {
-  margin-top: 16px;
-}
-
-@media (max-width: 900px) {
-  .workspace-auth-metric-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .account-tip-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

@@ -48,28 +48,6 @@
       </section>
     </section>
 
-    <section class="workspace-section-card knowledge-focus-panel">
-      <div class="workspace-overview-head">
-        <div>
-          <div class="panel-title panel-title--md">当前关注点</div>
-          <div class="workspace-panel-desc">把当前知识库状态翻译成更直接的动作，方便决定先补资料、先挂应用，还是直接进入检索调试。</div>
-        </div>
-      </div>
-      <div class="workspace-tip-grid knowledge-tip-grid">
-        <article
-          v-for="item in knowledgeFocusCards"
-          :key="item.title"
-          :class="['workspace-tip-card', 'knowledge-tip-card', `knowledge-tip-card--${item.tone}`]"
-        >
-          <div class="knowledge-tip-card__head">
-            <span :class="['knowledge-tip-card__dot', `knowledge-tip-card__dot--${item.tone}`]"></span>
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-          </div>
-          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-        </article>
-      </div>
-    </section>
-
     <section class="toolbar-panel workspace-section-card workspace-toolbar-panel">
       <div class="toolbar-copy workspace-toolbar-copy">
         <div class="workspace-toolbar-kicker">我的知识库</div>
@@ -163,7 +141,7 @@
     <!-- 更新对话框 -->
     <UpdateKnowledgeLib :updateDialogVisible="updateDialogVisible" @closeDialog="updateDialogVisible = false"
       :idToUpdate="idToUpdate" @updateSuccess="handleUpdateSuccess"></UpdateKnowledgeLib>
-    <el-dialog v-model="recallDebugVisible" title="知识库检索调试" width="1080px" class="workspace-form-dialog recall-debug-dialog">
+    <el-dialog v-model="recallDebugVisible" title="知识库检索调试" width="1280px" class="workspace-form-dialog recall-debug-dialog">
       <div class="dialog-intro">
         用一条真实问题检查当前知识库的命中方向、重排效果和后续处理动作，避免只看分数却看不清实际结论。
       </div>
@@ -412,22 +390,26 @@
           </div>
         </section>
 
-        <section class="workspace-inspect-grid" v-if="recallDebugResult.query">
+        <section class="workspace-inspect-grid recall-results-grid" v-if="recallDebugResult.query">
           <article class="workspace-section-card workspace-inspect-panel">
-            <div class="workspace-overview-head workspace-inspect-head">
-              <div>
+            <div class="workspace-overview-head workspace-inspect-head recall-panel-head">
+              <div class="recall-panel-copy">
                 <div class="recall-panel-title workspace-section-title">原始召回结果</div>
                 <div class="recall-panel-desc workspace-panel-desc">先看知识库有没有拿到可用候选，判断是完全未命中，还是命中方向还不够准。</div>
               </div>
-              <div class="workspace-inline-tags">
+              <div class="workspace-inline-tags recall-panel-metrics">
                 <span class="workspace-inline-tag workspace-inline-tag--soft">命中 {{ recallDebugResult.rawHitCount }}</span>
-                <span class="workspace-inline-tag workspace-inline-tag--soft">Top1 {{ rawTopDisplay }}</span>
+                <span class="workspace-inline-tag workspace-inline-tag--soft">TopK {{ recallDebugResult.topK }}</span>
               </div>
+            </div>
+            <div class="recall-top-summary" :class="{ 'recall-top-summary--empty': !recallDebugResult.rawHits.length }">
+              <div class="recall-top-summary__label">当前 Top1</div>
+              <div class="recall-top-summary__title">{{ rawTopDisplay }}</div>
             </div>
             <div v-if="recallDebugResult.rawHits.length" class="workspace-inspect-list space-scrollbar">
               <div v-for="item in recallDebugResult.rawHits" :key="`raw-${item.documentId}-${item.index}`" class="recall-hit-card workspace-result-card">
                 <div class="recall-hit-head workspace-result-card__head">
-                  <div>
+                  <div class="recall-hit-copy">
                     <div class="recall-hit-title workspace-result-card__title">#{{ item.index }} {{ item.fileName }}</div>
                     <div class="recall-hit-id workspace-result-card__submeta">DocID: {{ item.documentId }}</div>
                   </div>
@@ -440,20 +422,24 @@
           </article>
 
           <article class="workspace-section-card workspace-inspect-panel">
-            <div class="workspace-overview-head workspace-inspect-head">
-              <div>
+            <div class="workspace-overview-head workspace-inspect-head recall-panel-head">
+              <div class="recall-panel-copy">
                 <div class="recall-panel-title workspace-section-title">重排后结果</div>
                 <div class="recall-panel-desc workspace-panel-desc">再看重排是否把更相关的内容推到了前面，判断当前切分和组织方式是否已经有效。</div>
               </div>
-              <div class="workspace-inline-tags">
+              <div class="workspace-inline-tags recall-panel-metrics">
                 <span class="workspace-inline-tag workspace-inline-tag--active">保留 {{ recallRetentionRate }}</span>
-                <span class="workspace-inline-tag workspace-inline-tag--soft">Top1 {{ rerankTopDisplay }}</span>
+                <span class="workspace-inline-tag workspace-inline-tag--soft">命中 {{ recallDebugResult.rerankHitCount }}</span>
               </div>
+            </div>
+            <div class="recall-top-summary" :class="{ 'recall-top-summary--empty': !recallDebugResult.rerankHits.length }">
+              <div class="recall-top-summary__label">当前 Top1</div>
+              <div class="recall-top-summary__title">{{ rerankTopDisplay }}</div>
             </div>
             <div v-if="recallDebugResult.rerankHits.length" class="workspace-inspect-list space-scrollbar">
               <div v-for="item in recallDebugResult.rerankHits" :key="`rerank-${item.documentId}-${item.index}`" class="recall-hit-card workspace-result-card">
                 <div class="recall-hit-head workspace-result-card__head">
-                  <div>
+                  <div class="recall-hit-copy">
                     <div class="recall-hit-title workspace-result-card__title">#{{ item.index }} {{ item.fileName }}</div>
                     <div class="recall-hit-id workspace-result-card__submeta">DocID: {{ item.documentId }}</div>
                   </div>
@@ -594,29 +580,6 @@ const boundLibCountDisplay = computed(() => currentRows.value.filter((row: { app
 const unboundLibCountDisplay = computed(() => currentRows.value.filter((row: { appId?: string | number | null }) => !row.appId).length)
 const totalDocCountDisplay = computed(() => formatCount(currentRows.value.reduce((sum: number, row: { docCount?: number | string }) => sum + Number(row.docCount || 0), 0)))
 const totalCharCountDisplay = computed(() => formatCount(currentRows.value.reduce((sum: number, row: { charCount?: number | string }) => sum + Number(row.charCount || 0), 0)))
-const knowledgeFocusCards = computed(() => [
-  {
-    title: boundLibCountDisplay.value === 0 ? '优先确认哪些知识库需要先挂到应用' : '已挂应用的知识库适合继续验证实际命中',
-    desc: boundLibCountDisplay.value === 0
-      ? '当前结果里的知识库都还没有接入应用，更适合先明确使用场景，再决定后续问答入口和公开访问范围。'
-      : `当前已有 ${boundLibCountDisplay.value} 个知识库挂到应用，适合继续通过检索调试和真实问题验证内容命中。`,
-    tone: boundLibCountDisplay.value === 0 ? 'warning' : 'success'
-  },
-  {
-    title: totalDocCountDisplay.value === '0' ? '资料仍然偏少，适合优先补文档' : '文档规模已经形成，可继续看内容边界',
-    desc: totalDocCountDisplay.value === '0'
-      ? '当前结果里的知识库还没有形成有效文档规模，通常先补核心资料会比直接调提示词更有效。'
-      : `当前结果累计 ${totalDocCountDisplay.value} 个文档、${totalCharCountDisplay.value} 个字符，适合继续检查知识边界是否清楚、资料是否重复。`,
-    tone: totalDocCountDisplay.value === '0' ? 'warning' : 'success'
-  },
-  {
-    title: currentRows.value.length ? '可以按真实问题进入检索调试' : '等待更多结果后再安排检索验证',
-    desc: currentRows.value.length
-      ? '如果应用已经挂载但回答还不稳，建议直接从这里进入检索调试，先判断问题出在补知识、补切分还是补展示。'
-      : '当前结果为空，建议先调整筛选条件或创建知识库，再继续做检索验证。',
-    tone: currentRows.value.length ? 'success' : 'warning'
-  }
-] as const)
 const rawTopDisplay = computed(() => {
   const rawTop = recallDebugResult.rawHits[0]
   return rawTop?.fileName || '未命中'
@@ -1131,8 +1094,7 @@ function loadRecallSnapshots() {
   gap: 16px;
 }
 
-.knowledge-summary-panel,
-.knowledge-focus-panel {
+.knowledge-summary-panel {
   padding: 18px 20px;
 }
 
@@ -1144,18 +1106,15 @@ function loadRecallSnapshots() {
   margin-bottom: 14px;
 }
 
-.knowledge-tip-grid,
 .recall-tip-grid {
   margin-top: 14px;
 }
 
-.knowledge-tip-card,
 .recall-tip-card {
   position: relative;
   overflow: hidden;
 }
 
-.knowledge-tip-card::before,
 .recall-tip-card::before {
   content: "";
   position: absolute;
@@ -1165,29 +1124,24 @@ function loadRecallSnapshots() {
   background: rgba(148, 163, 184, 0.42);
 }
 
-.knowledge-tip-card--success::before,
 .recall-tip-card--success::before {
   background: linear-gradient(180deg, #12b76a 0%, #0f9f5f 100%);
 }
 
-.knowledge-tip-card--warning::before,
 .recall-tip-card--warning::before {
   background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
 }
 
-.knowledge-tip-card--danger::before,
 .recall-tip-card--danger::before {
   background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
 }
 
-.knowledge-tip-card__head,
 .recall-tip-card__head {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.knowledge-tip-card__dot,
 .recall-tip-card__dot {
   width: 8px;
   height: 8px;
@@ -1196,19 +1150,16 @@ function loadRecallSnapshots() {
   background: rgba(148, 163, 184, 0.9);
 }
 
-.knowledge-tip-card__dot--success,
 .recall-tip-card__dot--success {
   background: #12b76a;
   box-shadow: 0 0 0 4px rgba(18, 183, 106, 0.12);
 }
 
-.knowledge-tip-card__dot--warning,
 .recall-tip-card__dot--warning {
   background: #f59e0b;
   box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14);
 }
 
-.knowledge-tip-card__dot--danger,
 .recall-tip-card__dot--danger {
   background: #ef4444;
   box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
@@ -1217,6 +1168,10 @@ function loadRecallSnapshots() {
 .recall-debug-toolbar {
   padding: 18px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(249, 251, 255, 0.95) 100%);
+}
+
+.recall-debug-dialog :deep(.el-dialog) {
+  max-width: calc(100vw - 48px);
 }
 
 .recall-toolbar-copy {
@@ -1367,24 +1322,79 @@ function loadRecallSnapshots() {
   line-height: 1.7;
 }
 
+.recall-panel-head {
+  align-items: stretch;
+  gap: 14px;
+}
+
+.recall-panel-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.recall-panel-metrics {
+  flex: 0 0 168px;
+  max-width: 220px;
+  justify-content: flex-end;
+  align-content: flex-start;
+}
+
+.recall-top-summary {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(223, 230, 241, 0.92);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(255, 255, 255, 0.94));
+}
+
+.recall-top-summary--empty {
+  background: rgba(248, 251, 255, 0.9);
+}
+
+.recall-top-summary__label {
+  color: var(--space-text-soft);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.recall-top-summary__title {
+  margin-top: 6px;
+  color: var(--space-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.65;
+  word-break: break-word;
+}
+
 .recall-hit-card {
   border-radius: 16px;
 }
 
 .recall-hit-head {
+  align-items: flex-start;
   gap: 12px;
+}
+
+.recall-hit-copy {
+  flex: 1;
+  min-width: 0;
 }
 
 .recall-hit-title {
   line-height: 1.5;
+  word-break: break-word;
 }
 
 .recall-hit-id {
   line-height: 1.5;
+  word-break: break-all;
 }
 
 .recall-hit-score {
   color: var(--space-primary-strong);
+  flex-shrink: 0;
+  font-weight: 700;
 }
 
 .recall-empty {
@@ -1405,6 +1415,12 @@ function loadRecallSnapshots() {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .recall-panel-metrics {
+    flex: 1 1 auto;
+    max-width: none;
+    justify-content: flex-start;
+  }
+
   .recall-select--lib,
   .recall-select--topk {
     width: 100%;
@@ -1415,6 +1431,10 @@ function loadRecallSnapshots() {
   }
 
   .recall-judgement-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recall-results-grid {
     grid-template-columns: 1fr;
   }
 
