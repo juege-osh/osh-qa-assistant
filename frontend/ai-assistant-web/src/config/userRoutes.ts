@@ -18,7 +18,7 @@ export const adminRoutes: UserRoutesDefine = [
       {
         path: 'invokeRecord/manage',
         componentPath: 'admin/invokerecord/InvokeRecordManage',
-        meta: { authorityName: '调用记录管理', showInMenu: true, icon: 'Link' }
+        meta: { authorityName: '调用记录', showInMenu: true, icon: 'Link' }
       },
       {
         path: 'app/manage',
@@ -67,7 +67,7 @@ export const workspaceRoutes: UserRoutesDefine = [
       {
         path: 'invokeRecord/manage',
         componentPath: 'personal/invokerecord/InvokeRecordManage',
-        meta: { authorityName: '调用记录管理', showInMenu: true, icon: 'Link' }
+        meta: { authorityName: '调用记录', showInMenu: true, icon: 'Link' }
       },
       {
         path: 'statistics',

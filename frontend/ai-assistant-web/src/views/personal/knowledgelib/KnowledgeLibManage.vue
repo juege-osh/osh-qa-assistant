@@ -6,46 +6,11 @@
         <span class="workspace-context-note">统一查看资料规模、应用挂载和检索准备情况，优先判断下一步是补资料还是直接做命中验证。</span>
       </div>
       <div class="workspace-context-actions">
-        <span class="workspace-inline-tag workspace-inline-tag--soft">结果 {{ currentResultCountDisplay }}</span>
+        <span class="workspace-inline-tag workspace-inline-tag--soft">知识库 {{ currentResultCountDisplay }}</span>
         <span class="workspace-inline-tag workspace-inline-tag--soft">已挂应用 {{ boundLibCountDisplay }}</span>
         <span class="workspace-inline-tag workspace-inline-tag--soft">文档 {{ totalDocCountDisplay }}</span>
+        <span class="workspace-inline-tag workspace-inline-tag--soft">字符量 {{ totalCharCountDisplay }}</span>
       </div>
-    </section>
-
-    <section class="workspace-section-card knowledge-overview-panel workspace-dashboard-panel">
-      <div class="knowledge-overview-head workspace-overview-head workspace-dashboard-head">
-        <div>
-          <div class="panel-title">知识工作区</div>
-          <div class="panel-desc workspace-panel-desc">先看文档规模、应用绑定情况和知识库数量，再决定是继续补资料、进入文档管理，还是直接做检索调试。</div>
-        </div>
-        <div class="workspace-inline-tags">
-          <span class="workspace-inline-tag workspace-inline-tag--active">当前结果 {{ currentResultCountDisplay }}</span>
-          <span class="workspace-inline-tag workspace-inline-tag--soft">已挂应用 {{ boundLibCountDisplay }}</span>
-          <span class="workspace-inline-tag workspace-inline-tag--soft">未挂应用 {{ unboundLibCountDisplay }}</span>
-        </div>
-      </div>
-      <section class="stats-grid workspace-metrics-grid">
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--total">
-          <div class="stat-label">当前结果</div>
-          <div class="stat-value">{{ currentResultCountDisplay }}</div>
-          <div class="stat-help">当前页内可以继续下钻文档管理或做检索调试的知识库数量。</div>
-        </article>
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--success">
-          <div class="stat-label">已挂应用</div>
-          <div class="stat-value workspace-stat-value--success">{{ boundLibCountDisplay }}</div>
-          <div class="stat-help">已经接入业务应用，更适合继续验证真实问答命中效果。</div>
-        </article>
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--time">
-          <div class="stat-label">当前文档</div>
-          <div class="stat-value">{{ totalDocCountDisplay }}</div>
-          <div class="stat-help">快速判断当前筛选结果里的资料规模，确认是否足够支撑问答。</div>
-        </article>
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--token">
-          <div class="stat-label">当前字符量</div>
-          <div class="stat-value">{{ totalCharCountDisplay }}</div>
-          <div class="stat-help">结合文档数一起看，更容易识别资料过少或内容过碎的知识库。</div>
-        </article>
-      </section>
     </section>
 
     <section class="toolbar-panel workspace-section-card workspace-toolbar-panel">
@@ -577,7 +542,6 @@ const currentRows = computed(() => tableData.rows || [])
 const totalLibCountDisplay = computed(() => tableData.total || 0)
 const currentResultCountDisplay = computed(() => currentRows.value.length)
 const boundLibCountDisplay = computed(() => currentRows.value.filter((row: { appId?: string | number | null }) => Boolean(row.appId)).length)
-const unboundLibCountDisplay = computed(() => currentRows.value.filter((row: { appId?: string | number | null }) => !row.appId).length)
 const totalDocCountDisplay = computed(() => formatCount(currentRows.value.reduce((sum: number, row: { docCount?: number | string }) => sum + Number(row.docCount || 0), 0)))
 const totalCharCountDisplay = computed(() => formatCount(currentRows.value.reduce((sum: number, row: { charCount?: number | string }) => sum + Number(row.charCount || 0), 0)))
 const rawTopDisplay = computed(() => {
@@ -1406,11 +1370,6 @@ function loadRecallSnapshots() {
 }
 
 @media (max-width: 1100px) {
-  .knowledge-overview-head {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .recall-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

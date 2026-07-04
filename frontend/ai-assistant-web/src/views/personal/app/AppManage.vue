@@ -12,32 +12,6 @@
       </div>
     </section>
 
-    <section class="workspace-section-card app-overview-panel workspace-dashboard-panel">
-      <div class="app-overview-head workspace-overview-head workspace-dashboard-head">
-        <div>
-          <div class="panel-title">应用工作区</div>
-          <div class="panel-desc workspace-panel-desc">先确认哪些应用已经绑定知识库、哪些还停留在测试阶段，再决定是继续完善配置还是直接进入聊天验证。</div>
-        </div>
-        <div class="workspace-inline-tags">
-          <span class="workspace-inline-tag workspace-inline-tag--active">当前结果 {{ currentResultCountDisplay }}</span>
-          <span class="workspace-inline-tag workspace-inline-tag--soft">已绑定 {{ boundAppCountDisplay }}</span>
-          <span class="workspace-inline-tag workspace-inline-tag--soft">待绑定 {{ unboundAppCountDisplay }}</span>
-        </div>
-      </div>
-      <section class="stats-grid workspace-metrics-grid">
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--total">
-          <div class="stat-label">当前结果</div>
-          <div class="stat-value">{{ currentResultCountDisplay }}</div>
-          <div class="stat-help">当前页内可直接继续编辑、绑定或开始聊天的应用数量。</div>
-        </article>
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--success">
-          <div class="stat-label">已绑定知识库</div>
-          <div class="stat-value workspace-stat-value--success">{{ boundAppCountDisplay }}</div>
-          <div class="stat-help">已经接入知识内容，适合继续验证命中和回答效果。</div>
-        </article>
-      </section>
-    </section>
-
     <section class="toolbar-panel workspace-section-card workspace-toolbar-panel">
       <div class="toolbar-copy workspace-toolbar-copy">
         <div class="workspace-toolbar-kicker">我的应用</div>
