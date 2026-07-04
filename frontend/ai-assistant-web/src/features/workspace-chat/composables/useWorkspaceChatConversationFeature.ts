@@ -146,6 +146,14 @@ export function useWorkspaceChatConversationFeature() {
     return md.render(normalizeAssistantMarkdown(String(message.message || '')))
   }
 
+  function isStreamingMessage(message: WorkspaceChatMessage, index: number) {
+    return message.typeDesc !== 'user' && pageData.sending && index === pageData.messages.length - 1
+  }
+
+  function getStreamingMessageText(message: WorkspaceChatMessage) {
+    return String(message.message || '')
+  }
+
   async function scrollBottom() {
     await nextTick()
     if (chatBox.value) {
@@ -407,6 +415,8 @@ export function useWorkspaceChatConversationFeature() {
     copyMessage,
     retryMessage,
     setFeedback,
+    isStreamingMessage,
+    getStreamingMessageText,
     exportCurrentChat,
     handleEditorKeydown,
     send

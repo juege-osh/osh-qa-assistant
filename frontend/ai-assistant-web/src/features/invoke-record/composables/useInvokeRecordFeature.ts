@@ -135,11 +135,6 @@ export function createInvokeRecordFeatureModel() {
     reviewed: '已复盘',
     followUp: '待跟进'
   }
-  const reviewStatusTagType: Record<ReviewStatus, 'info' | 'success' | 'warning'> = {
-    pending: 'info',
-    reviewed: 'success',
-    followUp: 'warning'
-  }
   const followUpCategoryOptions = [
     { value: 'knowledge', label: '补知识' },
     { value: 'chunking', label: '补切分' },
@@ -1656,7 +1651,6 @@ export function createInvokeRecordFeatureModel() {
     repairTaskPoolDialogTitle,
     repairTaskPoolDialogVisible,
     resetFilters,
-    reviewStatusTagType,
     reviewStatusText,
     runDefaultAcceptanceBatch,
     runRealAcceptanceBatch,

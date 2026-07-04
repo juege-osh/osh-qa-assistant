@@ -2,13 +2,20 @@
   <AuthSplitLayout>
     <template #showcase>
       <div class="workspace-auth-copy">
-        <div class="workspace-auth-kicker">AI QA Workspace</div>
-        <h1 class="workspace-auth-title">构建企业级 AI 评测闭环</h1>
-        <p class="workspace-auth-desc">统一管理文档、配置与验证记录，全方位提升模型效果追踪效率。</p>
+        <div class="workspace-auth-kicker">统一工作入口</div>
+        <h1 class="workspace-auth-title">进入工作台，继续当前的问答、资料整理与验证进度。</h1>
+        <p class="workspace-auth-desc">登录后即可回到统一工作空间，在同一套页面里继续应用配置、知识整理和会话验证。</p>
       </div>
 
-      <div class="workspace-auth-grid login-value-grid">
-        <article class="workspace-auth-card" v-for="item in valueCards" :key="item.title">
+      <div class="workspace-auth-metric-strip">
+        <article v-for="item in valueMetrics" :key="item.label" class="workspace-auth-metric">
+          <div class="workspace-auth-metric__value">{{ item.value }}</div>
+          <div class="workspace-auth-metric__label">{{ item.label }}</div>
+        </article>
+      </div>
+
+      <div class="workspace-auth-grid">
+        <article class="workspace-auth-card workspace-auth-card--compact" v-for="item in valueCards" :key="item.title">
           <div class="workspace-auth-icon">
             <component :is="item.icon" />
           </div>
@@ -22,9 +29,9 @@
 
     <template #panel>
       <div class="workspace-auth-panel-head">
-        <div class="workspace-auth-panel-kicker">Welcome Back</div>
+        <div class="workspace-auth-panel-kicker">欢迎回来</div>
         <h2 class="workspace-auth-panel-title">登录</h2>
-        <p class="workspace-auth-panel-desc">选择身份并进入你的工作空间。</p>
+        <p class="workspace-auth-panel-desc">选择身份并进入当前工作空间。</p>
       </div>
 
       <el-form
@@ -37,7 +44,9 @@
         hide-required-asterisk
       >
         <el-form-item label="身份" prop="role">
-          <el-segmented v-model="formData.role" :options="roleOptions" class="role-switch" />
+          <div class="workspace-auth-segmented">
+            <el-segmented v-model="formData.role" :options="roleOptions" />
+          </div>
         </el-form-item>
 
         <el-form-item label="账号" prop="username">
@@ -75,18 +84,30 @@
         </div>
 
         <div class="workspace-auth-helper-row">
+          <div class="workspace-auth-helper-text">验证码可点击右侧图片刷新</div>
           <div v-if="formData.role === 'USER'" class="workspace-auth-helper-text">
             还没有账号？
             <el-link @click="toRegister" type="primary" :underline="false">立即注册</el-link>
           </div>
         </div>
+
+        <section class="workspace-auth-note-card">
+          <div class="workspace-auth-note-card__title">登录提醒</div>
+          <div class="workspace-auth-note-card__desc">先确认身份和当前环境，再输入账号、密码与验证码，能更快进入正确工作空间。</div>
+          <div class="workspace-auth-list">
+            <div v-for="item in loginTips" :key="item.step" class="workspace-auth-list__item">
+              <span class="workspace-auth-list__badge">{{ item.step }}</span>
+              <span>{{ item.text }}</span>
+            </div>
+          </div>
+        </section>
       </el-form>
     </template>
   </AuthSplitLayout>
 </template>
 
 <script setup lang="ts">
-import { ChatDotRound, Connection, DataAnalysis, Lock, UserFilled } from '@element-plus/icons-vue'
+import { ChatDotRound, Connection, Lock, UserFilled } from '@element-plus/icons-vue'
 import AuthSplitLayout from './AuthSplitLayout.vue'
 import { useLoginFeature } from '../composables/useLoginFeature'
 
@@ -103,18 +124,17 @@ const {
 } = useLoginFeature()
 
 const valueCards = [
-  { icon: ChatDotRound, title: '对话测试', text: '验证多轮对话效果，追踪上下文理解。' },
-  { icon: Connection, title: '知识管理', text: '统一管理文档、配置和验证记录。' },
-  { icon: DataAnalysis, title: '结果分析', text: '形成完整的测试闭环和数据追踪。' }
+  { icon: ChatDotRound, title: '对话验证', text: '继续多轮问答测试，快速查看上下文与输出表现。' },
+  { icon: Connection, title: '资料整理', text: '统一收拢文档、知识库与应用配置，减少来回切换。' }
+]
+
+const valueMetrics = [
+  { value: '统一入口', label: '登录后直接回到对应身份的工作空间' },
+  { value: '连续推进', label: '资料整理、应用配置与问答验证在同一路径里完成' }
+]
+
+const loginTips = [
+  { step: '1', text: '先确认当前身份，系统会按用户端或管理端进入对应页面。' },
+  { step: '2', text: '账号、密码和验证码建议都按当前环境重新确认，避免基础输入错误影响进入。' }
 ]
 </script>
-
-<style scoped>
-.login-value-grid {
-  grid-template-columns: 1fr;
-}
-
-.role-switch {
-  width: 100%;
-}
-</style>

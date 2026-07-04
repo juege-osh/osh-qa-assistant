@@ -6,6 +6,12 @@ import { useUserStoreExternal } from '@/store/useUserStore'
 const userStore = useUserStoreExternal()
 const WHITE_URL_LIST = ['/', '/login', '/register', '/doc']
 
+Nprogress.configure({
+  showSpinner: false,
+  trickleSpeed: 120,
+  minimum: 0.08
+})
+
 router.beforeEach((toRoute, fromRoute, next) => {
   Nprogress.start()
   if (WHITE_URL_LIST.includes(toRoute.path) || toRoute.path.startsWith('/public/app/')) {

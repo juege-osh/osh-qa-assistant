@@ -35,7 +35,7 @@ watch(sidebarStorageKey, (key) => {
 </script>
 <style scoped>
 .personal-home {
-  --sidebar-expanded-width: 220px;
+  --sidebar-expanded-width: 268px;
   --sidebar-collapsed-width: 92px;
   height: 100%;
   flex: 1;
@@ -47,7 +47,7 @@ watch(sidebarStorageKey, (key) => {
   height: 100%;
   display: grid;
   grid-template-columns: var(--sidebar-expanded-width) minmax(0, 1fr);
-  gap: 22px;
+  gap: 16px;
   align-items: stretch;
 }
 
@@ -59,12 +59,15 @@ watch(sidebarStorageKey, (key) => {
   min-width: 0;
   height: 100%;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  border-radius: 22px;
 }
 
 @media (max-width: 1200px) {
   .personal-grid {
-    grid-template-columns: 208px minmax(0, 1fr);
+    grid-template-columns: 240px minmax(0, 1fr);
   }
 }
 
@@ -73,6 +76,10 @@ watch(sidebarStorageKey, (key) => {
   .personal-home.sidebar-collapsed .personal-grid {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+
+  .personal-home {
+    background: transparent;
   }
 }
 </style>

@@ -11,6 +11,33 @@
       <div class="dialog-intro">
         先填名称和用途，创建后就能开始测试，其他配置后面也能再改。
       </div>
+      <section class="workspace-info-card workspace-dialog-summary-card">
+        <div class="workspace-info-grid workspace-info-grid--compact">
+          <div class="workspace-info-item">
+            <div class="workspace-info-label">创建后可继续</div>
+            <div class="workspace-info-value">绑定知识库、开始聊天、公开发布</div>
+          </div>
+          <div class="workspace-info-item">
+            <div class="workspace-info-label">可选知识库</div>
+            <div class="workspace-info-value">{{ availableLibCountDisplay }}</div>
+          </div>
+          <div class="workspace-info-item workspace-info-item--full">
+            <div class="workspace-info-label">建议创建顺序</div>
+            <div class="workspace-info-value workspace-note-strong">先把应用定位写清楚，再决定是否接入知识库、专用模型和公开访问策略。</div>
+          </div>
+        </div>
+      </section>
+      <section class="workspace-dialog-tip-panel">
+        应用创建完成后，不一定要一次把所有配置补齐。更稳妥的方式通常是：先创建基础应用并确认交互，再逐步补知识来源、提示词和模型策略。
+      </section>
+      <section class="workspace-info-card workspace-dialog-summary-card">
+        <div class="workspace-tip-grid">
+          <article v-for="item in createAppFocusCards" :key="item.title" class="workspace-tip-card">
+            <div class="workspace-tip-card__title">{{ item.title }}</div>
+            <div class="workspace-tip-card__desc">{{ item.desc }}</div>
+          </article>
+        </div>
+      </section>
       <el-form
         ref="addForm"
         :model="formData"
@@ -18,12 +45,12 @@
         class="app-form"
         label-position="top"
       >
-        <div class="form-grid">
-          <el-form-item label="应用名称" prop="appName" class="field-span-2">
+        <div class="workspace-form-grid workspace-form-grid--aside">
+          <el-form-item label="应用名称" prop="appName" class="workspace-form-span-2">
             <el-input v-model="formData.appName" placeholder="例如：管道助手"></el-input>
           </el-form-item>
-          <el-form-item label="应用图标" prop="iconPath" class="label-align-item">
-            <div class="upload-panel">
+          <el-form-item label="应用图标" prop="iconPath" class="label-align-item app-upload-item">
+            <div class="workspace-upload-panel">
               <FileUpload @file-list-change="handleFileListChange" ref="fileUploadRef"></FileUpload>
               <div class="field-help">建议使用清晰的方形图标。</div>
             </div>
@@ -37,14 +64,14 @@
               placeholder="一句话说明这个应用帮谁解决什么问题。"
             ></el-input>
           </el-form-item>
-          <el-form-item label="超出知识库范围是否回答" prop="outLibEnable" class="field-span-2">
-            <el-radio-group v-model="formData.outLibEnable" class="radio-group">
+          <el-form-item label="超出知识库范围是否回答" prop="outLibEnable" class="workspace-form-span-2">
+            <el-radio-group v-model="formData.outLibEnable" class="workspace-radio-group">
               <el-radio label="0" border>否，优先保证依据可靠</el-radio>
               <el-radio label="1" border>是，可允许扩展回答</el-radio>
             </el-radio-group>
             <div class="field-help">知识问答场景通常选“否”。</div>
           </el-form-item>
-          <el-form-item label="应用补充提示词" prop="customPrompt" class="field-span-2">
+          <el-form-item label="应用补充提示词" prop="customPrompt" class="workspace-form-span-2">
             <el-input
               v-model="formData.customPrompt"
               :rows="4"
@@ -54,7 +81,7 @@
             ></el-input>
             <div class="field-help">留空就使用默认规则。</div>
           </el-form-item>
-          <el-form-item label="聊天模型名称" prop="chatModel" class="field-span-2">
+          <el-form-item label="聊天模型名称" prop="chatModel" class="workspace-form-span-2">
             <el-input
               v-model="formData.chatModel"
               placeholder="可选，例如：MiniMax-M2.7-highspeed。留空则走系统默认模型。"
@@ -64,7 +91,7 @@
         </div>
       </el-form>
       <template #footer>
-        <div class="dialog-footer app-dialog-footer">
+        <div class="workspace-dialog-footer">
           <el-button class="workspace-btn workspace-btn--ghost" @click="handleCancel()">取消</el-button>
           <el-button type="primary" class="workspace-btn workspace-btn--primary" @click="onSubmit()">创建应用</el-button>
         </div>
@@ -73,7 +100,7 @@
   </div>
 </template>
 <script setup name='AddApp' lang='ts'>
-import { ref, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { addAppApi } from '@/api/workspace/appApi';
 import { ElMessage } from 'element-plus';
 import type { AnyObjsDefine } from '@/types/common';
@@ -97,6 +124,23 @@ let rules = reactive({
 let pageData = reactive({
   knowledgeLibs: [] as AnyObjsDefine
 })
+const availableLibCountDisplay = computed(() => `${pageData.knowledgeLibs.length.toLocaleString('zh-CN')} 个`)
+const createAppFocusCards = computed(() => [
+  {
+    title: '先把应用定位写清楚',
+    desc: '名称和描述越清楚，后续绑定知识库、公开展示和协作维护时越容易识别。'
+  },
+  {
+    title: pageData.knowledgeLibs.length ? '知识库可以稍后再绑定' : '没有知识库时也能先完成应用创建',
+    desc: pageData.knowledgeLibs.length
+      ? `当前有 ${availableLibCountDisplay.value} 可用知识库，但并不需要在创建时一次决定好，后续仍可灵活绑定。`
+      : '即使当前还没有可用知识库，也可以先创建应用、确认交互，再逐步补资料来源。'
+  },
+  {
+    title: '先用默认模型试通链路',
+    desc: '只有在不同业务场景回答差异明显时，再单独补充专用模型和更细的提示词策略。'
+  }
+])
 defineProps<{ addDialogVisible: boolean }>()
 
 let emitter = defineEmits(["closeDialog", "addSuccess"])
@@ -142,122 +186,3 @@ function handleOpen() {
   listAvailable()
 }
 </script>
-<style scoped>
-:deep(.app-form-dialog) {
-  border-radius: 24px !important;
-  overflow: hidden;
-}
-
-:deep(.app-form-dialog .el-dialog__header) {
-  margin-right: 0;
-  padding: 24px 26px 10px;
-}
-
-:deep(.app-form-dialog .el-dialog__title) {
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-
-:deep(.app-form-dialog .el-dialog__body) {
-  padding: 0 26px 4px;
-}
-
-:deep(.app-form-dialog .el-dialog__footer) {
-  padding: 10px 26px 22px;
-}
-
-:deep(.app-form .el-form-item) {
-  margin-bottom: 18px;
-}
-
-:deep(.app-form .el-form-item__label) {
-  padding-bottom: 8px;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-:deep(.label-align-item .el-form-item__label)::before {
-  content: "*";
-  visibility: hidden;
-  margin-right: 4px;
-}
-
-:deep(.app-form .el-input__wrapper) {
-  min-height: 44px;
-}
-
-:deep(.app-form .el-input__inner),
-:deep(.app-form .el-textarea__inner) {
-  font-size: 15px;
-}
-
-:deep(.app-form .el-textarea__inner) {
-  padding-top: 12px;
-  line-height: 1.7;
-}
-
-:deep(.app-form .el-radio.is-bordered) {
-  min-height: 44px;
-  margin: 0;
-  padding: 0 16px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.92);
-}
-
-.dialog-intro {
-  margin-bottom: 16px;
-  color: var(--space-text-soft);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 172px minmax(0, 1fr);
-  gap: 0 18px;
-  align-items: start;
-}
-
-.field-span-2 {
-  grid-column: 1 / -1;
-}
-
-.upload-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.radio-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.field-help {
-  margin-top: 6px;
-  color: var(--space-text-soft);
-  font-size: 12px;
-  line-height: 1.55;
-}
-
-.app-dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-:deep(.upload-panel .el-upload--picture-card),
-:deep(.upload-panel .el-upload-list--picture-card .el-upload-list__item) {
-  width: 132px;
-  height: 132px;
-}
-
-@media (max-width: 900px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>

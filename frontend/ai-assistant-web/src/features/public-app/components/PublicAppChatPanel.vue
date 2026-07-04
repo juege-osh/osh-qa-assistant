@@ -1,18 +1,18 @@
 <template>
   <main ref="chatPanelRef" class="chat-panel">
-    <section v-if="loadError" class="panel-state panel-state--error">
-      <div class="panel-state-title">当前公开链接不可用</div>
-      <div class="panel-state-desc">{{ loadError }}</div>
+    <section v-if="loadError" class="public-panel-state public-panel-state--error">
+      <div class="public-panel-state__title">当前公开链接不可用</div>
+      <div class="public-panel-state__desc">{{ loadError }}</div>
       <div class="panel-state-actions">
         <el-button type="primary" @click="loadDetail">重试</el-button>
       </div>
     </section>
 
     <template v-else>
-      <section v-if="needsPasswordAuth" class="auth-banner">
+      <section v-if="needsPasswordAuth" class="public-auth-banner">
         <div class="auth-banner-copy">
-          <div class="auth-banner-title">这个公开应用需要访问密码</div>
-          <div class="auth-banner-desc">验证通过后即可在当前页面继续使用历史会话并发起新提问。</div>
+          <div class="public-auth-banner__title">这个公开应用需要访问密码</div>
+          <div class="public-auth-banner__desc">验证通过后即可在当前页面继续使用历史会话并发起新提问。</div>
         </div>
         <el-form
           ref="passwordFormRef"
@@ -57,18 +57,18 @@
         </div>
       </div>
 
-      <section ref="chatBoxRef" class="chat-stream space-scrollbar">
+      <section ref="chatBoxRef" class="public-chat-stream space-scrollbar">
         <div v-if="!activeSessionMessageCount" class="chat-welcome">
           <div class="chat-empty">
             <div class="chat-empty-title">直接输入问题开始对话</div>
           </div>
 
-          <div class="welcome-grid welcome-grid--compact">
+          <div class="public-welcome-grid public-welcome-grid--compact">
             <button
               v-for="prompt in suggestedPrompts.slice(0, 4)"
               :key="prompt"
               type="button"
-              class="welcome-card"
+              class="public-welcome-card"
               @click="usePrompt(prompt)"
             >
               {{ prompt }}
@@ -80,28 +80,35 @@
           <div
             v-for="message in activeSessionMessages"
             :key="message.id"
-            :class="['message-row', message.role === 'user' ? 'message-row--user' : 'message-row--assistant']"
+            :class="[
+              'public-chat-message',
+              message.role === 'user' ? 'public-chat-message--user' : 'public-chat-message--assistant'
+            ]"
           >
-            <div class="message-avatar">{{ message.role === 'user' ? '你' : 'AI' }}</div>
+            <div class="public-chat-message__avatar">{{ message.role === 'user' ? '你' : 'AI' }}</div>
 
-            <div class="message-body">
-              <div class="message-bubble">
-                <div v-if="message.role === 'assistant'" class="assistant-meta">
-                  <div class="assistant-label">{{ detail.appName || '公开应用' }}</div>
-                  <span v-if="isStreamingMessage(message)" class="stream-status">生成中</span>
+            <div class="public-chat-message__body">
+              <div class="public-chat-message__bubble">
+                <div v-if="message.role === 'assistant'" class="public-chat-message__meta">
+                  <div class="public-chat-message__label">{{ detail.appName || '公开应用' }}</div>
+                  <span v-if="isStreamingMessage(message)" class="public-chat-message__stream-status">生成中</span>
                 </div>
                 <div
                   v-if="message.role === 'assistant' && isStreamingMessage(message)"
-                  class="message-content message-content--streaming"
+                  class="public-chat-message__content public-chat-message__content--streaming"
                 >
                   <span v-if="getStreamingMessageText(message)">{{ getStreamingMessageText(message) }}</span>
-                  <span v-else class="stream-placeholder">正在整理回答</span>
-                  <span class="stream-caret"></span>
+                  <span v-else class="public-chat-message__stream-placeholder">正在整理回答</span>
+                  <span class="public-chat-message__stream-caret"></span>
                 </div>
-                <div v-else-if="message.role === 'assistant'" class="message-content" v-html="renderMessage(message)"></div>
-                <div v-else class="user-content">{{ message.content }}</div>
+                <div
+                  v-else-if="message.role === 'assistant'"
+                  class="public-chat-message__content"
+                  v-html="renderMessage(message)"
+                ></div>
+                <div v-else class="public-chat-message__user-content">{{ message.content }}</div>
               </div>
-              <div class="message-time">{{ formatMessageTime(message.createdAt) }}</div>
+              <div class="public-chat-message__time">{{ formatMessageTime(message.createdAt) }}</div>
             </div>
           </div>
         </template>
@@ -120,10 +127,10 @@
 
           <div class="composer-actions">
             <div class="composer-btn-group">
-              <span class="status-pill" :class="{ 'status-pill--running': sending }">
+              <span class="public-status-pill" :class="{ 'public-status-pill--running': sending }">
                 {{ sending ? '正在生成' : '准备就绪' }}
               </span>
-              <span class="status-pill">当前会话 {{ activeSessionMessageCount }} 条消息</span>
+              <span class="public-status-pill">当前会话 {{ activeSessionMessageCount }} 条消息</span>
               <el-button :disabled="interactionLocked || !userInput" @click="userInput = ''">清空</el-button>
               <el-button type="primary" :loading="sending" :disabled="sendDisabled" @click="sendMessage">
                 发送
@@ -197,63 +204,16 @@ const {
   flex-wrap: wrap;
 }
 
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: #ffffff;
-  color: var(--public-text-soft);
-  font-size: 12px;
-  border: 1px solid var(--public-border);
-  box-shadow: none;
-  white-space: nowrap;
-}
-
-.status-pill--running {
-  background: var(--public-accent-soft);
-  color: var(--public-accent-strong);
-  border-color: rgba(99, 91, 255, 0.24);
-}
-
-.auth-banner {
-  margin: 16px 24px 0;
-  padding: 20px 22px;
-  border-radius: 16px;
-  background: #fffaf3;
-  border: 1px solid #f2dfbc;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 18px;
-  align-items: start;
-}
-
-.auth-banner-title,
-.panel-state-title {
-  color: var(--public-text);
-  font-weight: 700;
-}
-
-.auth-banner-title {
-  font-size: 18px;
-}
-
-.auth-banner-desc {
-  margin-top: 8px;
-  color: var(--public-text-muted);
-  font-size: 13px;
-  line-height: 1.65;
-}
-
 .auth-form {
   min-width: 0;
 }
 
 .chat-topbar {
   padding: 0 24px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
-  border-bottom: 1px solid rgba(230, 235, 242, 0.92);
+  background:
+    radial-gradient(circle at top left, rgba(99, 91, 255, 0.04), transparent 28%),
+    linear-gradient(180deg, var(--public-panel-muted) 0%, rgba(249, 251, 255, 0.96) 100%);
+  box-shadow: inset 0 -1px 0 rgba(230, 235, 242, 0.92);
 }
 
 .chat-topbar-inner {
@@ -274,32 +234,9 @@ const {
   flex-wrap: wrap;
 }
 
-.chat-stream {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 16px 24px 24px;
-  background:
-    linear-gradient(180deg, rgba(250, 252, 255, 0.92) 0%, rgba(255, 255, 255, 0) 14%),
-    linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
-}
-
 .chat-welcome {
   width: 100%;
   padding: 8px 0 16px;
-}
-
-.assistant-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.assistant-label {
-  color: var(--public-text);
-  font-size: 14px;
-  font-weight: 700;
 }
 
 .chat-empty {
@@ -314,235 +251,9 @@ const {
   letter-spacing: -0.02em;
 }
 
-.stream-status {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: var(--public-accent-soft);
-  color: var(--public-accent-strong);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.welcome-grid {
-  width: 100%;
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.welcome-grid--compact {
-  max-width: 100%;
-}
-
-.welcome-card,
-.shortcut-chip {
-  border: 1px solid var(--public-border);
-  background: #ffffff;
-  color: var(--public-text);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-}
-
-.welcome-card {
-  min-height: 68px;
-  padding: 18px 20px;
-  border-radius: 16px;
-  text-align: left;
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1.75;
-  box-shadow: none;
-}
-
-.welcome-card:hover,
-.shortcut-chip:hover {
-  transform: translateY(-1px);
-  border-color: var(--public-border-strong);
-  box-shadow: var(--public-shadow-soft);
-}
-
-.message-row {
-  display: flex;
-  gap: 12px;
-  width: 100%;
-  max-width: none;
-  margin: 0 0 24px;
-}
-
-.message-row--user {
-  justify-content: flex-end;
-}
-
-.message-row--assistant {
-  justify-content: flex-start;
-}
-
-.message-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  background: var(--public-accent-soft);
-  color: var(--public-accent-strong);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 700;
-  box-shadow: none;
-  border: 1px solid rgba(99, 91, 255, 0.14);
-}
-
-.message-row--user .message-avatar {
-  order: 2;
-  background: #eef2f6;
-  color: var(--public-text-soft);
-  border-color: rgba(52, 64, 84, 0.08);
-}
-
-.message-body {
-  max-width: min(920px, 84%);
-  min-width: 0;
-}
-
-.message-row--assistant .message-body {
-  max-width: none;
-  flex: 1;
-}
-
-.message-row--user .message-body {
-  order: 1;
-  max-width: min(920px, 72%);
-}
-
-.message-bubble {
-  border-radius: 18px;
-  padding: 16px 18px;
-  border: 1px solid var(--public-border);
-  background: #ffffff;
-  box-shadow: var(--public-shadow-soft);
-}
-
-.message-row--user .message-bubble {
-  background: linear-gradient(180deg, var(--public-accent) 0%, var(--public-accent-strong) 100%);
-  border-color: rgba(99, 91, 255, 0.26);
-  box-shadow: 0 10px 18px rgba(99, 91, 255, 0.18);
-}
-
-.message-row--assistant .message-bubble {
-  width: 100%;
-}
-
-.message-content,
-.user-content {
-  color: var(--public-text-soft);
-  font-size: 15px;
-  line-height: 1.86;
-  word-break: break-word;
-}
-
-.user-content {
-  color: #ffffff;
-}
-
-.message-content--streaming {
-  white-space: pre-wrap;
-}
-
-.stream-placeholder {
-  color: var(--public-text-muted);
-}
-
-.stream-caret {
-  display: inline-block;
-  width: 1px;
-  height: 1.1em;
-  margin-left: 3px;
-  background: var(--public-accent);
-  vertical-align: -0.12em;
-  animation: public-stream-caret 1s steps(1, end) infinite;
-}
-
-.message-content :deep(h1),
-.message-content :deep(h2),
-.message-content :deep(h3),
-.message-content :deep(h4) {
-  margin: 0 0 12px;
-  color: var(--public-text);
-  line-height: 1.35;
-}
-
-.message-content :deep(p),
-.message-content :deep(ul),
-.message-content :deep(ol),
-.message-content :deep(table),
-.message-content :deep(blockquote) {
-  margin: 0 0 12px;
-}
-
-.message-content :deep(ul),
-.message-content :deep(ol) {
-  padding-left: 20px;
-}
-
-.message-content :deep(table) {
-  display: block;
-  width: 100%;
-  overflow-x: auto;
-  border-collapse: collapse;
-  font-size: 13px;
-  border: 1px solid var(--public-border);
-  border-radius: 12px;
-}
-
-.message-content :deep(th),
-.message-content :deep(td) {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--public-border);
-  text-align: left;
-  vertical-align: top;
-  white-space: nowrap;
-}
-
-.message-content :deep(pre) {
-  overflow-x: auto;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: #111827;
-  color: #e5e7eb;
-  font-size: 12px;
-}
-
-.message-content :deep(code) {
-  font-size: 12px;
-}
-
-.message-time {
-  margin-top: 8px;
-  color: var(--public-text-muted);
-  font-size: 12px;
-}
-
-.message-row--user .message-time {
-  text-align: right;
-}
-
 .composer-bar {
   padding: 0 24px 24px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.95) 16%, #ffffff 100%);
-}
-
-.shortcut-chip {
-  min-height: 36px;
-  padding: 7px 14px;
-  border-radius: 999px;
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1.4;
-  box-shadow: none;
 }
 
 .composer-shell {
@@ -581,6 +292,7 @@ const {
 
 .composer-app-brief--top {
   flex: 1;
+  min-height: 0;
   padding-bottom: 0;
   border-bottom: 0;
 }
@@ -597,7 +309,7 @@ const {
 
 .composer-app-brief-title {
   color: var(--public-text);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -626,17 +338,18 @@ const {
   min-width: 92px;
   height: 34px;
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: 12px;
   border: 1px solid var(--public-border) !important;
-  background: rgba(255, 255, 255, 0.92) !important;
+  background: rgba(255, 255, 255, 0.78) !important;
   color: var(--public-text-soft) !important;
   box-shadow: none !important;
 }
 
 .chat-topbar-actions :deep(.el-button:hover) {
-  border-color: var(--public-border-strong) !important;
+  border-color: rgba(99, 91, 255, 0.18) !important;
   background: #ffffff !important;
   color: var(--public-text) !important;
+  box-shadow: var(--public-shadow-soft) !important;
 }
 
 .composer-btn-group :deep(.el-button) {
@@ -659,56 +372,19 @@ const {
   line-height: 1.5;
 }
 
-.panel-state {
-  margin: auto;
-  width: min(560px, calc(100% - 48px));
-  padding: 24px;
-  border-radius: 16px;
-  background: #ffffff;
-  box-shadow: var(--public-shadow-soft);
-}
-
-.panel-state--error {
-  border: 1px solid #f1d7d9;
-  background: #fffaf9;
-}
-
-.panel-state-title {
-  font-size: 20px;
-}
-
-.panel-state-desc {
-  margin-top: 8px;
-  color: var(--public-text-muted);
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-@keyframes public-stream-caret {
-  0%,
-  45% {
-    opacity: 1;
-  }
-
-  50%,
-  100% {
-    opacity: 0;
-  }
-}
-
 @media (max-width: 1180px) {
-  .auth-banner {
+  .public-auth-banner {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 900px) {
-  .auth-banner {
+  .public-auth-banner {
     margin: 16px 18px 0;
   }
 
   .chat-topbar,
-  .chat-stream {
+  .public-chat-stream {
     padding: 18px;
   }
 
@@ -722,15 +398,15 @@ const {
     align-items: stretch;
   }
 
-  .welcome-grid {
+  .public-welcome-grid {
     grid-template-columns: 1fr;
   }
 
-  .message-row {
+  .public-chat-message {
     margin-bottom: 20px;
   }
 
-  .message-body {
+  .public-chat-message__body {
     max-width: 100%;
   }
 
@@ -754,16 +430,16 @@ const {
 }
 
 @media (max-width: 640px) {
-  .status-pill {
+  .public-status-pill {
     height: 32px;
   }
 
-  .message-row {
+  .public-chat-message {
     gap: 10px;
   }
 
-  .message-content,
-  .user-content {
+  .public-chat-message__content,
+  .public-chat-message__user-content {
     font-size: 14px;
     line-height: 1.84;
   }

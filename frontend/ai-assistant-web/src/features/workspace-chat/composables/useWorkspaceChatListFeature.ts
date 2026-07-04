@@ -18,6 +18,7 @@ export function useWorkspaceChatListFeature() {
   const renameDialogVisible = ref(false)
   const renameChatName = ref('')
   const renameChatId = ref('')
+  const renameOriginName = ref('')
 
   const pageData = reactive({
     appId: '',
@@ -93,6 +94,7 @@ export function useWorkspaceChatListFeature() {
   function openRenameDialog(chat: WorkspaceChatSession) {
     renameChatId.value = chat.id
     renameChatName.value = chat.chatName
+    renameOriginName.value = chat.chatName
     renameDialogVisible.value = true
   }
 
@@ -107,6 +109,7 @@ export function useWorkspaceChatListFeature() {
     }).then(() => {
       ElMessage.success('重命名成功')
       renameDialogVisible.value = false
+      renameOriginName.value = ''
       loadChats()
     })
   }
@@ -157,6 +160,8 @@ export function useWorkspaceChatListFeature() {
     sessionKeyword,
     renameDialogVisible,
     renameChatName,
+    renameChatId,
+    renameOriginName,
     pageData,
     filteredChats,
     latestUpdateTime,

@@ -1,17 +1,39 @@
 <template>
   <div class="tab-panel">
-    <section class="glass-panel review-panel">
+    <section class="workspace-section-card review-focus-panel">
+      <div class="workspace-overview-head">
+        <div>
+          <div class="review-title">当前复盘重点</div>
+          <div class="review-desc">先把当前聚焦、优先样本和待跟进分布看清楚，再决定继续缩样本还是直接整理任务。</div>
+        </div>
+      </div>
+      <div class="workspace-tip-grid review-tip-grid">
+        <article
+          v-for="item in reviewFocusCards"
+          :key="item.title"
+          :class="['workspace-tip-card', 'review-tip-card', item.tone ? `review-tip-card--${item.tone}` : '']"
+        >
+          <div class="review-tip-card__head">
+            <span :class="['review-tip-card__dot', item.tone ? `review-tip-card__dot--${item.tone}` : '']"></span>
+            <div class="workspace-tip-card__title">{{ item.title }}</div>
+          </div>
+          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="workspace-section-card review-panel">
       <div class="review-header">
         <div>
-          <div class="review-title">快速聚焦</div>
-          <div class="review-desc">先看失败、慢请求和长回答，通常最容易发现问题。</div>
+          <div class="review-title">复盘筛选</div>
+          <div class="review-desc">先看失败、慢请求和长回答，通常最容易发现问题；筛好以后再进优先复盘清单会更高效。</div>
         </div>
-        <div class="review-badges">
-          <span class="review-badge">记录：{{ model.filteredRows.length }}</span>
-          <span class="review-badge review-badge--danger">失败：{{ model.failRowCount }}</span>
-          <span class="review-badge review-badge--warn">慢请求：{{ model.slowRowCount }}</span>
-          <span class="review-badge">长回答：{{ model.longAnswerRowCount }}</span>
-          <span class="review-badge">待跟进：{{ model.followUpCount }}</span>
+        <div class="workspace-chip-row review-badges">
+          <span class="workspace-chip workspace-chip--info">记录：{{ model.filteredRows.length }}</span>
+          <span class="workspace-chip workspace-chip--danger">失败：{{ model.failRowCount }}</span>
+          <span class="workspace-chip workspace-chip--warning">慢请求：{{ model.slowRowCount }}</span>
+          <span class="workspace-chip workspace-chip--info">长回答：{{ model.longAnswerRowCount }}</span>
+          <span class="workspace-chip workspace-chip--info">待跟进：{{ model.followUpCount }}</span>
         </div>
       </div>
       <div class="quick-filter-row">
@@ -27,23 +49,14 @@
       </div>
     </section>
 
-    <section class="glass-panel review-panel compact-panel">
-      <div class="review-header">
-        <div>
-          <div class="review-title">当前聚焦说明</div>
-          <div class="review-desc">{{ model.currentQuickViewDesc }}</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="glass-panel review-panel">
+    <section class="workspace-section-card review-panel">
       <div class="review-header">
         <div>
           <div class="review-title">优先复盘清单</div>
           <div class="review-desc">这些记录值得优先查看，结论仍以人工判断为准。</div>
         </div>
-        <div class="review-badges">
-          <span class="review-badge">待优先复盘：{{ model.priorityReviewList.length }}</span>
+        <div class="workspace-chip-row review-badges">
+          <span class="workspace-chip workspace-chip--info">待优先复盘：{{ model.priorityReviewList.length }}</span>
         </div>
       </div>
       <div v-if="model.priorityReviewList.length" class="priority-grid">
@@ -58,11 +71,11 @@
                 {{ item.row.libName || '未绑定知识库' }} · {{ item.detail.modelName || '未知模型' }} · {{ item.detail.costTime ?? item.row.costTime ?? '-' }}ms
               </div>
             </div>
-            <div class="priority-tag-group">
-              <span v-for="tag in item.riskTags" :key="`${item.key}-${tag.key}`" class="priority-tag" :class="`priority-tag--${tag.tone}`">
+            <div class="workspace-chip-row priority-tag-group">
+              <span v-for="tag in item.riskTags" :key="`${item.key}-${tag.key}`" class="workspace-chip" :class="`workspace-chip--${tag.tone}`">
                 {{ tag.label }}
               </span>
-              <span v-if="model.getReviewStatus(item.key) !== 'pending'" class="priority-tag priority-tag--success">
+              <span v-if="model.getReviewStatus(item.key) !== 'pending'" class="workspace-chip workspace-chip--success">
                 {{ model.reviewStatusText[model.getReviewStatus(item.key)] }}
               </span>
             </div>
@@ -80,10 +93,10 @@
             <div class="priority-text priority-text--danger">{{ item.detail.failReason || item.row.failReason }}</div>
           </div>
           <div class="priority-actions">
-            <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="model.copyText(item.detail.userInput, '查询词')">复制问题</el-button>
-            <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="model.openDetailDialog('响应结果', item.detail.assistantMessage)">查看回答</el-button>
-            <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="model.copyAcceptanceEntry(item.row, item.detail)">复制验收条目</el-button>
-            <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="model.cycleReviewStatus(item.key)">
+            <el-button text class="workspace-btn workspace-btn--text workspace-text-btn--compact" @click="model.copyText(item.detail.userInput, '查询词')">复制问题</el-button>
+            <el-button text class="workspace-btn workspace-btn--text workspace-text-btn--compact" @click="model.openDetailDialog('响应结果', item.detail.assistantMessage)">查看回答</el-button>
+            <el-button text class="workspace-btn workspace-btn--text workspace-text-btn--compact" @click="model.copyAcceptanceEntry(item.row, item.detail)">复制验收条目</el-button>
+            <el-button text class="workspace-btn workspace-btn--text workspace-text-btn--compact" @click="model.cycleReviewStatus(item.key)">
               {{ model.nextReviewActionText(item.key) }}
             </el-button>
           </div>
@@ -94,14 +107,14 @@
       </div>
     </section>
 
-    <section class="glass-panel review-panel">
+    <section class="workspace-section-card review-panel">
       <div class="review-header">
         <div>
           <div class="review-title">待跟进问题分布</div>
           <div class="review-desc">把待跟进记录归到补知识、补切分、补提示词、补展示、补观测等动作类型，帮助后续直接进入任务池。</div>
         </div>
-        <div class="review-badges">
-          <span class="review-badge">已归类：{{ model.categorizedFollowUpCount }}</span>
+        <div class="workspace-chip-row review-badges">
+          <span class="workspace-chip workspace-chip--info">已归类：{{ model.categorizedFollowUpCount }}</span>
         </div>
       </div>
       <div class="category-export-row">
@@ -134,23 +147,23 @@
       </div>
     </section>
 
-    <section class="glass-panel table-panel">
-      <el-table :data="model.filteredRows" stripe :border="true" style="width: 100%">
+    <section class="workspace-section-card table-panel table-panel--single-frame">
+      <el-table :data="model.filteredRows" stripe style="width: 100%">
         <el-table-column type="expand">
           <template #default="props">
-            <el-table :data="props.row.detailList" stripe :border="true" style="width: 100%">
+            <div class="workspace-detail-table">
+            <el-table :data="props.row.detailList" stripe style="width: 100%">
               <el-table-column prop="modelName" label="模型名称" />
               <el-table-column prop="costToken" label="消费token数" />
               <el-table-column prop="statusDesc" label="状态">
                 <template #default="scope">
-                  <el-tag v-if="scope.row.status === 1" type="success">{{ scope.row.statusDesc }}</el-tag>
-                  <el-tag v-if="scope.row.status === 0" type="danger">{{ scope.row.statusDesc }}</el-tag>
+                  <span :class="['workspace-inline-tag', getStatusTagClass(scope.row.status)]">{{ scope.row.statusDesc }}</span>
                 </template>
               </el-table-column>
               <el-table-column prop="costTime" label="耗时(ms)" />
               <el-table-column prop="failReason" label="失败原因">
                 <template #default="scope">
-                  <div class="cell-stack">
+                  <div class="workspace-cell-stack">
                     <el-tooltip placement="top">
                       <template #content>
                         <div class="new-line">
@@ -159,7 +172,7 @@
                       </template>
                       <p class="ellipsis">{{ scope.row.failReason }}</p>
                     </el-tooltip>
-                    <el-button v-if="scope.row.failReason" text class="workspace-btn workspace-btn--text record-text-btn" @click="model.openDetailDialog('失败原因', scope.row.failReason)">查看全文</el-button>
+                    <el-button v-if="scope.row.failReason" text class="workspace-btn workspace-btn--text workspace-text-btn--compact" @click="model.openDetailDialog('失败原因', scope.row.failReason)">查看全文</el-button>
                   </div>
                 </template>
               </el-table-column>
@@ -167,7 +180,7 @@
               <el-table-column prop="endTime" label="结束时间" />
               <el-table-column prop="userInput" label="查询词">
                 <template #default="scope">
-                  <div class="cell-stack">
+                  <div class="workspace-cell-stack">
                     <el-tooltip placement="top">
                       <template #content>
                         <div class="new-line">
@@ -176,38 +189,38 @@
                       </template>
                       <p class="ellipsis">{{ scope.row.userInput }}</p>
                     </el-tooltip>
-                    <div class="record-actions">
-                      <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="model.copyText(scope.row.userInput, '查询词')">复制</el-button>
-                      <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="model.openDetailDialog('查询词', scope.row.userInput)">查看全文</el-button>
+                    <div class="workspace-action-strip workspace-action-strip--tight">
+                      <el-button text class="workspace-btn workspace-btn--text workspace-text-btn--compact" @click="model.copyText(scope.row.userInput, '查询词')">复制</el-button>
+                      <el-button text class="workspace-btn workspace-btn--text workspace-text-btn--compact" @click="model.openDetailDialog('查询词', scope.row.userInput)">查看全文</el-button>
                     </div>
                   </div>
                 </template>
               </el-table-column>
               <el-table-column prop="assistantMessage" label="响应结果">
                 <template #default="scope">
-                  <div class="cell-stack">
+                  <div class="workspace-cell-stack">
                     <el-tooltip placement="top">
                       <template #content>
                         <div class="new-line">
                           {{ scope.row.assistantMessage }}
                         </div>
                       </template>
-                      <p class="ellipsis multi-line-ellipsis">{{ scope.row.assistantMessage }}</p>
+                      <p class="ellipsis workspace-clamp-3">{{ scope.row.assistantMessage }}</p>
                     </el-tooltip>
-                    <div class="record-actions">
-                      <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="model.copyText(scope.row.assistantMessage, '响应结果')">复制</el-button>
-                      <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="model.openDetailDialog('响应结果', scope.row.assistantMessage)">查看全文</el-button>
+                    <div class="workspace-action-strip workspace-action-strip--tight">
+                      <el-button text class="workspace-btn workspace-btn--text workspace-text-btn--compact" @click="model.copyText(scope.row.assistantMessage, '响应结果')">复制</el-button>
+                      <el-button text class="workspace-btn workspace-btn--text workspace-text-btn--compact" @click="model.openDetailDialog('响应结果', scope.row.assistantMessage)">查看全文</el-button>
                     </div>
                   </div>
                 </template>
               </el-table-column>
               <el-table-column label="复盘状态" width="150">
                 <template #default="scope">
-                  <div class="cell-stack">
-                    <el-tag :type="model.reviewStatusTagType[model.getReviewStatus(model.buildReviewKey(props.row, scope.row))]" effect="light">
+                  <div class="workspace-cell-stack">
+                    <span :class="['workspace-chip', getReviewStatusClass(model.getReviewStatus(model.buildReviewKey(props.row, scope.row)))]">
                       {{ model.reviewStatusText[model.getReviewStatus(model.buildReviewKey(props.row, scope.row))] }}
-                    </el-tag>
-                    <el-button text class="workspace-btn workspace-btn--text record-text-btn" @click="model.cycleReviewStatus(model.buildReviewKey(props.row, scope.row))">
+                    </span>
+                    <el-button text class="workspace-btn workspace-btn--text workspace-text-btn--compact" @click="model.cycleReviewStatus(model.buildReviewKey(props.row, scope.row))">
                       {{ model.nextReviewActionText(model.buildReviewKey(props.row, scope.row)) }}
                     </el-button>
                   </div>
@@ -215,13 +228,13 @@
               </el-table-column>
               <el-table-column label="跟进分类" width="180">
                 <template #default="scope">
-                  <div class="cell-stack">
+                  <div class="workspace-cell-stack">
                     <el-select
                       v-if="model.getReviewStatus(model.buildReviewKey(props.row, scope.row)) === 'followUp'"
                       :model-value="model.getFollowUpCategory(model.buildReviewKey(props.row, scope.row))"
+                      class="follow-up-category-select"
                       placeholder="选择分类"
                       size="small"
-                      style="width: 150px"
                       @change="model.updateFollowUpCategory(model.buildReviewKey(props.row, scope.row), $event)"
                     >
                       <el-option
@@ -239,46 +252,108 @@
                 </template>
               </el-table-column>
             </el-table>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="id" label="系统编号" />
-        <el-table-column prop="appName" label="所属应用" />
-        <el-table-column prop="libName" label="所属知识库" />
-        <el-table-column prop="username" label="调用人" />
-        <el-table-column prop="statusDesc" label="状态">
+        <el-table-column label="记录" min-width="320">
           <template #default="scope">
-            <el-tag v-if="scope.row.status === 1" type="success">{{ scope.row.statusDesc }}</el-tag>
-            <el-tag v-if="scope.row.status === 0" type="danger">{{ scope.row.statusDesc }}</el-tag>
+            <div class="workspace-table-stack">
+              <div class="workspace-table-heading">{{ scope.row.appName || '未命名应用' }}</div>
+              <div class="workspace-table-subtext">调用人：{{ scope.row.username || '--' }} · ID {{ scope.row.id || '--' }}</div>
+              <div class="workspace-table-subtext">知识库：{{ scope.row.libName || '未绑定知识库' }}</div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="failReason" label="失败原因">
+        <el-table-column label="状态与耗时" min-width="180">
+          <template #default="scope">
+            <div class="workspace-inline-tags">
+              <span :class="['workspace-inline-tag', getStatusTagClass(scope.row.status)]">{{ scope.row.statusDesc || '未知状态' }}</span>
+              <span class="workspace-inline-tag workspace-inline-tag--soft">{{ formatCostTime(scope.row.costTime) }}</span>
+              <span class="workspace-inline-tag workspace-inline-tag--soft">明细 {{ scope.row.detailList?.length || 0 }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="失败原因" min-width="220">
           <template #default="scope">
             <el-tooltip placement="top">
               <template #content>
                 <div class="new-line">
-                  {{ scope.row.failReason }}
+                  {{ scope.row.failReason || '无' }}
                 </div>
               </template>
-              <p class="ellipsis">{{ scope.row.failReason }}</p>
+              <div class="workspace-table-note workspace-table-note--muted ellipsis">{{ scope.row.failReason || '无' }}</div>
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column prop="costTime" label="耗时(ms)" />
-        <el-table-column prop="startTime" label="开始时间" />
-        <el-table-column prop="endTime" label="结束时间" />
+        <el-table-column label="时间范围" min-width="220">
+          <template #default="scope">
+            <div class="workspace-table-stack">
+              <div class="workspace-table-subtext">开始：{{ scope.row.startTime || '--' }}</div>
+              <div class="workspace-table-subtext">结束：{{ scope.row.endTime || '--' }}</div>
+            </div>
+          </template>
+        </el-table-column>
       </el-table>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useInvokeRecordFeatureModel } from '../../composables/useInvokeRecordFeature'
 
 const model = useInvokeRecordFeatureModel()
+
+const reviewFocusCards = computed(() => {
+  return [
+    {
+      title: model.quickView === 'all' ? '当前正在查看全部复盘样本' : '当前已经缩小到重点样本',
+      desc: model.currentQuickViewDesc,
+      tone: model.quickView === 'fail' || model.quickView === 'followUp' ? 'danger' : model.quickView === 'slow' || model.quickView === 'long' ? 'warning' : 'success'
+    },
+    {
+      title: model.priorityReviewList.length ? `有 ${model.priorityReviewList.length} 条记录值得优先复盘` : '当前没有自动判定的重点样本',
+      desc: model.priorityReviewList.length
+        ? '建议优先看失败原因、慢请求和高风险标签聚集的记录，再决定是否纳入验收条目。'
+        : '可以继续抽样查看明细表，或先切到失败、慢请求等筛选条件重新缩小范围。',
+      tone: model.priorityReviewList.length ? 'warning' : 'success'
+    },
+    {
+      title: model.followUpCount ? `当前有 ${model.followUpCount} 条待跟进记录` : '当前没有待跟进项',
+      desc: model.followUpCount
+        ? `其中已归类 ${model.categorizedFollowUpCount} 条，适合继续整理成补知识、补切分、补提示词或补展示任务。`
+        : '如果复盘过程中发现需要后续处理的问题，可以先标记待跟进，再补充分类原因。',
+      tone: model.followUpCount ? 'danger' : 'success'
+    }
+  ] as const
+})
+
+function getStatusTagClass(status: number) {
+  return Number(status) === 1 ? 'workspace-inline-tag--success' : 'workspace-inline-tag--danger'
+}
+
+function formatCostTime(value: number | string) {
+  const num = Number(value || 0)
+  if (!Number.isFinite(num)) {
+    return '--'
+  }
+  return `${num}ms`
+}
+
+function getReviewStatusClass(status: string) {
+  if (status === 'reviewed') {
+    return 'workspace-chip--success'
+  }
+  if (status === 'followUp') {
+    return 'workspace-chip--warning'
+  }
+  return 'workspace-chip--info'
+}
 </script>
 
 <style scoped>
 .tab-panel,
+.review-focus-panel,
 .review-panel,
 .table-panel {
   display: flex;
@@ -286,14 +361,74 @@ const model = useInvokeRecordFeatureModel()
   gap: 8px;
 }
 
+.review-tip-grid {
+  margin-top: 14px;
+}
+
+.review-tip-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.review-tip-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 4px 0 0 4px;
+  background: rgba(148, 163, 184, 0.42);
+}
+
+.review-tip-card--success::before {
+  background: linear-gradient(180deg, #12b76a 0%, #0f9f5f 100%);
+}
+
+.review-tip-card--warning::before {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+}
+
+.review-tip-card--danger::before {
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+}
+
+.review-tip-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-tip-card__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.78);
+  flex-shrink: 0;
+}
+
+.review-tip-card__dot--success {
+  background: #12b76a;
+}
+
+.review-tip-card__dot--warning {
+  background: #f59e0b;
+}
+
+.review-tip-card__dot--danger {
+  background: #ef4444;
+}
+
+.review-focus-panel,
 .review-panel,
 .table-panel {
   padding: 16px;
 }
 
-.compact-panel {
-  padding-top: 14px;
-  padding-bottom: 14px;
+.table-panel--single-frame {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .review-header,
@@ -333,11 +468,8 @@ const model = useInvokeRecordFeatureModel()
   font-size: 13px;
 }
 
-.review-badges,
-.priority-tag-group,
 .quick-filter-row,
 .category-export-row,
-.record-actions,
 .priority-actions {
   display: flex;
   flex-wrap: wrap;
@@ -346,45 +478,6 @@ const model = useInvokeRecordFeatureModel()
 
 .review-badges {
   justify-content: flex-end;
-}
-
-.review-badge,
-.priority-tag {
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.review-badge,
-.priority-tag--info {
-  background: rgba(237, 245, 255, 0.95);
-  color: var(--space-primary-strong);
-}
-
-.review-badge--danger {
-  background: rgba(254, 226, 226, 0.95) !important;
-  color: #b42318 !important;
-}
-
-.review-badge--warn {
-  background: rgba(255, 244, 229, 0.98) !important;
-  color: #b54708 !important;
-}
-
-.priority-tag--danger {
-  background: rgba(254, 226, 226, 0.95);
-  color: #b42318;
-}
-
-.priority-tag--warning {
-  background: rgba(255, 244, 229, 0.98);
-  color: #b54708;
-}
-
-.priority-tag--success {
-  background: rgba(220, 252, 231, 0.95);
-  color: #027a48;
 }
 
 .quick-filter-row,
@@ -426,13 +519,13 @@ const model = useInvokeRecordFeatureModel()
 .priority-card,
 .category-card {
   border-radius: 16px;
-  border: 1px solid rgba(64, 158, 255, 0.12);
+  border: 1px solid rgba(99, 91, 255, 0.12);
 }
 
 .priority-card {
   padding: 14px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 255, 0.95));
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 251, 255, 0.95));
+  box-shadow: var(--space-shadow);
 }
 
 .category-card {
@@ -483,7 +576,7 @@ const model = useInvokeRecordFeatureModel()
 }
 
 .category-card-count {
-  color: var(--space-primary-strong);
+  color: var(--space-primary);
   font-size: 26px;
   font-weight: 800;
   line-height: 1;
@@ -495,47 +588,37 @@ const model = useInvokeRecordFeatureModel()
 }
 
 .follow-up-category-text {
-  color: var(--space-primary-strong);
+  color: var(--space-primary);
   font-weight: 600;
 }
 
-.cell-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+.follow-up-category-select {
+  width: 150px;
 }
 
-.record-text-btn {
-  min-height: 24px !important;
-  padding: 0 !important;
-  font-size: 12px;
-}
-
-.multi-line-ellipsis {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  white-space: normal;
+.workspace-detail-table {
+  margin: 4px 0;
 }
 
 @media (max-width: 900px) {
+  .review-tip-grid,
   .review-header,
   .priority-card-head {
     flex-direction: column;
+  }
+
+  .review-tip-grid {
+    grid-template-columns: 1fr;
   }
 
   .review-badges,
   .priority-tag-group {
     justify-content: flex-start;
   }
-}
 
-:deep(.workspace-btn--sm) {
-  min-height: 32px !important;
-  padding: 0 12px !important;
-  font-size: 12px !important;
+  .follow-up-category-select {
+    width: 100%;
+  }
 }
 
 :deep(.workspace-btn--sm .el-icon) {

@@ -94,6 +94,7 @@ export function createPublicAppFeatureModel() {
   const renameDialogVisible = ref(false)
   const renameDraft = ref('')
   const renameSessionId = ref('')
+  const renameOriginTitle = ref('')
 
   const detail = reactive<PublicAppDetail>({
     slug: '',
@@ -191,6 +192,7 @@ export function createPublicAppFeatureModel() {
     renameDialogVisible.value = false
     renameSessionId.value = ''
     renameDraft.value = ''
+    renameOriginTitle.value = ''
   }
 
   function ensureBrowserScopeId() {
@@ -422,6 +424,7 @@ export function createPublicAppFeatureModel() {
     }
     renameSessionId.value = session.id
     renameDraft.value = session.title
+    renameOriginTitle.value = session.title
     renameDialogVisible.value = true
   }
 
@@ -946,6 +949,8 @@ export function createPublicAppFeatureModel() {
     showAppInfoDialog,
     renameDialogVisible,
     renameDraft,
+    renameSessionId,
+    renameOriginTitle,
     detail,
     passwordForm,
     passwordRules,

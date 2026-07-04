@@ -1,10 +1,10 @@
 <template>
-  <section class="toolbar-panel glass-panel workspace-toolbar-panel">
+  <section class="toolbar-panel workspace-section-card workspace-toolbar-panel invoke-filter-toolbar">
     <div class="toolbar-copy workspace-toolbar-copy">
-      <div class="workspace-toolbar-kicker">Filter Records</div>
+      <div class="workspace-toolbar-kicker">调用筛选</div>
       <div class="toolbar-title">筛选记录</div>
       <div class="toolbar-desc">
-        先筛到你要看的问题，再切到对应 tab 做记录查看、复盘或验收批次整理。
+        先把应用、问题和时间范围缩小到你要看的样本，再切到对应工作区继续查看记录、做复盘或整理验收批次。
       </div>
     </div>
     <div class="toolbar-actions workspace-toolbar-actions">
@@ -56,3 +56,9 @@ import { useInvokeRecordFeatureModel } from '../composables/useInvokeRecordFeatu
 
 const model = useInvokeRecordFeatureModel()
 </script>
+
+<style scoped>
+.invoke-filter-toolbar {
+  border-radius: 20px;
+}
+</style>

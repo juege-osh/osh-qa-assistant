@@ -1,34 +1,102 @@
 <template>
-  <div class="page-shell">
-    <section class="hero-panel">
-      <div class="hero-title">知识库</div>
-      <div class="hero-subtitle">
-        把同一类资料放进一个知识库，后续绑定到应用就能使用。
+  <div class="page-shell knowledge-manage-page">
+    <section class="workspace-context-strip">
+      <div class="workspace-context-copy">
+        <span class="workspace-status-pill workspace-status-pill--active">我的知识库</span>
+        <span class="workspace-context-note">统一查看资料规模、应用挂载和检索准备情况，优先判断下一步是补资料还是直接做命中验证。</span>
       </div>
-      <div class="hero-meta">
-        <span class="hero-badge">知识库总数：{{ tableData.total || 0 }}</span>
-        <span class="hero-badge">可直接进入文档管理</span>
-        <span class="hero-badge">可做检索调试</span>
+      <div class="workspace-context-actions">
+        <span class="workspace-inline-tag workspace-inline-tag--soft">结果 {{ currentResultCountDisplay }}</span>
+        <span class="workspace-inline-tag workspace-inline-tag--soft">已挂应用 {{ boundLibCountDisplay }}</span>
+        <span class="workspace-inline-tag workspace-inline-tag--soft">文档 {{ totalDocCountDisplay }}</span>
       </div>
     </section>
 
-    <section class="toolbar-panel glass-panel">
-      <div class="toolbar-copy">
-        <div class="toolbar-title">知识库列表</div>
-        <div class="toolbar-desc">
-          先看文档数量和挂载应用，需要时直接进文档管理。
+    <section class="workspace-section-card knowledge-overview-panel workspace-dashboard-panel">
+      <div class="knowledge-overview-head workspace-overview-head workspace-dashboard-head">
+        <div>
+          <div class="panel-title">知识工作区</div>
+          <div class="panel-desc workspace-panel-desc">先看文档规模、应用绑定情况和知识库数量，再决定是继续补资料、进入文档管理，还是直接做检索调试。</div>
+        </div>
+        <div class="workspace-inline-tags">
+          <span class="workspace-inline-tag workspace-inline-tag--active">当前结果 {{ currentResultCountDisplay }}</span>
+          <span class="workspace-inline-tag workspace-inline-tag--soft">已挂应用 {{ boundLibCountDisplay }}</span>
+          <span class="workspace-inline-tag workspace-inline-tag--soft">未挂应用 {{ unboundLibCountDisplay }}</span>
         </div>
       </div>
-      <div class="toolbar-actions">
-        <el-form :model="searchData" :inline="true">
-          <el-form-item>
-            <el-input type="text" placeholder="按知识库名称搜索" v-model="searchData.libName" clearable style="width: 180px"></el-input>
+      <section class="stats-grid workspace-metrics-grid">
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--total">
+          <div class="stat-label">当前结果</div>
+          <div class="stat-value">{{ currentResultCountDisplay }}</div>
+          <div class="stat-help">当前页内可以继续下钻文档管理或做检索调试的知识库数量。</div>
+        </article>
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--success">
+          <div class="stat-label">已挂应用</div>
+          <div class="stat-value workspace-stat-value--success">{{ boundLibCountDisplay }}</div>
+          <div class="stat-help">已经接入业务应用，更适合继续验证真实问答命中效果。</div>
+        </article>
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--time">
+          <div class="stat-label">当前文档</div>
+          <div class="stat-value">{{ totalDocCountDisplay }}</div>
+          <div class="stat-help">快速判断当前筛选结果里的资料规模，确认是否足够支撑问答。</div>
+        </article>
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--token">
+          <div class="stat-label">当前字符量</div>
+          <div class="stat-value">{{ totalCharCountDisplay }}</div>
+          <div class="stat-help">结合文档数一起看，更容易识别资料过少或内容过碎的知识库。</div>
+        </article>
+      </section>
+    </section>
+
+    <section class="workspace-section-card summary-panel knowledge-summary-panel">
+      <div class="panel-title">知识建议</div>
+      <div class="summary-list">
+        <div class="summary-item">{{ knowledgeWorkflowSummary }}</div>
+        <div class="summary-item">文档数量少但问题复杂时，通常先补资料比先调提示词更有效。</div>
+        <div class="summary-item">如果知识库已经绑定到应用，但回答仍然不稳，建议直接进入检索调试确认召回链路是否正常。</div>
+      </div>
+    </section>
+
+    <section class="workspace-section-card knowledge-focus-panel">
+      <div class="workspace-overview-head">
+        <div>
+          <div class="panel-title panel-title--md">当前关注点</div>
+          <div class="workspace-panel-desc">把当前知识库状态翻译成更直接的动作，方便决定先补资料、先挂应用，还是直接进入检索调试。</div>
+        </div>
+      </div>
+      <div class="workspace-tip-grid knowledge-tip-grid">
+        <article
+          v-for="item in knowledgeFocusCards"
+          :key="item.title"
+          :class="['workspace-tip-card', 'knowledge-tip-card', `knowledge-tip-card--${item.tone}`]"
+        >
+          <div class="knowledge-tip-card__head">
+            <span :class="['knowledge-tip-card__dot', `knowledge-tip-card__dot--${item.tone}`]"></span>
+            <div class="workspace-tip-card__title">{{ item.title }}</div>
+          </div>
+          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="toolbar-panel workspace-section-card workspace-toolbar-panel">
+      <div class="toolbar-copy workspace-toolbar-copy">
+        <div class="workspace-toolbar-kicker">我的知识库</div>
+        <div class="toolbar-title">知识库列表</div>
+        <div class="toolbar-desc">
+          先按名称缩小范围，再回看文档规模、应用挂载和检索调试入口。
+        </div>
+      </div>
+      <div class="toolbar-actions workspace-toolbar-actions">
+        <el-form :model="searchData" :inline="true" class="workspace-toolbar-form">
+          <el-form-item class="workspace-toolbar-field workspace-toolbar-field--md">
+            <el-input type="text" placeholder="按知识库名称搜索" v-model="searchData.libName" clearable></el-input>
           </el-form-item>
           <el-form-item>
-            <el-button @click="loadTable" type="primary">查询</el-button>
+            <el-button @click="loadTable" type="primary" class="workspace-btn workspace-btn--primary">查询</el-button>
           </el-form-item>
           <el-form-item>
-            <el-button @click="addDialogVisible = true" type="success" :icon="Plus">新增知识库</el-button>
+            <el-button @click="addDialogVisible = true" type="primary" :icon="Plus" class="workspace-btn workspace-btn--primary">新增知识库</el-button>
           </el-form-item>
           <el-form-item>
             <el-button class="workspace-btn workspace-btn--ghost" @click="openRecallDebug">检索调试</el-button>
@@ -37,60 +105,61 @@
       </div>
     </section>
 
-    <!-- 表格   -->
-    <section>
+    <section class="workspace-section-card card-list-panel">
       <el-row :gutter="10">
         <el-col v-for="row in tableData.rows" class="card-wrapper" :key="row.id" :lg="8">
-          <el-card class="app-card" shadow="hover">
-            <!-- 中间描述 -->
-            <div class="content">
-              <div class="one-row">
-                <div class="left workspace-media">
+          <el-card class="workspace-resource-card" shadow="never">
+            <div class="workspace-resource-card__body">
+              <div class="workspace-entity-cell">
+                <div class="workspace-entity-media knowledge-lib-media">
                   <el-avatar v-if="row.iconPath" :src="toAddressable(row.iconPath)">
                   </el-avatar>
-                  <el-icon v-else color="#409eff" class="space-icon--xl">
+                  <el-icon v-else color="#635bff" class="space-icon--xl">
                     <Folder />
                   </el-icon>
                 </div>
-                <div class="right">
-                  <div>
-                    <span class="title">{{ row.libName }}</span>
-                  </div>
-                  <div>
-                    <el-text class="middle-row" truncated>
-                      <span class="middle-row-item">{{ row.docCount }}个文档</span>
-                      <span class="middle-row-item">{{ row.charCount }}个字符</span>
-                    </el-text>
-                  </div>
-                  <div v-if="row.appId">
-                    <el-text>
-                      <span>所属应用:</span>
-                      <span>{{ row.appName }}</span>
-                    </el-text>
+                <div class="workspace-entity-copy">
+                  <div class="workspace-entity-name">{{ row.libName }}</div>
+                  <div class="workspace-entity-meta">
+                    <span>{{ row.docCount }} 个文档</span>
+                    <span>{{ row.charCount }} 个字符</span>
                   </div>
                 </div>
               </div>
-              <div>
-                <el-text class="desc-text">
-                  描述:{{ row.libDesc }}
-                </el-text>
+              <div class="workspace-inline-tags">
+                <span class="workspace-inline-tag workspace-inline-tag--soft">ID {{ row.id }}</span>
+                <span :class="['workspace-inline-tag', row.appId ? 'workspace-inline-tag--success' : 'workspace-inline-tag--warning']">
+                  {{ row.appId ? '已挂应用' : '未挂应用' }}
+                </span>
+              </div>
+              <div class="workspace-resource-card__section">
+                <div class="workspace-resource-card__row">
+                  <span class="workspace-resource-card__label">所属应用</span>
+                  <span class="workspace-resource-card__value">{{ row.appName || '暂未绑定应用' }}</span>
+                </div>
+                <div class="workspace-resource-card__row">
+                  <span class="workspace-resource-card__label">文档规模</span>
+                  <span class="workspace-resource-card__value">{{ row.docCount }} 个文档 / {{ row.charCount }} 个字符</span>
+                </div>
+              </div>
+              <div class="workspace-resource-card__desc">
+                {{ row.libDesc || '暂无描述，建议补充知识范围、适用场景和内容边界。' }}
               </div>
             </div>
-            <!-- 底部操作 -->
             <template #footer>
-              <div class="footer">
-                <el-button @click="openUpdateDialog(row.id)" type="primary">编辑</el-button>
+              <div class="workspace-resource-card__footer">
+                <el-button @click="openUpdateDialog(row.id)" class="workspace-btn workspace-btn--ghost">编辑</el-button>
                 <el-button @click="$router.push('/workspace/uploadFile/manage?libId=' + row.id)"
-                  type="primary">文档管理</el-button>
-                <el-button @click="deleteById(row.id)" type="primary">删除</el-button>
+                  type="primary" class="workspace-btn workspace-btn--primary">文档管理</el-button>
+                <el-button @click="deleteById(row.id)" class="workspace-btn workspace-btn--ghost workspace-btn--danger">删除</el-button>
               </div>
             </template>
           </el-card>
         </el-col>
       </el-row>
     </section>
-    <!-- 分页   -->
-    <section class="mt-dot5">
+
+    <section class="mt-dot5 workspace-section-card pagination-panel">
       <el-pagination @size-change="handlePageSizeChange" @current-change="handlePageNowChange"
         :current-page="searchData.pageNow" :page-sizes="[10, 30, 50]" :page-size="searchData.pageSize"
         layout="total, sizes, prev, pager, next, jumper" :total="tableData.total">
@@ -103,28 +172,51 @@
     <!-- 更新对话框 -->
     <UpdateKnowledgeLib :updateDialogVisible="updateDialogVisible" @closeDialog="updateDialogVisible = false"
       :idToUpdate="idToUpdate" @updateSuccess="handleUpdateSuccess"></UpdateKnowledgeLib>
-    <el-dialog v-model="recallDebugVisible" title="知识库检索调试" width="1080px" class="recall-debug-dialog">
-      <section class="recall-debug-shell">
-        <section class="recall-debug-toolbar">
-          <el-form :model="recallDebugForm" :inline="true">
-            <el-form-item label="知识库">
-              <el-select v-model="recallDebugForm.libId" placeholder="请选择知识库" style="width: 220px">
+    <el-dialog v-model="recallDebugVisible" title="知识库检索调试" width="1080px" class="workspace-form-dialog recall-debug-dialog">
+      <div class="dialog-intro">
+        用一条真实问题检查当前知识库的命中方向、重排效果和后续处理动作，避免只看分数却看不清实际结论。
+      </div>
+      <section class="workspace-preview-shell recall-debug-shell">
+        <section class="workspace-info-card workspace-info-card--flush recall-debug-toolbar">
+          <div class="recall-toolbar-copy workspace-section-copy">
+            <div class="recall-toolbar-title workspace-section-title">先用一条真实问题做命中检查</div>
+            <div class="recall-toolbar-desc workspace-section-desc">看清楚是没召回、召回错了，还是召回对了但组织方式还不够好。</div>
+          </div>
+          <section class="workspace-dialog-tip-panel recall-toolbar-note">
+            尽量直接输入最近真实问过、但回答不稳定的问题。这样更容易判断应该补知识、补切分，还是补提示词与展示。
+          </section>
+          <div class="workspace-preview-grid workspace-preview-grid--3 recall-toolbar-grid">
+            <div class="workspace-preview-field-card">
+              <span class="workspace-preview-field-label">知识库</span>
+              <el-select v-model="recallDebugForm.libId" placeholder="请选择知识库" class="recall-select recall-select--lib">
                 <el-option v-for="row in tableData.rows" :key="row.id" :label="row.libName" :value="row.id" />
               </el-select>
-            </el-form-item>
-            <el-form-item label="TopK">
-              <el-select v-model="recallDebugForm.topK" style="width: 100px">
+            </div>
+            <div class="workspace-preview-field-card">
+              <span class="workspace-preview-field-label">TopK</span>
+              <el-select v-model="recallDebugForm.topK" class="recall-select recall-select--topk">
                 <el-option v-for="count in [3, 5, 8, 10]" :key="count" :label="count" :value="count" />
               </el-select>
-            </el-form-item>
-          </el-form>
-          <el-input
-            v-model="recallDebugForm.query"
-            type="textarea"
-            :rows="3"
-            placeholder="输入一个真实用户问题，检查当前知识库召回到了哪些 chunk"
-          />
-          <div class="recall-debug-actions">
+            </div>
+            <div class="workspace-preview-field-card">
+              <span class="workspace-preview-field-label">当前目标</span>
+              <div class="recall-target-copy">
+                <strong>{{ selectedRecallLibName }}</strong>
+                <span>调试结果会围绕当前选中的知识库展开，适合先聚焦一套资料边界。</span>
+              </div>
+            </div>
+            <div class="workspace-preview-field-card recall-query-card">
+              <span class="workspace-preview-field-label">调试问题</span>
+              <el-input
+                class="recall-query-input"
+                v-model="recallDebugForm.query"
+                type="textarea"
+                :rows="3"
+                placeholder="输入一个真实用户问题，检查当前知识库召回到了哪些 chunk"
+              />
+            </div>
+          </div>
+          <div class="workspace-action-row workspace-action-row--end recall-debug-actions">
             <el-button class="workspace-btn workspace-btn--ghost" @click="recallDebugForm.query = ''">清空</el-button>
             <el-button class="workspace-btn workspace-btn--ghost" :disabled="!recallDebugResult.query" @click="saveRecallSnapshot">
               保存实验快照
@@ -138,48 +230,72 @@
           </div>
         </section>
 
-        <section class="recall-summary" v-if="recallDebugResult.query">
-          <div class="recall-summary-card">
-            <span class="recall-summary-label">切分策略</span>
-            <strong class="recall-summary-value">{{ formatSplitStrategy(recallDebugResult.splitStrategy) }}</strong>
+        <section class="workspace-section-card recall-focus-panel" v-if="recallDebugResult.query">
+          <div class="workspace-overview-head">
+            <div>
+              <div class="workspace-section-title workspace-section-title--md">当前实验重点</div>
+              <div class="workspace-panel-desc">先判断这次实验是在看命中、看重排，还是在为后续任务整理依据，避免只盯局部分数而忽略整体结论。</div>
+            </div>
           </div>
-          <div class="recall-summary-card">
-            <span class="recall-summary-label">原始召回</span>
-            <strong class="recall-summary-value">{{ recallDebugResult.rawHitCount }}</strong>
-          </div>
-          <div class="recall-summary-card">
-            <span class="recall-summary-label">重排后</span>
-            <strong class="recall-summary-value">{{ recallDebugResult.rerankHitCount }}</strong>
-          </div>
-          <div class="recall-summary-card">
-            <span class="recall-summary-label">TopK</span>
-            <strong class="recall-summary-value">{{ recallDebugResult.topK }}</strong>
+          <div class="workspace-tip-grid recall-tip-grid">
+            <article
+              v-for="item in recallFocusCards"
+              :key="item.title"
+              :class="['workspace-tip-card', 'recall-tip-card', `recall-tip-card--${item.tone}`]"
+            >
+              <div class="recall-tip-card__head">
+                <span :class="['recall-tip-card__dot', `recall-tip-card__dot--${item.tone}`]"></span>
+                <div class="workspace-tip-card__title">{{ item.title }}</div>
+              </div>
+              <div class="workspace-tip-card__desc">{{ item.desc }}</div>
+            </article>
           </div>
         </section>
 
-        <section class="recall-config-panel" v-if="recallDebugResult.query">
-          <div class="recall-judgement-copy">
-            <div class="recall-judgement-title">当前参数快照</div>
-            <div class="recall-judgement-desc">
+        <section class="workspace-info-card workspace-info-card--flush recall-summary" v-if="recallDebugResult.query">
+          <div class="workspace-info-grid recall-summary-grid">
+            <div class="recall-summary-card workspace-info-item">
+              <span class="recall-summary-label workspace-info-label">切分策略</span>
+              <strong class="recall-summary-value workspace-info-value">{{ formatSplitStrategy(recallDebugResult.splitStrategy) }}</strong>
+            </div>
+            <div class="recall-summary-card workspace-info-item">
+              <span class="recall-summary-label workspace-info-label">原始召回</span>
+              <strong class="recall-summary-value workspace-info-value">{{ recallDebugResult.rawHitCount }}</strong>
+            </div>
+            <div class="recall-summary-card workspace-info-item">
+              <span class="recall-summary-label workspace-info-label">重排后</span>
+              <strong class="recall-summary-value workspace-info-value">{{ recallDebugResult.rerankHitCount }}</strong>
+            </div>
+            <div class="recall-summary-card workspace-info-item">
+              <span class="recall-summary-label workspace-info-label">TopK</span>
+              <strong class="recall-summary-value workspace-info-value">{{ recallDebugResult.topK }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="workspace-info-card workspace-info-card--flush recall-config-panel" v-if="recallDebugResult.query">
+          <div class="recall-judgement-copy workspace-section-copy">
+            <div class="recall-judgement-title workspace-section-title">当前参数快照</div>
+            <div class="recall-judgement-desc workspace-section-desc">
               保存快照时会把这些参数一起记下来，方便回看。
             </div>
           </div>
-          <div class="recall-config-grid">
-            <div class="recall-config-card">
-              <span class="recall-config-label">chunk 大小</span>
-              <strong class="recall-config-value">{{ recallDebugResult.splitConfig?.chunkSize ?? '-' }}</strong>
+          <div class="recall-config-grid workspace-spec-grid workspace-spec-grid--4">
+            <div class="recall-config-card workspace-spec-card">
+              <span class="recall-config-label workspace-spec-label">chunk 大小</span>
+              <strong class="recall-config-value workspace-spec-value">{{ recallDebugResult.splitConfig?.chunkSize ?? '-' }}</strong>
             </div>
-            <div class="recall-config-card">
-              <span class="recall-config-label">最小 chunk</span>
-              <strong class="recall-config-value">{{ recallDebugResult.splitConfig?.minChunkSizeChars ?? '-' }}</strong>
+            <div class="recall-config-card workspace-spec-card">
+              <span class="recall-config-label workspace-spec-label">最小 chunk</span>
+              <strong class="recall-config-value workspace-spec-value">{{ recallDebugResult.splitConfig?.minChunkSizeChars ?? '-' }}</strong>
             </div>
-            <div class="recall-config-card">
-              <span class="recall-config-label">最小保留长度</span>
-              <strong class="recall-config-value">{{ recallDebugResult.splitConfig?.minChunkLengthToEmbed ?? '-' }}</strong>
+            <div class="recall-config-card workspace-spec-card">
+              <span class="recall-config-label workspace-spec-label">最小保留长度</span>
+              <strong class="recall-config-value workspace-spec-value">{{ recallDebugResult.splitConfig?.minChunkLengthToEmbed ?? '-' }}</strong>
             </div>
-            <div class="recall-config-card">
-              <span class="recall-config-label">语义段上限</span>
-              <strong class="recall-config-value">{{ recallDebugResult.splitConfig?.semanticSectionMaxChars ?? '-' }}</strong>
+            <div class="recall-config-card workspace-spec-card">
+              <span class="recall-config-label workspace-spec-label">语义段上限</span>
+              <strong class="recall-config-value workspace-spec-value">{{ recallDebugResult.splitConfig?.semanticSectionMaxChars ?? '-' }}</strong>
             </div>
           </div>
           <div class="recall-note-grid">
@@ -198,21 +314,21 @@
           </div>
         </section>
 
-        <section class="recall-judgement" v-if="recallDebugResult.query">
-          <div class="recall-judgement-copy">
-            <div class="recall-judgement-title">当前问题判断</div>
-            <div class="recall-judgement-desc">
+        <section class="workspace-info-card workspace-info-card--flush recall-judgement" v-if="recallDebugResult.query">
+          <div class="recall-judgement-copy workspace-section-copy">
+            <div class="recall-judgement-title workspace-section-title">当前问题判断</div>
+            <div class="recall-judgement-desc workspace-section-desc">
               先判断这是没召回、召回错了，还是召回对了但答案组织得不好，再决定后续进入补知识、补切分、补提示词还是补展示。
             </div>
           </div>
-          <div class="recall-judgement-grid">
-            <div class="recall-judgement-card">
-              <span class="recall-judgement-label">建议归类</span>
-              <strong class="recall-judgement-value">{{ activeFollowUpLabel }}</strong>
+          <div class="workspace-info-grid recall-judgement-grid">
+            <div class="recall-judgement-card workspace-info-item">
+              <span class="recall-judgement-label workspace-info-label">建议归类</span>
+              <strong class="recall-judgement-value workspace-info-value">{{ activeFollowUpLabel }}</strong>
             </div>
-            <div class="recall-judgement-card">
-              <span class="recall-judgement-label">诊断结论</span>
-              <strong class="recall-judgement-value recall-judgement-value--small">{{ recallDiagnosis.title }}</strong>
+            <div class="recall-judgement-card workspace-info-item">
+              <span class="recall-judgement-label workspace-info-label">诊断结论</span>
+              <strong class="recall-judgement-value recall-judgement-value--small workspace-info-value">{{ recallDiagnosis.title }}</strong>
             </div>
           </div>
           <div class="recall-judgement-tags">
@@ -231,14 +347,18 @@
           </div>
         </section>
 
-        <section class="recall-snapshot-section" v-if="recallSnapshots.length">
-          <div class="recall-judgement-copy">
-            <div class="recall-judgement-title">实验快照</div>
-            <div class="recall-judgement-desc">
+        <div v-else class="workspace-empty-panel recall-empty-state">
+          先选择知识库并输入一个真实用户问题，再开始调试。建议优先使用最近在应用里问过、但回答不稳定的真实问题。
+        </div>
+
+        <section class="workspace-info-card workspace-info-card--flush recall-snapshot-section" v-if="recallSnapshots.length">
+          <div class="recall-judgement-copy workspace-section-copy">
+            <div class="recall-judgement-title workspace-section-title">实验快照</div>
+            <div class="recall-judgement-desc workspace-section-desc">
               选两条快照就能直接对比。
             </div>
           </div>
-          <div class="snapshot-actions">
+          <div class="workspace-action-row workspace-action-row--end snapshot-actions">
             <el-button class="workspace-btn workspace-btn--ghost" :disabled="selectedSnapshotIds.length !== 2" @click="copySnapshotCompareDraft">
               复制对比报告
             </el-button>
@@ -255,32 +375,40 @@
               清空快照
             </el-button>
           </div>
-          <div class="snapshot-list">
-            <label v-for="snapshot in recallSnapshots" :key="snapshot.id" class="snapshot-card">
+          <div class="workspace-selection-list">
+            <label
+              v-for="snapshot in recallSnapshots"
+              :key="snapshot.id"
+              :class="[
+                'workspace-selection-card',
+                selectedSnapshotIds.includes(snapshot.id) ? 'workspace-selection-card--selected' : ''
+              ]"
+            >
               <input
+                class="workspace-selection-check"
                 type="checkbox"
                 :checked="selectedSnapshotIds.includes(snapshot.id)"
                 @change="toggleSnapshotSelection(snapshot.id)"
               >
-              <div class="snapshot-card-main">
-                <div class="snapshot-card-head">
-                  <strong>{{ snapshot.versionName || snapshot.query }}</strong>
+              <div class="workspace-selection-card__main">
+                <div class="workspace-selection-card__head">
+                  <strong class="workspace-selection-card__title">{{ snapshot.versionName || snapshot.query }}</strong>
                   <span>{{ snapshot.savedAt }}</span>
                 </div>
-                <div class="snapshot-card-subtitle">{{ snapshot.query }}</div>
-                <div class="snapshot-card-meta">
-                  <span>{{ snapshot.libName }}</span>
-                  <span>{{ formatSplitStrategy(snapshot.splitStrategy) }}</span>
-                  <span>TopK {{ snapshot.topK }}</span>
-                  <span>原始 {{ snapshot.rawHitCount }}</span>
-                  <span>重排 {{ snapshot.rerankHitCount }}</span>
-                  <span>{{ snapshot.categoryLabel }}</span>
-                  <span v-if="snapshot.recommended" class="snapshot-recommended">推荐版本</span>
-                  <span v-if="snapshot.active" class="snapshot-active">当前生效版本</span>
+                <div class="workspace-selection-card__desc">{{ snapshot.query }}</div>
+                <div class="workspace-selection-card__meta">
+                  <span class="workspace-inline-tag workspace-inline-tag--soft">{{ snapshot.libName }}</span>
+                  <span class="workspace-inline-tag workspace-inline-tag--soft">{{ formatSplitStrategy(snapshot.splitStrategy) }}</span>
+                  <span class="workspace-inline-tag workspace-inline-tag--soft">TopK {{ snapshot.topK }}</span>
+                  <span class="workspace-inline-tag workspace-inline-tag--soft">原始 {{ snapshot.rawHitCount }}</span>
+                  <span class="workspace-inline-tag workspace-inline-tag--soft">重排 {{ snapshot.rerankHitCount }}</span>
+                  <span class="workspace-inline-tag workspace-inline-tag--soft">{{ snapshot.categoryLabel }}</span>
+                  <span v-if="snapshot.recommended" class="workspace-inline-tag workspace-inline-tag--success snapshot-recommended">推荐版本</span>
+                  <span v-if="snapshot.active" class="workspace-inline-tag workspace-inline-tag--active snapshot-active">当前生效版本</span>
                 </div>
-                <div v-if="snapshot.noteText" class="snapshot-card-subtitle">备注：{{ snapshot.noteText }}</div>
-                <div v-if="snapshot.recommendReason" class="snapshot-card-subtitle">推荐理由：{{ snapshot.recommendReason }}</div>
-                <div class="snapshot-card-actions">
+                <div v-if="snapshot.noteText" class="workspace-selection-card__desc">备注：{{ snapshot.noteText }}</div>
+                <div v-if="snapshot.recommendReason" class="workspace-selection-card__desc">推荐理由：{{ snapshot.recommendReason }}</div>
+                <div class="workspace-selection-card__actions">
                   <el-button text class="workspace-btn workspace-btn--text" @click.prevent="renameSnapshot(snapshot.id)">
                     命名版本
                   </el-button>
@@ -293,39 +421,57 @@
           </div>
         </section>
 
-        <section class="recall-grid" v-if="recallDebugResult.query">
-          <article class="recall-panel">
-            <div class="recall-panel-title">原始召回结果</div>
-            <div v-if="recallDebugResult.rawHits.length" class="recall-hit-list">
-              <div v-for="item in recallDebugResult.rawHits" :key="`raw-${item.documentId}-${item.index}`" class="recall-hit-card">
-                <div class="recall-hit-head">
-                  <div>
-                    <div class="recall-hit-title">#{{ item.index }} {{ item.fileName }}</div>
-                    <div class="recall-hit-id">DocID: {{ item.documentId }}</div>
-                  </div>
-                  <div class="recall-hit-score">{{ formatScore(item.score) }}</div>
-                </div>
-                <pre class="recall-hit-content">{{ item.content }}</pre>
+        <section class="workspace-inspect-grid" v-if="recallDebugResult.query">
+          <article class="workspace-section-card workspace-inspect-panel">
+            <div class="workspace-overview-head workspace-inspect-head">
+              <div>
+                <div class="recall-panel-title workspace-section-title">原始召回结果</div>
+                <div class="recall-panel-desc workspace-panel-desc">先看知识库有没有拿到可用候选，判断是完全未命中，还是命中方向还不够准。</div>
+              </div>
+              <div class="workspace-inline-tags">
+                <span class="workspace-inline-tag workspace-inline-tag--soft">命中 {{ recallDebugResult.rawHitCount }}</span>
+                <span class="workspace-inline-tag workspace-inline-tag--soft">Top1 {{ rawTopDisplay }}</span>
               </div>
             </div>
-            <div v-else class="recall-empty">当前没有召回到任何内容。</div>
+            <div v-if="recallDebugResult.rawHits.length" class="workspace-inspect-list space-scrollbar">
+              <div v-for="item in recallDebugResult.rawHits" :key="`raw-${item.documentId}-${item.index}`" class="recall-hit-card workspace-result-card">
+                <div class="recall-hit-head workspace-result-card__head">
+                  <div>
+                    <div class="recall-hit-title workspace-result-card__title">#{{ item.index }} {{ item.fileName }}</div>
+                    <div class="recall-hit-id workspace-result-card__submeta">DocID: {{ item.documentId }}</div>
+                  </div>
+                  <div class="recall-hit-score workspace-result-card__meta">{{ formatScore(item.score) }}</div>
+                </div>
+                <pre class="workspace-result-card__content workspace-result-card__content--scroll space-scrollbar">{{ item.content }}</pre>
+              </div>
+            </div>
+            <div v-else class="recall-empty workspace-empty-panel">当前没有召回到任何内容。</div>
           </article>
 
-          <article class="recall-panel">
-            <div class="recall-panel-title">重排后结果</div>
-            <div v-if="recallDebugResult.rerankHits.length" class="recall-hit-list">
-              <div v-for="item in recallDebugResult.rerankHits" :key="`rerank-${item.documentId}-${item.index}`" class="recall-hit-card">
-                <div class="recall-hit-head">
-                  <div>
-                    <div class="recall-hit-title">#{{ item.index }} {{ item.fileName }}</div>
-                    <div class="recall-hit-id">DocID: {{ item.documentId }}</div>
-                  </div>
-                  <div class="recall-hit-score">{{ formatScore(item.score) }}</div>
-                </div>
-                <pre class="recall-hit-content">{{ item.content }}</pre>
+          <article class="workspace-section-card workspace-inspect-panel">
+            <div class="workspace-overview-head workspace-inspect-head">
+              <div>
+                <div class="recall-panel-title workspace-section-title">重排后结果</div>
+                <div class="recall-panel-desc workspace-panel-desc">再看重排是否把更相关的内容推到了前面，判断当前切分和组织方式是否已经有效。</div>
+              </div>
+              <div class="workspace-inline-tags">
+                <span class="workspace-inline-tag workspace-inline-tag--active">保留 {{ recallRetentionRate }}</span>
+                <span class="workspace-inline-tag workspace-inline-tag--soft">Top1 {{ rerankTopDisplay }}</span>
               </div>
             </div>
-            <div v-else class="recall-empty">当前没有通过重排阈值的结果。</div>
+            <div v-if="recallDebugResult.rerankHits.length" class="workspace-inspect-list space-scrollbar">
+              <div v-for="item in recallDebugResult.rerankHits" :key="`rerank-${item.documentId}-${item.index}`" class="recall-hit-card workspace-result-card">
+                <div class="recall-hit-head workspace-result-card__head">
+                  <div>
+                    <div class="recall-hit-title workspace-result-card__title">#{{ item.index }} {{ item.fileName }}</div>
+                    <div class="recall-hit-id workspace-result-card__submeta">DocID: {{ item.documentId }}</div>
+                  </div>
+                  <div class="recall-hit-score workspace-result-card__meta">{{ formatScore(item.score) }}</div>
+                </div>
+                <pre class="workspace-result-card__content workspace-result-card__content--scroll space-scrollbar">{{ item.content }}</pre>
+              </div>
+            </div>
+            <div v-else class="recall-empty workspace-empty-panel">当前没有通过重排阈值的结果。</div>
           </article>
         </section>
       </section>
@@ -450,6 +596,90 @@ const activeFollowUpLabel = computed(() => {
   const active = followUpCategoryOptions.find((option) => option.value === selectedFollowUpCategory.value)
   return active?.label || '-'
 })
+const currentRows = computed(() => tableData.rows || [])
+const totalLibCountDisplay = computed(() => tableData.total || 0)
+const currentResultCountDisplay = computed(() => currentRows.value.length)
+const boundLibCountDisplay = computed(() => currentRows.value.filter((row: { appId?: string | number | null }) => Boolean(row.appId)).length)
+const unboundLibCountDisplay = computed(() => currentRows.value.filter((row: { appId?: string | number | null }) => !row.appId).length)
+const totalDocCountDisplay = computed(() => formatCount(currentRows.value.reduce((sum: number, row: { docCount?: number | string }) => sum + Number(row.docCount || 0), 0)))
+const totalCharCountDisplay = computed(() => formatCount(currentRows.value.reduce((sum: number, row: { charCount?: number | string }) => sum + Number(row.charCount || 0), 0)))
+const knowledgeWorkflowSummary = computed(() => {
+  if (!currentRows.value.length) {
+    return '当前还没有知识库，可以先创建一个基础知识库，把最核心的资料放进去，再继续绑定到应用。'
+  }
+  if (!currentRows.value.some((row: { appId?: string | number | null }) => Boolean(row.appId))) {
+    return '当前知识库还没有挂到应用上，更适合先完善资料和文档结构，再决定绑定到哪个应用里使用。'
+  }
+  return '当前已经有知识库接入应用，可以继续通过文档管理和检索调试来验证内容命中是否稳定。'
+})
+const knowledgeFocusCards = computed(() => [
+  {
+    title: boundLibCountDisplay.value === 0 ? '优先确认哪些知识库需要先挂到应用' : '已挂应用的知识库适合继续验证实际命中',
+    desc: boundLibCountDisplay.value === 0
+      ? '当前结果里的知识库都还没有接入应用，更适合先明确使用场景，再决定后续问答入口和公开访问范围。'
+      : `当前已有 ${boundLibCountDisplay.value} 个知识库挂到应用，适合继续通过检索调试和真实问题验证内容命中。`,
+    tone: boundLibCountDisplay.value === 0 ? 'warning' : 'success'
+  },
+  {
+    title: totalDocCountDisplay.value === '0' ? '资料仍然偏少，适合优先补文档' : '文档规模已经形成，可继续看内容边界',
+    desc: totalDocCountDisplay.value === '0'
+      ? '当前结果里的知识库还没有形成有效文档规模，通常先补核心资料会比直接调提示词更有效。'
+      : `当前结果累计 ${totalDocCountDisplay.value} 个文档、${totalCharCountDisplay.value} 个字符，适合继续检查知识边界是否清楚、资料是否重复。`,
+    tone: totalDocCountDisplay.value === '0' ? 'warning' : 'success'
+  },
+  {
+    title: currentRows.value.length ? '可以按真实问题进入检索调试' : '等待更多结果后再安排检索验证',
+    desc: currentRows.value.length
+      ? '如果应用已经挂载但回答还不稳，建议直接从这里进入检索调试，先判断问题出在补知识、补切分还是补展示。'
+      : '当前结果为空，建议先调整筛选条件或创建知识库，再继续做检索验证。',
+    tone: currentRows.value.length ? 'success' : 'warning'
+  }
+] as const)
+const rawTopDisplay = computed(() => {
+  const rawTop = recallDebugResult.rawHits[0]
+  return rawTop?.fileName || '未命中'
+})
+const rerankTopDisplay = computed(() => {
+  const rerankTop = recallDebugResult.rerankHits[0]
+  return rerankTop?.fileName || '未命中'
+})
+const recallRetentionRate = computed(() => {
+  const rawCount = Number(recallDebugResult.rawHitCount || 0)
+  const rerankCount = Number(recallDebugResult.rerankHitCount || 0)
+  if (!rawCount) {
+    return '0%'
+  }
+  return `${((rerankCount / rawCount) * 100).toFixed(0)}%`
+})
+const selectedRecallLibName = computed(() => {
+  const target = tableData.rows.find((row: { id?: string | number; libName?: string }) => String(row.id) === String(recallDebugForm.libId))
+  return target?.libName || '未选择知识库'
+})
+const recallFocusCards = computed(() => {
+  const rawCount = Number(recallDebugResult.rawHitCount || 0)
+  const rerankCount = Number(recallDebugResult.rerankHitCount || 0)
+  return [
+    {
+      title: rawCount > 0 ? `原始召回到 ${rawCount} 条候选` : '当前没有召回到候选内容',
+      desc: rawCount > 0
+        ? `本次问题来自「${selectedRecallLibName.value}」，下一步重点看命中的方向对不对，而不只是看有没有召回。`
+        : '建议先检查问题关键词、知识范围和资料是否足够覆盖当前问法，再决定补知识还是调整提问方式。',
+      tone: rawCount > 0 ? 'success' : 'danger'
+    },
+    {
+      title: rerankCount > 0 ? `重排后保留 ${recallRetentionRate.value}` : '当前没有可用的重排结果',
+      desc: rerankCount > 0
+        ? `Top1 当前是「${rerankTopDisplay.value}」，可以继续判断它是不是最接近真实答案的片段。`
+        : '如果原始召回有结果但重排后为空，优先检查切分粒度、资料完整性和相似度质量。',
+      tone: rerankCount > 0 ? 'warning' : rawCount > 0 ? 'warning' : 'danger'
+    },
+    {
+      title: `建议归类到「${activeFollowUpLabel.value}」`,
+      desc: `${recallDiagnosis.value.title}。${recallSnapshots.value.length ? `当前已保存 ${recallSnapshots.value.length} 条实验快照，可以继续做版本对比。` : '如果这次实验有代表性，建议直接保存一条实验快照，方便后续回看和对比。'}`,
+      tone: selectedFollowUpCategory.value === 'knowledge' || selectedFollowUpCategory.value === 'observe' ? 'danger' : selectedFollowUpCategory.value === 'chunking' || selectedFollowUpCategory.value === 'prompt' ? 'warning' : 'success'
+    }
+  ] as const
+})
 
 let searchFormData = reactive({
   username: '',
@@ -466,6 +696,14 @@ let {
   handlePageNowChange,
 } = useTable({ searchFormData, loadTableApi: pageKnowledgeLibApi, deleteByIdApi: deleteKnowledgeLibByIdApi })
 let {toAddressable} = useResource()
+
+function formatCount(value: number | string) {
+  const num = Number(value || 0)
+  if (!Number.isFinite(num)) {
+    return '--'
+  }
+  return num.toLocaleString('zh-CN')
+}
 // 打开更新对话框
 function openUpdateDialog(id: string) {
   idToUpdate.value = id
@@ -907,155 +1145,180 @@ function loadRecallSnapshots() {
 }
 </script>
 <style scoped>
-.left {
-  margin-right: 10px;
+.knowledge-manage-page {
+  gap: 16px;
 }
 
-.right {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+.knowledge-summary-panel,
+.knowledge-focus-panel {
+  padding: 18px 20px;
 }
 
-.title {
-  font-weight: 700;
-  color: var(--space-text);
-  font-size: 14px;
-}
-.middle-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.middle-row-item {
-  padding-right: .5rem;
-  font-size: 12px;
-}
-
-:deep(.el-card__body) {
-  padding: 10px;
-}
-
-:deep(.el-card__footer) {
-  padding: 10px;
+.card-list-panel {
+  padding: 18px 20px;
 }
 
 .card-wrapper {
   margin-bottom: 14px;
 }
 
-.one-row {
-  display: flex;
-  justify-content: left;
-  align-items: center;
+.knowledge-tip-grid,
+.recall-tip-grid {
+  margin-top: 14px;
 }
 
-.footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-/* 最多显示2行,没有也占据2行的位置 */
-.desc-text {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  line-clamp: 3;
-  -webkit-line-clamp: 3;
+.knowledge-tip-card,
+.recall-tip-card {
+  position: relative;
   overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.8em;
-  min-height: 5em;
-  color: var(--space-muted) !important;
-  font-size: 13px;
 }
 
-.recall-debug-shell {
+.knowledge-tip-card::before,
+.recall-tip-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 4px 0 0 4px;
+  background: rgba(148, 163, 184, 0.42);
+}
+
+.knowledge-tip-card--success::before,
+.recall-tip-card--success::before {
+  background: linear-gradient(180deg, #12b76a 0%, #0f9f5f 100%);
+}
+
+.knowledge-tip-card--warning::before,
+.recall-tip-card--warning::before {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+}
+
+.knowledge-tip-card--danger::before,
+.recall-tip-card--danger::before {
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+}
+
+.knowledge-tip-card__head,
+.recall-tip-card__head {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  align-items: center;
+  gap: 8px;
+}
+
+.knowledge-tip-card__dot,
+.recall-tip-card__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: rgba(148, 163, 184, 0.9);
+}
+
+.knowledge-tip-card__dot--success,
+.recall-tip-card__dot--success {
+  background: #12b76a;
+  box-shadow: 0 0 0 4px rgba(18, 183, 106, 0.12);
+}
+
+.knowledge-tip-card__dot--warning,
+.recall-tip-card__dot--warning {
+  background: #f59e0b;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14);
+}
+
+.knowledge-tip-card__dot--danger,
+.recall-tip-card__dot--danger {
+  background: #ef4444;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
 }
 
 .recall-debug-toolbar {
   padding: 18px;
-  border: 1px solid rgba(64, 158, 255, 0.14);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.96);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(249, 251, 255, 0.95) 100%);
+}
+
+.recall-toolbar-copy {
+  margin-bottom: 12px;
+}
+
+.recall-toolbar-note {
+  margin-bottom: 14px;
+}
+
+.recall-select--lib {
+  width: 100%;
+}
+
+.recall-select--topk {
+  width: 100%;
+}
+
+.recall-toolbar-grid {
+  margin-top: 0;
+}
+
+.recall-query-card {
+  grid-column: 1 / -1;
+}
+
+.recall-target-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--space-text-soft);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.recall-target-copy strong {
+  color: var(--space-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.recall-query-input :deep(.el-textarea__inner) {
+  min-height: 112px;
 }
 
 .recall-debug-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
   margin-top: 14px;
 }
 
 .recall-summary {
+  padding: 16px 18px;
+}
+
+.recall-focus-panel {
+  padding: 18px 20px;
+}
+
+.recall-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
 .recall-summary-card {
-  padding: 14px 16px;
-  border: 1px solid rgba(64, 158, 255, 0.12);
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(239, 246, 255, 0.98));
-}
-
-.recall-summary-label {
-  display: block;
-  font-size: 12px;
-  color: var(--space-text-soft);
+  min-height: 102px;
 }
 
 .recall-summary-value {
   display: block;
-  margin-top: 8px;
   font-size: 22px;
   line-height: 1.1;
   color: var(--space-primary-strong);
 }
 
-.recall-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
 .recall-config-panel {
-  padding: 18px;
-  border: 1px solid rgba(64, 158, 255, 0.12);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.98);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(249, 251, 255, 0.95) 100%);
 }
 
 .recall-config-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
   margin-top: 14px;
 }
 
 .recall-config-card {
-  padding: 14px 16px;
-  border: 1px solid rgba(64, 158, 255, 0.12);
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(239, 246, 255, 0.98));
-}
-
-.recall-config-label {
-  display: block;
-  color: var(--space-text-soft);
-  font-size: 12px;
-}
-
-.recall-config-value {
-  display: block;
-  margin-top: 8px;
-  color: var(--space-primary-strong);
-  font-size: 18px;
-  line-height: 1.2;
+  min-height: 96px;
 }
 
 .recall-note-grid {
@@ -1066,73 +1329,11 @@ function loadRecallSnapshots() {
 }
 
 .recall-snapshot-section {
-  padding: 18px;
-  border: 1px solid rgba(64, 158, 255, 0.12);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.98);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(249, 251, 255, 0.95) 100%);
 }
 
 .snapshot-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
   margin-top: 14px;
-}
-
-.snapshot-list {
-  display: grid;
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.snapshot-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid rgba(64, 158, 255, 0.1);
-  border-radius: 16px;
-  background: rgba(248, 250, 252, 0.92);
-  cursor: pointer;
-}
-
-.snapshot-card input {
-  margin-top: 4px;
-}
-
-.snapshot-card-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.snapshot-card-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--space-text);
-  font-size: 14px;
-}
-
-.snapshot-card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 8px;
-  color: var(--space-text-soft);
-  font-size: 12px;
-}
-
-.snapshot-card-subtitle {
-  margin-top: 6px;
-  color: var(--space-text-soft);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.snapshot-card-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
 }
 
 .snapshot-recommended {
@@ -1141,53 +1342,26 @@ function loadRecallSnapshots() {
 }
 
 .snapshot-active {
-  color: #1d4ed8;
+  color: var(--space-primary-strong);
   font-weight: 700;
 }
 
 .recall-judgement {
-  padding: 18px;
-  border: 1px solid rgba(64, 158, 255, 0.12);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.98);
-}
-
-.recall-judgement-title {
-  color: var(--space-text);
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.recall-judgement-desc {
-  margin-top: 8px;
-  color: var(--space-text-soft);
-  font-size: 13px;
-  line-height: 1.7;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(249, 251, 255, 0.95) 100%);
 }
 
 .recall-judgement-grid {
-  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 14px;
 }
 
 .recall-judgement-card {
-  padding: 14px 16px;
-  border: 1px solid rgba(64, 158, 255, 0.12);
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(239, 246, 255, 0.98));
-}
-
-.recall-judgement-label {
-  display: block;
-  color: var(--space-text-soft);
-  font-size: 12px;
+  min-height: 98px;
 }
 
 .recall-judgement-value {
   display: block;
-  margin-top: 8px;
   color: var(--space-primary-strong);
   font-size: 20px;
   line-height: 1.2;
@@ -1211,89 +1385,51 @@ function loadRecallSnapshots() {
   line-height: 1.7;
 }
 
-.recall-panel {
-  padding: 18px;
-  border: 1px solid rgba(64, 158, 255, 0.12);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.98);
-}
-
-.recall-panel-title {
-  margin-bottom: 12px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--space-text);
-}
-
-.recall-hit-list {
-  display: grid;
-  gap: 12px;
-  max-height: 52vh;
-  overflow: auto;
-  padding-right: 4px;
-}
-
 .recall-hit-card {
-  border: 1px solid rgba(64, 158, 255, 0.1);
   border-radius: 16px;
-  overflow: hidden;
-  background: rgba(248, 250, 252, 0.92);
 }
 
 .recall-hit-head {
-  display: flex;
-  justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(64, 158, 255, 0.08);
 }
 
 .recall-hit-title {
-  color: var(--space-text);
-  font-size: 14px;
-  font-weight: 700;
+  line-height: 1.5;
 }
 
 .recall-hit-id {
-  margin-top: 4px;
-  color: var(--space-text-soft);
-  font-size: 12px;
+  line-height: 1.5;
 }
 
 .recall-hit-score {
   color: var(--space-primary-strong);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.recall-hit-content {
-  margin: 0;
-  padding: 16px;
-  max-height: 220px;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: var(--space-text);
-  font-size: 13px;
-  line-height: 1.7;
 }
 
 .recall-empty {
-  padding: 28px 18px;
-  border: 1px dashed rgba(148, 163, 184, 0.45);
-  border-radius: 18px;
-  text-align: center;
-  color: var(--space-text-soft);
-  background: rgba(248, 250, 252, 0.88);
+  line-height: 1.7;
+}
+
+.recall-empty-state {
+  margin-top: 0;
 }
 
 @media (max-width: 1100px) {
-  .recall-summary {
+  .knowledge-overview-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .recall-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .recall-grid {
-    grid-template-columns: 1fr;
+  .recall-select--lib,
+  .recall-select--topk {
+    width: 100%;
+  }
+
+  .recall-query-card {
+    grid-column: span 2;
   }
 
   .recall-judgement-grid {
@@ -1304,9 +1440,11 @@ function loadRecallSnapshots() {
   .recall-note-grid {
     grid-template-columns: 1fr;
   }
+}
 
-  .snapshot-card-head {
-    flex-direction: column;
+@media (max-width: 760px) {
+  .recall-query-card {
+    grid-column: span 1;
   }
 }
 </style>

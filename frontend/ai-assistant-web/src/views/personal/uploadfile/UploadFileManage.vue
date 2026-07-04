@@ -1,40 +1,103 @@
 <template>
-  <div class="page-shell">
-    <section class="context-strip">
-      <el-button text class="context-back" @click="$router.push('/workspace/knowledgeLib/manage')">返回知识库</el-button>
-      <span class="context-note">回到知识库列表可以切换别的资料库。</span>
-    </section>
-    <section class="hero-panel">
-      <div class="hero-title">文档管理</div>
-      <div class="hero-subtitle">
-        处理上传、启用、禁用和重建索引。
+  <div class="page-shell uploadfile-manage-page">
+    <section class="workspace-context-strip">
+      <div class="workspace-context-copy">
+        <el-button text class="workspace-btn workspace-btn--text" @click="$router.push('/workspace/knowledgeLib/manage')">返回知识库</el-button>
+        <span class="workspace-context-note">当前文档按知识库独立管理，可继续上传、预览切分或重建索引。</span>
       </div>
-      <div class="hero-meta">
-        <span class="hero-badge">文件总数：{{ tableData.total || 0 }}</span>
-        <span class="hero-badge">可快速启停</span>
-        <span class="hero-badge">可查看召回次数</span>
+      <div class="workspace-context-actions">
+        <span class="workspace-inline-tag workspace-inline-tag--soft">知识库 {{ currentLibDisplay }}</span>
+        <span class="workspace-inline-tag workspace-inline-tag--soft">文件 {{ totalFileCountDisplay }}</span>
+        <span class="workspace-inline-tag workspace-inline-tag--soft">召回 {{ currentPageRecallDisplay }}</span>
       </div>
     </section>
 
-    <section class="toolbar-panel glass-panel">
-      <div class="toolbar-copy">
-        <div class="toolbar-title">文件列表</div>
-        <div class="toolbar-desc">
-          内容有问题先禁用；规则改完再重建索引。
+    <section class="workspace-section-card file-overview-panel workspace-dashboard-panel">
+      <div class="file-overview-head workspace-overview-head workspace-dashboard-head">
+        <div>
+          <div class="panel-title">文档工作区</div>
+          <div class="panel-desc workspace-panel-desc">先确认当前知识库、文件状态和召回规模，再决定是继续上传新资料、预览切分，还是直接重建索引。</div>
+        </div>
+        <div class="workspace-inline-tags">
+          <span class="workspace-inline-tag workspace-inline-tag--active">知识库 {{ currentLibDisplay }}</span>
+          <span class="workspace-inline-tag workspace-inline-tag--soft">启用 {{ enabledFileCountDisplay }}</span>
+          <span class="workspace-inline-tag workspace-inline-tag--soft">停用 {{ disabledFileCountDisplay }}</span>
         </div>
       </div>
-      <div class="toolbar-actions">
-        <el-form :model="searchData" :inline="true">
-          <el-form-item>
-            <el-input type="text" placeholder="文件名" v-model="searchData.fileName" clearable
-              style="width: 180px"></el-input>
+      <section class="stats-grid workspace-metrics-grid">
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--total">
+          <div class="stat-label">当前文件</div>
+          <div class="stat-value">{{ totalFileCountDisplay }}</div>
+          <div class="stat-help">当前页内已经进入管理视图、可继续处理的文件数量。</div>
+        </article>
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--success">
+          <div class="stat-label">启用中文档</div>
+          <div class="stat-value workspace-stat-value--success">{{ enabledFileCountDisplay }}</div>
+          <div class="stat-help">已经参与检索的文件，更适合继续看召回和切分效果。</div>
+        </article>
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--time">
+          <div class="stat-label">停用中文档</div>
+          <div class="stat-value workspace-stat-value--warning">{{ disabledFileCountDisplay }}</div>
+          <div class="stat-help">暂未参与检索，适合先确认是否需要重新启用或重建。</div>
+        </article>
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--token">
+          <div class="stat-label">当前页召回</div>
+          <div class="stat-value">{{ currentPageRecallDisplay }}</div>
+          <div class="stat-help">结合文件状态一起看，更容易判断哪些资料在真正被命中。</div>
+        </article>
+      </section>
+    </section>
+
+    <section class="workspace-section-card summary-panel upload-summary-panel">
+      <div class="panel-title">处理建议</div>
+      <div class="summary-list">
+        <div class="summary-item">{{ workflowSummary }}</div>
+        <div class="summary-item">如果当前页文件内容需要重新切分，先进入预览查看 chunk 是否自然，再决定是否重建索引。</div>
+        <div class="summary-item">召回次数偏高但效果不理想时，优先检查原始文档质量、切分规则和是否存在重复内容。</div>
+      </div>
+    </section>
+
+    <section class="workspace-section-card upload-focus-panel">
+      <div class="workspace-overview-head">
+        <div>
+          <div class="panel-title panel-title--md">当前关注点</div>
+          <div class="workspace-panel-desc">把当前文档状态翻译成更直接的处理动作，方便决定先看启用状态、切分规模还是召回热度。</div>
+        </div>
+      </div>
+      <div class="workspace-tip-grid upload-tip-grid">
+        <article
+          v-for="item in uploadFocusCards"
+          :key="item.title"
+          :class="['workspace-tip-card', 'upload-tip-card', `upload-tip-card--${item.tone}`]"
+        >
+          <div class="upload-tip-card__head">
+            <span :class="['upload-tip-card__dot', `upload-tip-card__dot--${item.tone}`]"></span>
+            <div class="workspace-tip-card__title">{{ item.title }}</div>
+          </div>
+          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="toolbar-panel workspace-section-card workspace-toolbar-panel">
+      <div class="toolbar-copy workspace-toolbar-copy">
+        <div class="workspace-toolbar-kicker">文档资产</div>
+        <div class="toolbar-title">文件列表</div>
+        <div class="toolbar-desc">
+          先筛文件，再决定是预览内容、调整状态，还是重建索引。
+        </div>
+      </div>
+      <div class="toolbar-actions workspace-toolbar-actions">
+        <el-form :model="searchData" :inline="true" class="workspace-toolbar-form">
+          <el-form-item class="workspace-toolbar-field workspace-toolbar-field--md">
+            <el-input type="text" placeholder="文件名" v-model="searchData.fileName" clearable></el-input>
           </el-form-item>
           <el-form-item>
-            <el-button @click="loadTable" type="primary">查询</el-button>
+            <el-button @click="loadTable" type="primary" class="workspace-btn workspace-btn--primary">查询</el-button>
           </el-form-item>
           <el-form-item>
-            <el-button @click="$router.push('/workspace/uploadFile/toAdd?libId=' + searchData.libId)" type="success"
-              :icon="Plus">
+            <el-button @click="$router.push('/workspace/uploadFile/toAdd?libId=' + searchData.libId)" type="primary"
+              :icon="Plus" class="workspace-btn workspace-btn--primary">
               新增文件
             </el-button>
           </el-form-item>
@@ -49,33 +112,49 @@
     </section>
 
     <!-- 表格   -->
-    <section class="glass-panel table-panel">
-      <el-table :data="tableData.rows" stripe :border="true" style="width: 100%">
-        <el-table-column prop="fileName" label="文件名称" min-width="160">
+    <section class="workspace-section-card table-panel">
+      <el-table :data="tableData.rows" stripe style="width: 100%">
+        <el-table-column label="文件" min-width="320">
+          <template #default="{ row }">
+            <div class="workspace-table-stack">
+              <div class="workspace-table-heading">{{ row.fileName || '未命名文件' }}</div>
+              <div class="workspace-table-subtext">文件 ID：{{ row.id || '--' }}</div>
+            </div>
+          </template>
         </el-table-column>
-        <el-table-column prop="charCount" label="字符数" width="90">
+        <el-table-column label="数据规模" min-width="220">
+          <template #default="{ row }">
+            <div class="workspace-inline-tags">
+              <span class="workspace-inline-tag workspace-inline-tag--soft">{{ formatCount(row.charCount) }} 字</span>
+              <span class="workspace-inline-tag workspace-inline-tag--soft">召回 {{ formatCount(row.recallCount) }}</span>
+            </div>
+          </template>
         </el-table-column>
-        <el-table-column prop="recallCount" label="召回次数" width="90">
+        <el-table-column label="状态" min-width="120">
+          <template #default="{ row }">
+            <span :class="['workspace-inline-tag', getStatusTagClass(row.status)]">{{ row.statusDesc || '未知状态' }}</span>
+          </template>
         </el-table-column>
-        <el-table-column prop="statusDesc" label="状态" width="80">
-        </el-table-column>
-        <el-table-column prop="createdTime" label="创建时间" width="170">
+        <el-table-column label="创建时间" min-width="170">
+          <template #default="{ row }">
+            <div class="workspace-table-note">{{ row.createdTime || '--' }}</div>
+          </template>
         </el-table-column>
         <el-table-column label="操作" min-width="280" class-name="op-col">
           <template v-slot:default="scope">
-            <div class="op-group">
-              <el-button type="primary" plain size="small" @click="openPreview(scope.row)">预览</el-button>
-              <el-button class="workspace-btn workspace-btn--ghost" size="small" @click="rebuildFile(scope.row)"
+            <div class="workspace-action-group">
+              <el-button class="workspace-btn workspace-btn--ghost workspace-btn--sm" @click="openPreview(scope.row)">预览</el-button>
+              <el-button class="workspace-btn workspace-btn--ghost workspace-btn--sm" @click="rebuildFile(scope.row)"
                 :disabled="scope.row.status !== 1">
                 重建索引
               </el-button>
-              <el-button type="primary" size="small" v-if="scope.row.status === 0"
+              <el-button type="primary" class="workspace-btn workspace-btn--primary workspace-btn--sm" v-if="scope.row.status === 0"
                 @click="updateStatus(scope.row.id,1)">启用
               </el-button>
-              <el-button type="primary" size="small" v-if="scope.row.status === 1"
+              <el-button class="workspace-btn workspace-btn--ghost workspace-btn--sm" v-if="scope.row.status === 1"
                 @click="updateStatus(scope.row.id,0)">禁用
               </el-button>
-              <el-button type="danger" size="small" :icon="Delete" @click="deleteById(scope.row.id)">删除
+              <el-button class="workspace-btn workspace-btn--ghost workspace-btn--danger workspace-btn--sm" :icon="Delete" @click="deleteById(scope.row.id)">删除
               </el-button>
             </div>
           </template>
@@ -83,92 +162,126 @@
       </el-table>
     </section>
     <!-- 分页   -->
-    <section class="mt-dot5 glass-panel pagination-panel">
+    <section class="mt-dot5 workspace-section-card pagination-panel">
       <el-pagination @size-change="handlePageSizeChange" @current-change="handlePageNowChange"
         :current-page="searchData.pageNow" :page-sizes="[10, 30, 50]" :page-size="searchData.pageSize"
         layout="total, sizes, prev, pager, next, jumper" :total="tableData.total">
       </el-pagination>
     </section>
 
-    <el-dialog v-model="previewDialogVisible" title="文件预览" width="920px" class="file-preview-dialog">
-      <section class="preview-shell">
-        <section class="preview-meta">
-          <div class="preview-chip">文件：{{ previewData.fileName || '-' }}</div>
-          <div class="preview-chip">字符数：{{ previewData.charCount ?? '-' }}</div>
-          <div class="preview-chip">状态：{{ previewData.statusDesc || previewData.status || '-' }}</div>
-          <div class="preview-chip">切分后 chunk：{{ previewData.chunkCount ?? 0 }}</div>
+    <el-dialog v-model="previewDialogVisible" title="文件预览" width="920px" class="workspace-form-dialog workspace-preview-dialog">
+      <div class="dialog-intro">
+        先确认文件原文、切分规则和 chunk 预览是否自然，再决定要不要调整规则或重建索引。
+      </div>
+      <section class="workspace-dialog-tip-panel preview-dialog-tip">
+        如果当前回答不稳定，优先看 chunk 是否过粗、过碎或语义断裂；如果切分正常，再考虑回到资料内容本身做补充或清理。
+      </section>
+      <section class="workspace-preview-shell">
+        <section class="workspace-info-card workspace-info-card--flush preview-info-card">
+          <div class="workspace-info-grid">
+            <div class="workspace-info-item workspace-info-item--full">
+              <div class="workspace-info-label">文件名称</div>
+              <div class="workspace-info-value">{{ previewData.fileName || '-' }}</div>
+            </div>
+            <div class="workspace-info-item">
+              <div class="workspace-info-label">字符数</div>
+              <div class="workspace-info-value">{{ previewData.charCount ?? '-' }}</div>
+            </div>
+            <div class="workspace-info-item">
+              <div class="workspace-info-label">状态</div>
+              <div class="workspace-info-value">{{ previewData.statusDesc || previewData.status || '-' }}</div>
+            </div>
+            <div class="workspace-info-item">
+              <div class="workspace-info-label">切分后 chunk</div>
+              <div class="workspace-info-value">{{ previewData.chunkCount ?? 0 }}</div>
+            </div>
+            <div class="workspace-info-item">
+              <div class="workspace-info-label">当前预览模式</div>
+              <div class="workspace-info-value">{{ previewTab === 'content' ? '原文预览' : '切分预览' }}</div>
+            </div>
+          </div>
         </section>
 
-        <section class="preview-summary">
-          <div class="preview-summary-copy">
-            <div class="preview-summary-title">当前切分规则</div>
-            <div class="preview-summary-desc">
+        <section class="workspace-info-card workspace-info-card--flush preview-summary-panel">
+          <div class="preview-summary-copy workspace-section-copy">
+            <div class="preview-summary-title workspace-section-title">当前切分规则</div>
+            <div class="preview-summary-desc workspace-section-desc">
               先看切出来的段落顺不顺，再决定要不要调规则。
             </div>
           </div>
-          <div class="preview-config-grid">
-            <div class="preview-config-card">
-              <span class="preview-config-label">切分策略</span>
-              <strong class="preview-config-value">{{ formatSplitStrategy(previewData.splitConfig?.strategy) }}</strong>
+          <div class="preview-config-grid workspace-spec-grid workspace-spec-grid--4">
+            <div class="preview-config-card workspace-spec-card">
+              <span class="preview-config-label workspace-spec-label">切分策略</span>
+              <strong class="preview-config-value workspace-spec-value">{{ formatSplitStrategy(previewData.splitConfig?.strategy) }}</strong>
             </div>
-            <div class="preview-config-card">
-              <span class="preview-config-label">chunk 大小</span>
-              <strong class="preview-config-value">{{ previewData.splitConfig?.chunkSize ?? '-' }}</strong>
+            <div class="preview-config-card workspace-spec-card">
+              <span class="preview-config-label workspace-spec-label">chunk 大小</span>
+              <strong class="preview-config-value workspace-spec-value">{{ previewData.splitConfig?.chunkSize ?? '-' }}</strong>
             </div>
-            <div class="preview-config-card">
-              <span class="preview-config-label">语义段长度上限</span>
-              <strong class="preview-config-value">{{ previewData.splitConfig?.semanticSectionMaxChars ?? '-' }}</strong>
+            <div class="preview-config-card workspace-spec-card">
+              <span class="preview-config-label workspace-spec-label">语义段长度上限</span>
+              <strong class="preview-config-value workspace-spec-value">{{ previewData.splitConfig?.semanticSectionMaxChars ?? '-' }}</strong>
             </div>
-            <div class="preview-config-card">
-              <span class="preview-config-label">最小 chunk</span>
-              <strong class="preview-config-value">{{ previewData.splitConfig?.minChunkSizeChars ?? '-' }}</strong>
+            <div class="preview-config-card workspace-spec-card">
+              <span class="preview-config-label workspace-spec-label">最小 chunk</span>
+              <strong class="preview-config-value workspace-spec-value">{{ previewData.splitConfig?.minChunkSizeChars ?? '-' }}</strong>
             </div>
-            <div class="preview-config-card">
-              <span class="preview-config-label">最小保留长度</span>
-              <strong class="preview-config-value">{{ previewData.splitConfig?.minChunkLengthToEmbed ?? '-' }}</strong>
+            <div class="preview-config-card workspace-spec-card">
+              <span class="preview-config-label workspace-spec-label">最小保留长度</span>
+              <strong class="preview-config-value workspace-spec-value">{{ previewData.splitConfig?.minChunkLengthToEmbed ?? '-' }}</strong>
             </div>
-            <div class="preview-config-card">
-              <span class="preview-config-label">最大 chunk 数</span>
-              <strong class="preview-config-value">{{ previewData.splitConfig?.maxNumChunks ?? '-' }}</strong>
+            <div class="preview-config-card workspace-spec-card">
+              <span class="preview-config-label workspace-spec-label">最大 chunk 数</span>
+              <strong class="preview-config-value workspace-spec-value">{{ previewData.splitConfig?.maxNumChunks ?? '-' }}</strong>
             </div>
-            <div class="preview-config-card">
-              <span class="preview-config-label">保留分隔符</span>
-              <strong class="preview-config-value">{{ previewData.splitConfig?.keepSeparator ? '是' : '否' }}</strong>
+            <div class="preview-config-card workspace-spec-card">
+              <span class="preview-config-label workspace-spec-label">保留分隔符</span>
+              <strong class="preview-config-value workspace-spec-value">{{ previewData.splitConfig?.keepSeparator ? '是' : '否' }}</strong>
             </div>
-            <div class="preview-config-card">
-              <span class="preview-config-label">预览 chunk 数</span>
-              <strong class="preview-config-value">{{ previewData.splitConfig?.previewChunkLimit ?? '-' }}</strong>
+            <div class="preview-config-card workspace-spec-card">
+              <span class="preview-config-label workspace-spec-label">预览 chunk 数</span>
+              <strong class="preview-config-value workspace-spec-value">{{ previewData.splitConfig?.previewChunkLimit ?? '-' }}</strong>
             </div>
           </div>
         </section>
 
-        <section class="preview-playground">
-          <div class="preview-playground-copy">
-            <div class="preview-summary-title">切分试算</div>
-            <div class="preview-summary-desc">
+        <section class="workspace-preview-playground">
+          <div class="workspace-section-copy">
+            <div class="preview-summary-title workspace-section-title">切分试算</div>
+            <div class="preview-summary-desc workspace-section-desc">
               这里只是试算。满意后再重建索引生效。
             </div>
           </div>
-          <div class="preview-playground-grid">
-            <el-select v-model="previewDraft.strategy" style="width: 140px">
-              <el-option label="语义优先" value="semantic" />
-              <el-option label="纯 Token" value="token" />
-            </el-select>
-            <el-input-number v-model="previewDraft.chunkSize" :min="100" :max="4000" :step="50" controls-position="right" />
-            <el-input-number v-model="previewDraft.minChunkSizeChars" :min="50" :max="2000" :step="50" controls-position="right" />
-            <el-input-number v-model="previewDraft.semanticSectionMaxChars" :min="100" :max="5000" :step="100" controls-position="right" />
-            <el-input-number v-model="previewDraft.previewChunkLimit" :min="1" :max="30" controls-position="right" />
-            <el-switch v-model="previewDraft.keepSeparator" inline-prompt active-text="保留分隔符" inactive-text="移除分隔符" />
+          <div class="workspace-preview-grid workspace-preview-grid--3 preview-draft-grid">
+            <div class="workspace-preview-field-card">
+              <span class="workspace-preview-field-label">切分策略</span>
+              <el-select v-model="previewDraft.strategy">
+                <el-option label="语义优先" value="semantic" />
+                <el-option label="纯 Token" value="token" />
+              </el-select>
+            </div>
+            <div class="workspace-preview-field-card">
+              <span class="workspace-preview-field-label">chunk 大小</span>
+              <el-input-number v-model="previewDraft.chunkSize" :min="100" :max="4000" :step="50" controls-position="right" />
+            </div>
+            <div class="workspace-preview-field-card">
+              <span class="workspace-preview-field-label">最小 chunk</span>
+              <el-input-number v-model="previewDraft.minChunkSizeChars" :min="50" :max="2000" :step="50" controls-position="right" />
+            </div>
+            <div class="workspace-preview-field-card">
+              <span class="workspace-preview-field-label">语义段上限</span>
+              <el-input-number v-model="previewDraft.semanticSectionMaxChars" :min="100" :max="5000" :step="100" controls-position="right" />
+            </div>
+            <div class="workspace-preview-field-card">
+              <span class="workspace-preview-field-label">预览条数</span>
+              <el-input-number v-model="previewDraft.previewChunkLimit" :min="1" :max="30" controls-position="right" />
+            </div>
+            <div class="workspace-preview-field-card">
+              <span class="workspace-preview-field-label">分隔符</span>
+              <el-switch v-model="previewDraft.keepSeparator" inline-prompt active-text="保留" inactive-text="移除" />
+            </div>
           </div>
-          <div class="preview-playground-labels">
-            <span>策略</span>
-            <span>chunk 大小</span>
-            <span>最小 chunk</span>
-            <span>语义段上限</span>
-            <span>预览条数</span>
-            <span>分隔符</span>
-          </div>
-          <div class="preview-playground-actions">
+          <div class="workspace-preview-actions">
             <el-button class="workspace-btn workspace-btn--ghost" @click="resetPreviewDraft">
               恢复当前规则
             </el-button>
@@ -178,23 +291,23 @@
           </div>
         </section>
 
-        <section class="preview-tabbar">
+        <section class="workspace-preview-tabs">
           <el-segmented v-model="previewTab" :options="previewTabOptions" />
         </section>
 
         <section v-if="previewTab === 'content'">
-          <pre class="preview-content">{{ previewData.content || '暂无内容' }}</pre>
+          <pre class="workspace-preview-content space-scrollbar">{{ previewData.content || '暂无内容' }}</pre>
         </section>
 
-        <section v-else class="chunk-list">
-          <article v-for="chunk in previewData.chunks" :key="chunk.index" class="chunk-card">
-            <div class="chunk-card-head">
-              <div class="chunk-card-title">Chunk {{ chunk.index }}</div>
-              <div class="chunk-card-meta">{{ chunk.length }} 字</div>
+        <section v-else class="workspace-result-list space-scrollbar">
+          <article v-for="chunk in previewData.chunks" :key="chunk.index" class="chunk-card workspace-result-card">
+            <div class="chunk-card-head workspace-result-card__head">
+              <div class="chunk-card-title workspace-result-card__title">Chunk {{ chunk.index }}</div>
+              <div class="chunk-card-meta workspace-result-card__meta">{{ chunk.length }} 字</div>
             </div>
-            <pre class="chunk-card-content">{{ chunk.content || '暂无内容' }}</pre>
+            <pre class="workspace-result-card__content workspace-result-card__content--scroll space-scrollbar">{{ chunk.content || '暂无内容' }}</pre>
           </article>
-          <div v-if="!previewData.chunks.length" class="chunk-empty-state">
+          <div v-if="!previewData.chunks.length" class="chunk-empty-state workspace-empty-panel">
             还没有切分结果，先确认文件是否读取成功。
           </div>
         </section>
@@ -271,6 +384,58 @@ const previewDraft = reactive({
 const hasLibId = computed(() => {
   return String(searchData.libId || '').trim().length > 0
 })
+
+const totalFileCountDisplay = computed(() => formatCount(tableData.total))
+const currentLibDisplay = computed(() => {
+  const currentLibName = String(tableData.rows[0]?.libName || '').trim()
+  return currentLibName || String(searchData.libId || '').trim() || '--'
+})
+const enabledFileCountDisplay = computed(() => {
+  return formatCount(tableData.rows.filter((row: { status?: number }) => Number(row.status) === 1).length)
+})
+const disabledFileCountDisplay = computed(() => {
+  return formatCount(tableData.rows.filter((row: { status?: number }) => Number(row.status) !== 1).length)
+})
+const currentPageCharCountDisplay = computed(() => {
+  const total = tableData.rows.reduce((sum: number, row: { charCount?: number | string }) => sum + Number(row.charCount || 0), 0)
+  return formatCount(total)
+})
+const currentPageRecallDisplay = computed(() => {
+  const total = tableData.rows.reduce((sum: number, row: { recallCount?: number | string }) => sum + Number(row.recallCount || 0), 0)
+  return formatCount(total)
+})
+const workflowSummary = computed(() => {
+  if (!tableData.rows.length) {
+    return '当前知识库还没有文档，可以先上传高质量资料，再回到这里查看切分、启用状态和召回情况。'
+  }
+  if (!tableData.rows.some((row: { status?: number }) => Number(row.status) === 1)) {
+    return '当前页还没有启用中的文档，知识库暂时无法稳定参与检索，建议先启用合适文件后再测试问答。'
+  }
+  return '当前知识库已经有可用文档，适合继续检查召回情况、试算切分规则，并按需重建索引。'
+})
+const uploadFocusCards = computed(() => [
+  {
+    title: enabledFileCountDisplay.value === '0' ? '优先确认关键文档是否误停用' : '启用中的文档适合继续看真实命中',
+    desc: enabledFileCountDisplay.value === '0'
+      ? '当前页还没有启用中的文档，知识库暂时无法稳定参与检索，建议先确认状态是否设置正确。'
+      : `当前已有 ${enabledFileCountDisplay.value} 个启用中文档，适合继续结合召回和预览结果判断内容是否真正可用。`,
+    tone: enabledFileCountDisplay.value === '0' ? 'warning' : 'success'
+  },
+  {
+    title: tableData.rows.length ? '高字符量文件值得优先回看切分策略' : '等待文档进入当前结果后再判断切分规模',
+    desc: tableData.rows.length
+      ? `当前结果累计字符量 ${currentPageCharCountDisplay.value}，如果回答效果不稳定，建议先预览 chunk 是否过粗、过碎或语义断裂。`
+      : '当前页还没有文件结果，建议先切换到目标知识库或上传资料后再继续检查。',
+    tone: tableData.rows.length ? 'warning' : 'success'
+  },
+  {
+    title: currentPageRecallDisplay.value === '0' ? '低召回文档适合优先复查命名与归属' : '可以继续结合召回热度安排处理顺序',
+    desc: currentPageRecallDisplay.value === '0'
+      ? '当前结果里的文件召回热度偏低，适合优先检查标题命名、知识库归属和切分规则是否合理。'
+      : `当前结果累计召回 ${currentPageRecallDisplay.value} 次，可以继续区分哪些文档高频命中、哪些长期沉默。`,
+    tone: currentPageRecallDisplay.value === '0' ? 'warning' : 'success'
+  }
+] as const)
 
 // 处理请求入参
 function handleLibId() {
@@ -401,6 +566,18 @@ function formatSplitStrategy(strategy?: string) {
   return strategy || '-'
 }
 
+function getStatusTagClass(status: number) {
+  return Number(status) === 1 ? 'workspace-inline-tag--success' : 'workspace-inline-tag--warning'
+}
+
+function formatCount(value: number | string) {
+  const num = Number(value || 0)
+  if (!Number.isFinite(num)) {
+    return '--'
+  }
+  return num.toLocaleString('zh-CN')
+}
+
 onMounted(() => {
   handleLibId()
   if (hasLibId.value) {
@@ -411,258 +588,99 @@ onMounted(() => {
 })
 </script>
 <style scoped>
-.table-panel,
-.pagination-panel {
-  padding: 18px;
-}
-
-.context-strip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-  padding: 0 2px;
-}
-
-.context-back {
-  padding-left: 0;
-  padding-right: 0;
-  font-weight: 600;
-}
-
-.context-note {
-  color: var(--space-text-soft);
-  font-size: 13px;
-}
-
-.preview-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.preview-shell {
-  display: flex;
-  flex-direction: column;
+.uploadfile-manage-page {
   gap: 16px;
 }
 
-.preview-chip {
-  padding: 8px 12px;
-  border: 1px solid var(--space-border);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--space-text);
-  font-size: 13px;
-  font-weight: 600;
+.upload-summary-panel,
+.upload-focus-panel {
+  padding: 18px 20px;
 }
 
-.preview-summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.8fr);
-  gap: 16px;
+.preview-dialog-tip {
+  margin-bottom: 12px;
+}
+
+.preview-summary-panel {
   padding: 18px;
-  border: 1px solid rgba(64, 158, 255, 0.14);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.96);
 }
 
-.preview-summary-title {
-  color: var(--space-text);
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.preview-summary-desc {
-  margin-top: 8px;
-  color: var(--space-text-soft);
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.preview-config-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.preview-config-card {
-  padding: 14px;
-  border: 1px solid rgba(64, 158, 255, 0.12);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(239, 246, 255, 0.98));
-}
-
-.preview-config-label {
-  display: block;
-  color: var(--space-text-soft);
-  font-size: 12px;
-}
-
-.preview-config-value {
-  display: block;
-  margin-top: 8px;
-  color: var(--space-primary-strong);
-  font-size: 19px;
-  line-height: 1.1;
-}
-
-.preview-tabbar {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.preview-playground {
-  padding: 18px;
-  border: 1px solid rgba(64, 158, 255, 0.14);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.96);
-}
-
-.preview-playground-grid,
-.preview-playground-labels {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-  align-items: center;
-}
-
-.preview-playground-grid {
+.upload-tip-grid {
   margin-top: 14px;
 }
 
-.preview-playground-labels {
-  margin-top: 8px;
-  color: var(--space-text-soft);
-  font-size: 12px;
-}
-
-.preview-playground-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-:deep(.file-preview-dialog .el-dialog__body) {
-  padding-top: 12px;
-}
-
-:deep(.preview-tabbar .el-segmented) {
-  padding: 4px;
-  border-radius: 999px;
-  background: rgba(226, 232, 240, 0.82);
-}
-
-:deep(.preview-tabbar .el-segmented__item) {
-  min-width: 112px;
-  font-weight: 600;
-}
-
-:deep(.preview-tabbar .el-segmented__item.is-selected) {
-  color: #fff;
-  background: linear-gradient(135deg, var(--space-primary-strong), #0f766e);
-}
-
-.preview-content {
-  max-height: 42vh;
-  overflow: auto;
-  padding: 16px;
-  border: 1px solid var(--space-border);
-  border-radius: 18px;
-  background: rgba(4, 10, 8, 0.78);
-  color: rgba(234, 246, 255, 0.9);
-  font-size: 13px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.chunk-list {
-  display: grid;
-  gap: 12px;
-  max-height: 42vh;
-  overflow: auto;
-  padding-right: 4px;
-}
-
-.chunk-card {
-  border: 1px solid rgba(64, 158, 255, 0.12);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.98);
+.upload-tip-card {
+  position: relative;
   overflow: hidden;
 }
 
-.chunk-card-head {
+.upload-tip-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 4px 0 0 4px;
+  background: rgba(148, 163, 184, 0.42);
+}
+
+.upload-tip-card--success::before {
+  background: linear-gradient(180deg, #12b76a 0%, #0f9f5f 100%);
+}
+
+.upload-tip-card--warning::before {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+}
+
+.upload-tip-card__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
+}
+
+.upload-tip-card__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: rgba(148, 163, 184, 0.9);
+}
+
+.upload-tip-card__dot--success {
+  background: #12b76a;
+  box-shadow: 0 0 0 4px rgba(18, 183, 106, 0.12);
+}
+
+.upload-tip-card__dot--warning {
+  background: #f59e0b;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14);
+}
+
+.chunk-card {
+  border-radius: 18px;
+}
+
+.chunk-card-head {
   gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(64, 158, 255, 0.1);
-  background: linear-gradient(180deg, rgba(247, 250, 255, 0.95), rgba(241, 245, 249, 0.95));
 }
 
 .chunk-card-title {
-  color: var(--space-text);
-  font-size: 14px;
-  font-weight: 700;
+  line-height: 1.5;
 }
 
 .chunk-card-meta {
-  color: var(--space-text-soft);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.chunk-card-content {
-  margin: 0;
-  padding: 16px;
-  max-height: 180px;
-  overflow: auto;
-  color: var(--space-text);
-  font-size: 13px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
-  background: rgba(255, 255, 255, 0.9);
+  line-height: 1.5;
 }
 
 .chunk-empty-state {
-  padding: 24px 18px;
-  border: 1px dashed rgba(148, 163, 184, 0.5);
-  border-radius: 18px;
-  color: var(--space-text-soft);
-  text-align: center;
-  background: rgba(248, 250, 252, 0.9);
+  line-height: 1.7;
 }
 
-.op-group {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
-  gap: 6px;
+.preview-draft-grid {
+  margin-top: 14px;
 }
 
 :deep(.op-col .cell) {
   overflow: visible;
-  white-space: nowrap;
-}
-
-@media (max-width: 900px) {
-  .preview-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .preview-config-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .preview-playground-grid,
-  .preview-playground-labels {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  white-space: normal;
 }
 </style>

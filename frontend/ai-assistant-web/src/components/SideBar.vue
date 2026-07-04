@@ -3,7 +3,6 @@
     <div class="side-content">
       <div class="side-head">
         <div class="side-copy" v-if="!collapsed">
-          <div class="side-eyebrow">Workspace</div>
           <div class="side-title">助手工作台</div>
           <div class="side-desc">统一管理账号、应用、知识库与问答记录。</div>
         </div>
@@ -19,10 +18,10 @@
         </button>
       </div>
       <!-- 菜单列表 -->
-      <el-scrollbar class="menu-scroll">
+      <el-scrollbar class="menu-scroll workspace-menu-scroll">
         <!-- collapse:是否水平折叠收起菜单 -->
         <el-menu @select="handleSelect" :default-active="defaultActivePath" :collapse="collapsed"
-          :collapse-transition="false" active-text-color="#ffd04b">
+          :collapse-transition="false" active-text-color="#635bff">
           <template v-for="menu in menuList" :key="menu.path">
             <MenuItem :item="menu">
             </MenuItem>
@@ -33,7 +32,7 @@
 
     <!-- 用户信息卡片 -->
     <div class="user-card" v-if="!collapsed">
-      <el-dropdown trigger="click" placement="top-start" popper-class="user-dropdown-popper">
+      <el-dropdown trigger="click" placement="top-start" popper-class="workspace-user-menu-popper">
         <div class="user-trigger">
           <div class="user-avatar">
             <el-avatar v-if="userStore.userInfo.avatarPath" :src="toAddressable(userStore.userInfo.avatarPath)" :size="38"></el-avatar>
@@ -52,11 +51,11 @@
         </div>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item v-if="isWorkspaceUser" @click="openUpdateProfileDialog">
+            <el-dropdown-item v-if="isWorkspaceUser" @click="openUserProfileDialog">
               <el-icon><User /></el-icon>
               修改个人信息
             </el-dropdown-item>
-            <el-dropdown-item v-if="isWorkspaceUser" @click="openUpdatePwd">
+            <el-dropdown-item v-if="isWorkspaceUser" @click="openUserPasswordDialog">
               <el-icon><Lock /></el-icon>
               修改密码
             </el-dropdown-item>
@@ -71,18 +70,18 @@
 
     <!-- 折叠状态的用户头像 -->
     <div class="user-card-collapsed" v-else>
-      <el-dropdown trigger="click" placement="right" popper-class="user-dropdown-popper">
+      <el-dropdown trigger="click" placement="right" popper-class="workspace-user-menu-popper">
         <div class="user-avatar-only">
           <el-avatar v-if="userStore.userInfo.avatarPath" :src="toAddressable(userStore.userInfo.avatarPath)" :size="34"></el-avatar>
           <el-avatar v-else :size="34">{{ userStore.userInfo.username?.charAt(0).toUpperCase() }}</el-avatar>
         </div>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item v-if="isWorkspaceUser" @click="openUpdateProfileDialog">
+            <el-dropdown-item v-if="isWorkspaceUser" @click="openUserProfileDialog">
               <el-icon><User /></el-icon>
               修改个人信息
             </el-dropdown-item>
-            <el-dropdown-item v-if="isWorkspaceUser" @click="openUpdatePwd">
+            <el-dropdown-item v-if="isWorkspaceUser" @click="openUserPasswordDialog">
               <el-icon><Lock /></el-icon>
               修改密码
             </el-dropdown-item>
@@ -95,55 +94,20 @@
       </el-dropdown>
     </div>
 
-    <!-- 修改个人信息对话框 -->
-    <el-dialog title="修改个人信息" v-model="updateProfileDiaVisible" @close="handleUpdateProfileDiaCancel" width="500px">
-      <el-form ref="updateProfileForm" :model="updateProfileFormData" :rules="updateProfileRules" label-width="120px">
-        <el-form-item label="用户编号:" prop="id">
-          <el-input v-model="updateProfileFormData.id" disabled></el-input>
-        </el-form-item>
-        <el-form-item label="用户名:" prop="username">
-          <el-input v-model="updateProfileFormData.username" disabled></el-input>
-        </el-form-item>
-        <el-form-item label="照片:" prop="avatarPath">
-          <FileUpload :file-list="uploadInfo.fileList" @file-list-change="handleFileListChange" ref="fileUploadRef">
-          </FileUpload>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="updateProfileDiaVisible = false">取消</el-button>
-        <el-button type="primary" @click="updateProfile()">确定</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 修改密码对话框 -->
-    <el-dialog title="修改密码" v-model="updatePwdDiaVisible" @close="handleUpdatePwdDiaCancel()" width="500px">
-      <el-form ref="updatePwdForm" :model="updatePwdFormData" :rules="updatePwdRules" label-width="120px">
-        <el-form-item label="原始密码" prop="originalPwd">
-          <el-input v-model="updatePwdFormData.originalPwd" type="password" placeholder="请输入原始密码" show-password></el-input>
-        </el-form-item>
-        <el-form-item label="新密码" prop="newPwd">
-          <el-input v-model="updatePwdFormData.newPwd" type="password" placeholder="请输入新密码" show-password></el-input>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="handleUpdatePwdDiaCancel()">取消</el-button>
-        <el-button type="primary" @click="updatePwd()">确定</el-button>
-      </template>
-    </el-dialog>
+    <UserAccountDialogs ref="accountDialogsRef" />
   </div>
 </template>
 <script setup name='SideBar' lang='ts'>
 import { reactive, ref, onMounted, watch, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router';
 import MenuItem from '@/components/MenuItem.vue'
-import FileUpload from '@/components/FileUpload.vue'
-import type { MenuItemDefine, MenuItemsDefine, UserRoutesDefine, AnyObjsDefine } from '@/types/common.d.ts';
+import type { MenuItemDefine, MenuItemsDefine, UserRoutesDefine } from '@/types/common.d.ts';
 import { useUserStore } from '@/store/useUserStore';
 import { Expand, Fold, User, Lock, SwitchButton, ArrowUp } from '@element-plus/icons-vue';
 import { clearAll } from '@/util/storageUtil';
-import { ElMessage, type UploadUserFile } from 'element-plus';
-import { modifyUserByIdApi, queryUserByIdApi, updatePwdApi } from '@/api/workspace/userApi';
 import { useResource } from '@/hooks/useResource';
+import UserAccountDialogs from '@/components/UserAccountDialogs.vue'
+import type { UserAccountDialogsExpose } from '@/components/UserAccountDialogs.vue'
 
 defineProps<{
   collapsed: boolean
@@ -164,39 +128,7 @@ let defaultActivePath = ref('')
 let menuList = reactive<MenuItemsDefine>([])
 
 // 用户相关状态
-let updateProfileForm = ref()
-let updatePwdForm = ref()
-let updatePwdDiaVisible = ref(false)
-let updateProfileDiaVisible = ref(false)
-let fileUploadRef = ref()
-
-let updatePwdFormData = reactive({
-  id: '',
-  originalPwd: '',
-  newPwd: '',
-})
-
-let updateProfileRules = reactive({})
-
-let updatePwdRules = reactive({
-  originalPwd: [
-    { required: true, message: "请输入原始密码", trigger: "blur" },
-  ],
-  newPwd: [
-    { required: true, message: "请输入新密码", trigger: "blur" },
-  ]
-})
-
-let updateProfileFormData = reactive({
-  id: '',
-  username: '',
-  avatarPath: ''
-})
-
-// 上传文件fileList
-let uploadInfo = reactive<{
-  fileList: UploadUserFile[]
-}>({ fileList: [] })
+const accountDialogsRef = ref<UserAccountDialogsExpose>()
 
 let isWorkspaceUser = computed<boolean>(() => {
   return userStore.userInfo.role === 'USER'
@@ -229,74 +161,12 @@ function handleLogout() {
   window.location.reload()
 }
 
-// 打开修改个人信息对话框
-function openUpdateProfileDialog() {
-  uploadInfo.fileList = []
-  queryUserByIdApi(userStore.userInfo.id).then(result => {
-    Object.assign(updateProfileFormData, result.data)
-    let addressablePath = toAddressable(result.data.avatarPath)
-    if (addressablePath) {
-      uploadInfo.fileList.push({ url: addressablePath, name: '' })
-    }
-  })
-  updateProfileDiaVisible.value = true
+function openUserProfileDialog() {
+  accountDialogsRef.value?.openUpdateProfileDialog()
 }
 
-// 打开修改密码对话框
-function openUpdatePwd() {
-  updatePwdFormData.id = userStore.userInfo.id
-  updatePwdDiaVisible.value = true
-}
-
-// 修改个人信息对话框关闭事件回调
-function handleUpdateProfileDiaCancel() {
-  uploadInfo.fileList = []
-  updateProfileForm.value.resetFields()
-  updateProfileDiaVisible.value = false
-}
-
-// 修改密码对话框关闭事件回调
-function handleUpdatePwdDiaCancel() {
-  updatePwdForm.value.resetFields()
-  updatePwdDiaVisible.value = false
-}
-
-// 提交修改个人信息
-function updateProfile() {
-  updateProfileForm.value.validate((valid: boolean) => {
-    if (!valid) return
-    modifyUserByIdApi(updateProfileFormData).then(result => {
-      ElMessage({ "message": result.msg, "type": "success" })
-      uploadInfo.fileList = []
-      userStore.$patch((state) => {
-        state.userInfo.avatarPath = updateProfileFormData.avatarPath
-      })
-      updateProfileForm.value.resetFields()
-      updateProfileDiaVisible.value = false
-    })
-  })
-}
-
-// 提交修改密码
-function updatePwd() {
-  updatePwdForm.value.validate((valid: boolean) => {
-    if (!valid) return
-    updatePwdApi(updatePwdFormData).then(result => {
-      ElMessage({ "message": result.msg, "type": "success" })
-      updatePwdForm.value.resetFields()
-      updatePwdDiaVisible.value = false
-    })
-  })
-}
-
-// 处理文件列表变更
-function handleFileListChange(uploadResultList: AnyObjsDefine) {
-  if (uploadResultList && uploadResultList.length > 0) {
-    updateProfileFormData.avatarPath = uploadResultList[0].relativePath
-  } else {
-    updateProfileFormData.avatarPath = ''
-  }
-  updateProfileForm.value.validateField('avatarPath');
+function openUserPasswordDialog() {
+  accountDialogsRef.value?.openUpdatePwd()
 }
 
 // 计算菜单列表
@@ -344,16 +214,28 @@ onMounted(() => {
 </script>
 <style scoped>
 .side-bar {
+  position: relative;
   height: 100%;
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 18px 14px 14px;
-  border: 1px solid rgba(227, 232, 241, 0.7);
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.96));
-  box-shadow: 0 18px 36px rgba(37, 48, 71, 0.07);
+  padding: 18px;
+  border: 1px solid var(--space-border);
+  border-radius: 20px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.96) 100%);
+  box-shadow: var(--space-card-shadow);
   transition: padding .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+
+.side-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(210, 221, 244, 0.46), transparent 68%);
+  pointer-events: none;
 }
 
 .side-bar.is-collapsed {
@@ -362,6 +244,8 @@ onMounted(() => {
 }
 
 .side-content {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -373,7 +257,9 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 6px 10px 16px;
+  padding: 4px 2px 18px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(230, 235, 242, 0.88);
   flex-shrink: 0;
 }
 
@@ -381,25 +267,17 @@ onMounted(() => {
   min-width: 0;
 }
 
-.side-eyebrow {
-  color: var(--space-primary);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
-
 .side-title {
-  margin-top: 8px;
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 18px;
+  font-weight: 700;
   color: var(--space-text);
 }
 
 .side-desc {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--space-text-soft);
-  line-height: 1.7;
-  font-size: 12px;
+  line-height: 1.65;
+  font-size: 13px;
 }
 
 .collapse-toggle {
@@ -409,17 +287,17 @@ onMounted(() => {
   width: 34px;
   height: 34px;
   flex-shrink: 0;
-  border: 1px solid rgba(217, 224, 236, 0.9);
+  border: 1px solid var(--space-border);
   border-radius: 12px;
-  background: rgba(248, 251, 255, 0.92);
+  background: #ffffff;
   color: var(--space-text-soft);
   cursor: pointer;
   transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease;
 }
 
 .collapse-toggle:hover {
-  border-color: rgba(64, 158, 255, 0.24);
-  background: rgba(64, 158, 255, 0.08);
+  border-color: rgba(99, 91, 255, 0.2);
+  background: rgba(239, 241, 255, 0.92);
   color: var(--space-primary);
   transform: translateY(-1px);
 }
@@ -434,17 +312,40 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  padding-top: 6px;
+}
+
+.workspace-menu-scroll :deep(.el-scrollbar__view) {
+  min-height: 100%;
+  padding-right: 2px;
+}
+
+.workspace-menu-scroll :deep(.el-scrollbar__bar.is-vertical) {
+  width: 8px;
+  right: -2px;
+  opacity: 1;
+  background: rgba(226, 232, 240, 0.42);
+  border-radius: 999px;
+}
+
+.workspace-menu-scroll :deep(.el-scrollbar__thumb) {
+  opacity: 1;
+  border-radius: 999px;
+  background: rgba(126, 138, 161, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.46);
 }
 
 .el-menu {
-  margin-top: 8px;
+  margin-top: 4px;
   border: 0;
   background: transparent;
+  display: grid;
+  gap: 4px;
 }
 
 .el-menu div,
 :deep(.el-sub-menu ul.el-menu div) {
-  border-bottom: 1px solid rgba(227, 232, 241, 0.7);
+  border-bottom: 0;
 }
 
 .el-menu div:last-child,
@@ -454,11 +355,32 @@ onMounted(() => {
 
 :deep(.el-sub-menu__title),
 :deep(.el-menu-item) {
-  height: 44px;
-  margin: 4px 0;
+  height: 46px;
+  margin: 0;
   padding-left: 14px !important;
   padding-right: 14px !important;
   font-weight: 600;
+  border-radius: 14px;
+  background: transparent !important;
+  color: var(--space-text-soft);
+  transition: background .18s ease, color .18s ease, box-shadow .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.workspace-menu-scroll :deep(.el-sub-menu__title .workspace-menu-node__label),
+.workspace-menu-scroll :deep(.el-menu-item .workspace-menu-node__label) {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.workspace-menu-scroll :deep(.el-sub-menu__title .workspace-menu-node__icon),
+.workspace-menu-scroll :deep(.el-menu-item .workspace-menu-node__icon) {
+  color: rgba(98, 115, 144, 0.88);
+  transition: color .18s ease, transform .18s ease;
+}
+
+.workspace-menu-scroll :deep(.el-sub-menu__title .workspace-menu-node__dot),
+.workspace-menu-scroll :deep(.el-menu-item .workspace-menu-node__dot) {
+  transition: background .18s ease, transform .18s ease;
 }
 
 :deep(.el-menu--collapse) {
@@ -477,13 +399,65 @@ onMounted(() => {
   margin-right: 0 !important;
 }
 
+:deep(.el-sub-menu .el-menu) {
+  margin: 6px 0 10px 12px;
+  padding: 8px;
+  border: 1px solid rgba(223, 230, 241, 0.9);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(250, 252, 255, 0.96), rgba(246, 249, 255, 0.92));
+}
+
+:deep(.el-sub-menu .el-menu .el-menu-item) {
+  height: 42px;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+  border-radius: 12px;
+}
+
+:deep(.el-sub-menu.is-opened > .el-sub-menu__title) {
+  color: var(--space-primary) !important;
+  background: linear-gradient(90deg, rgba(239, 241, 255, 0.96), rgba(245, 247, 255, 0.82)) !important;
+  box-shadow: inset 2px 0 0 var(--space-primary);
+}
+
+:deep(.el-sub-menu.is-opened > .el-sub-menu__title .workspace-menu-node__icon),
+:deep(.el-menu-item.is-active .workspace-menu-node__icon),
+:deep(.el-sub-menu__title:hover .workspace-menu-node__icon),
+:deep(.el-menu-item:hover .workspace-menu-node__icon) {
+  color: var(--space-primary) !important;
+}
+
+:deep(.el-sub-menu.is-opened > .el-sub-menu__title .workspace-menu-node__dot),
+:deep(.el-menu-item.is-active .workspace-menu-node__dot),
+:deep(.el-sub-menu__title:hover .workspace-menu-node__dot),
+:deep(.el-menu-item:hover .workspace-menu-node__dot) {
+  background: rgba(99, 91, 255, 0.78);
+  transform: scale(1.05);
+}
+
+:deep(.el-sub-menu__icon-arrow) {
+  margin-top: 0;
+  margin-right: 2px;
+  color: rgba(98, 115, 144, 0.78);
+  font-size: 13px;
+}
+
+:deep(.el-sub-menu.is-opened > .el-sub-menu__title .el-sub-menu__icon-arrow) {
+  color: var(--space-primary);
+}
+
 :deep(.el-sub-menu__title:hover),
 :deep(.el-menu-item:focus),
 :deep(.el-menu-item:hover),
 :deep(.el-menu-item.is-active) {
-  background: linear-gradient(90deg, rgba(64, 158, 255, 0.12), rgba(64, 158, 255, 0.04)) !important;
+  background: linear-gradient(90deg, rgba(239, 241, 255, 1), rgba(245, 247, 255, 0.82)) !important;
   color: var(--space-primary) !important;
-  box-shadow: inset 3px 0 0 var(--space-primary);
+  box-shadow: inset 2px 0 0 var(--space-primary);
+}
+
+.workspace-menu-scroll :deep(.el-menu-item:focus),
+.workspace-menu-scroll :deep(.el-sub-menu__title:focus-visible) {
+  outline: none;
 }
 
 .side-bar.is-collapsed :deep(.el-sub-menu__title:hover),
@@ -493,21 +467,27 @@ onMounted(() => {
   box-shadow: none;
 }
 
+.side-bar.is-collapsed :deep(.el-sub-menu .el-menu) {
+  margin-left: 0;
+}
+
 /* 用户卡片样式 */
 .user-card {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
   margin-top: 16px;
   padding: 14px;
-  border: 1px solid rgba(217, 224, 236, 0.6);
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 251, 255, 0.9) 100%);
-  box-shadow: 0 2px 8px rgba(37, 48, 71, 0.06);
+  border: 1px solid var(--space-border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(251, 252, 255, 0.98) 100%);
+  box-shadow: none;
   transition: all 0.2s ease;
 }
 
 .user-card:hover {
-  border-color: rgba(64, 158, 255, 0.3);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+  border-color: var(--space-border-strong);
+  box-shadow: var(--space-shadow);
 }
 
 .user-trigger {
@@ -556,17 +536,17 @@ onMounted(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  background: var(--space-success);
+  box-shadow: 0 0 0 2px rgba(18, 183, 106, 0.14);
   animation: pulse 2s ease-in-out infinite;
 }
 
 @keyframes pulse {
   0%, 100% {
-    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    box-shadow: 0 0 0 2px rgba(18, 183, 106, 0.14);
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+    box-shadow: 0 0 0 4px rgba(18, 183, 106, 0.08);
   }
 }
 
@@ -583,6 +563,8 @@ onMounted(() => {
 
 /* 折叠状态的用户头像 */
 .user-card-collapsed {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
   margin-top: 16px;
   display: flex;
@@ -591,15 +573,15 @@ onMounted(() => {
 
 .user-avatar-only {
   cursor: pointer;
-  border: 2px solid rgba(217, 224, 236, 0.6);
+  border: 2px solid rgba(230, 235, 242, 0.92);
   border-radius: 50%;
   transition: all 0.2s ease;
 }
 
 .user-avatar-only:hover {
-  border-color: rgba(64, 158, 255, 0.5);
+  border-color: rgba(99, 91, 255, 0.34);
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 10px 18px rgba(99, 91, 255, 0.12);
 }
 
 @media (max-width: 992px) {

@@ -11,53 +11,55 @@
         最近对话
       </div>
 
-      <el-scrollbar v-if="sessions.length" class="session-list session-list-scrollbar">
-        <div
-          v-for="session in sessions"
-          :key="session.id"
-          role="button"
-          tabindex="0"
-          :aria-disabled="interactionLocked ? 'true' : 'false'"
-          :class="[
-            'session-item',
-            session.id === activeSessionId ? 'session-item--active' : '',
-            interactionLocked ? 'session-item--locked' : ''
-          ]"
-          @click="selectSession(session.id)"
-          @keydown.enter.prevent="selectSession(session.id)"
-          @keydown.space.prevent="selectSession(session.id)"
-        >
-          <div class="session-main">
-            <div class="session-name">{{ session.title }}</div>
-            <div class="session-actions">
-              <button
-                type="button"
-                class="session-action-btn"
-                title="重命名"
-                :disabled="interactionLocked"
-                aria-label="重命名会话"
-                @click.stop="openRenameDialog(session)"
-              >
-                <el-icon><Edit /></el-icon>
-              </button>
-              <button
-                type="button"
-                class="session-action-btn session-action-btn--danger"
-                title="删除"
-                :disabled="interactionLocked"
-                aria-label="删除会话"
-                @click.stop="deleteSession(session.id)"
-              >
-                <el-icon><Delete /></el-icon>
-              </button>
+      <div v-if="sessions.length" class="session-list">
+        <el-scrollbar class="session-list-scrollbar space-el-scrollbar space-el-scrollbar--float-end" view-class="session-list-body">
+          <div
+            v-for="session in sessions"
+            :key="session.id"
+            role="button"
+            tabindex="0"
+            :aria-disabled="interactionLocked ? 'true' : 'false'"
+            :class="[
+              'session-item',
+              session.id === activeSessionId ? 'session-item--active' : '',
+              interactionLocked ? 'session-item--locked' : ''
+            ]"
+            @click="selectSession(session.id)"
+            @keydown.enter.prevent="selectSession(session.id)"
+            @keydown.space.prevent="selectSession(session.id)"
+          >
+            <div class="session-main">
+              <div class="session-name">{{ session.title }}</div>
+              <div class="session-actions">
+                <button
+                  type="button"
+                  class="session-action-btn"
+                  title="重命名"
+                  :disabled="interactionLocked"
+                  aria-label="重命名会话"
+                  @click.stop="openRenameDialog(session)"
+                >
+                  <el-icon><Edit /></el-icon>
+                </button>
+                <button
+                  type="button"
+                  class="session-action-btn session-action-btn--danger"
+                  title="删除"
+                  :disabled="interactionLocked"
+                  aria-label="删除会话"
+                  @click.stop="deleteSession(session.id)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </button>
+              </div>
+            </div>
+            <div class="session-meta">
+              <span>{{ formatSessionTime(session.updatedAt) }}</span>
+              <span>{{ session.messages.length }} 条消息</span>
             </div>
           </div>
-          <div class="session-meta">
-            <span>{{ formatSessionTime(session.updatedAt) }}</span>
-            <span>{{ session.messages.length }} 条消息</span>
-          </div>
-        </div>
-      </el-scrollbar>
+        </el-scrollbar>
+      </div>
 
       <div v-else class="history-empty">
         还没有历史对话，先开启一轮新的公开问答。
@@ -156,36 +158,27 @@ const {
 }
 
 .session-list {
+  --space-el-scrollbar-size: 12px;
+  --space-el-scrollbar-track: rgba(218, 226, 238, 1);
+  --space-el-scrollbar-thumb: rgba(93, 108, 134, 1);
+  --space-el-scrollbar-thumb-hover: rgba(72, 87, 114, 1);
+  --space-el-scrollbar-float-offset: 16px;
+  --space-el-scrollbar-view-padding-end: 10px;
   flex: 1;
   min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
 }
 
-.session-list-scrollbar :deep(.el-scrollbar__wrap) {
-  overflow-x: hidden;
+.session-list-scrollbar {
+  height: 100%;
 }
 
-.session-list-scrollbar :deep(.el-scrollbar__view) {
+.session-list-body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-right: 2px;
-}
-
-.session-list-scrollbar :deep(.el-scrollbar__bar.is-vertical) {
-  top: 4px;
-  right: 0;
-  width: 8px;
-  bottom: 4px;
-}
-
-.session-list-scrollbar :deep(.el-scrollbar__thumb) {
-  opacity: 1;
-  border-radius: 999px;
-  background: rgba(176, 188, 205, 0.98);
-}
-
-.session-list-scrollbar:hover :deep(.el-scrollbar__thumb) {
-  background: rgba(145, 160, 181, 1);
 }
 
 .session-item {

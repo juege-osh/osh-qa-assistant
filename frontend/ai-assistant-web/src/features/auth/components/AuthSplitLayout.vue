@@ -1,7 +1,7 @@
 <template>
   <div class="workspace-auth-page">
     <div :class="['workspace-auth-shell', reverse ? 'workspace-auth-shell--reverse' : '']">
-      <section class="workspace-auth-panel">
+      <section class="workspace-auth-panel workspace-auth-panel--form">
         <slot name="panel"></slot>
       </section>
       <section class="workspace-auth-showcase">

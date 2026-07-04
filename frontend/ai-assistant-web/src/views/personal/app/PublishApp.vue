@@ -11,27 +11,42 @@
       <div class="dialog-intro">
         设置好公开链接后，别人就能直接访问这个应用。
       </div>
-      <div class="publish-summary">
-        <div class="summary-item">
-          <span class="summary-label">应用 ID</span>
-          <span class="summary-value">{{ formData.appId || props.idToPublish }}</span>
-        </div>
-        <div class="summary-item">
-          <span class="summary-label">当前状态</span>
-          <el-tag :type="Number(formData.enabled) === 1 ? 'success' : 'info'">
-            {{ Number(formData.enabled) === 1 ? '已启用公开访问' : '未启用公开访问' }}
-          </el-tag>
-        </div>
-        <div class="summary-item summary-item--full">
-          <span class="summary-label">建议公开路径</span>
-          <div class="link-row">
-            <el-input :model-value="publishPath" readonly></el-input>
-            <el-button class="workspace-btn workspace-btn--ghost" :disabled="!formData.slug" @click="copyPublishPath">
-              复制路径
-            </el-button>
+      <section class="workspace-info-card workspace-dialog-summary-card">
+        <div class="workspace-info-grid">
+          <div class="workspace-info-item">
+            <div class="workspace-info-label">应用 ID</div>
+            <div class="workspace-info-value workspace-info-value--mono">{{ formData.appId || props.idToPublish }}</div>
+          </div>
+          <div class="workspace-info-item">
+            <div class="workspace-info-label">当前状态</div>
+            <div class="workspace-info-value">{{ Number(formData.enabled) === 1 ? '已启用公开访问' : '未启用公开访问' }}</div>
+          </div>
+          <div class="workspace-info-item">
+            <div class="workspace-info-label">访问方式</div>
+            <div class="workspace-info-value">{{ formData.accessType === 'PASSWORD' ? '密码访问' : '公开访问' }}</div>
+          </div>
+          <div class="workspace-info-item workspace-info-item--full">
+            <div class="workspace-info-label">建议公开路径</div>
+            <div class="publish-link-row">
+              <span class="workspace-table-code publish-path-code">{{ publishPath }}</span>
+              <el-button class="workspace-btn workspace-btn--ghost" :disabled="!formData.slug" @click="copyPublishPath">
+                复制路径
+              </el-button>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
+      <section class="workspace-dialog-tip-panel">
+        公开访问适合低门槛演示和外部直达；如果需要控制访问范围，优先切到密码访问，并把密码通过业务侧渠道单独发给目标用户。
+      </section>
+      <section class="workspace-info-card workspace-dialog-summary-card">
+        <div class="workspace-tip-grid">
+          <article v-for="item in publishFocusCards" :key="item.title" class="workspace-tip-card">
+            <div class="workspace-tip-card__title">{{ item.title }}</div>
+            <div class="workspace-tip-card__desc">{{ item.desc }}</div>
+          </article>
+        </div>
+      </section>
       <el-form
         ref="publishForm"
         :model="formData"
@@ -39,8 +54,8 @@
         class="publish-form"
         label-position="top"
       >
-        <div class="form-grid">
-          <el-form-item label="是否启用公开访问" prop="enabled" class="field-span-2">
+        <div class="workspace-form-grid workspace-form-grid--single">
+          <el-form-item label="是否启用公开访问" prop="enabled" class="workspace-form-span-2">
             <el-switch
               v-model="enabledSwitch"
               inline-prompt
@@ -49,12 +64,12 @@
             />
             <div class="field-help">关闭后，公开链接会暂停使用。</div>
           </el-form-item>
-          <el-form-item label="公开访问标识" prop="slug" class="field-span-2">
+          <el-form-item label="公开访问标识" prop="slug" class="workspace-form-span-2">
             <el-input v-model="formData.slug" maxlength="100" show-word-limit placeholder="例如：pipeline-helper"></el-input>
             <div class="field-help">只允许字母、数字、下划线和中划线，长度 3-100 位。</div>
           </el-form-item>
-          <el-form-item label="访问方式" prop="accessType" class="field-span-2">
-            <el-radio-group v-model="formData.accessType" class="radio-group">
+          <el-form-item label="访问方式" prop="accessType" class="workspace-form-span-2">
+            <el-radio-group v-model="formData.accessType" class="workspace-radio-group">
               <el-radio label="PUBLIC" border>公开访问</el-radio>
               <el-radio label="PASSWORD" border>密码访问</el-radio>
             </el-radio-group>
@@ -63,7 +78,7 @@
             v-if="formData.accessType === 'PASSWORD'"
             label="访问密码"
             prop="accessPassword"
-            class="field-span-2"
+            class="workspace-form-span-2"
           >
             <el-input
               v-model="formData.accessPassword"
@@ -79,7 +94,7 @@
         </div>
       </el-form>
       <template #footer>
-        <div class="dialog-footer publish-dialog-footer">
+        <div class="workspace-dialog-footer">
           <el-button class="workspace-btn workspace-btn--ghost" @click="handleCancel">取消</el-button>
           <el-button
             class="workspace-btn workspace-btn--ghost"
@@ -134,6 +149,26 @@ const publishPath = computed(() => {
   }
   return `${window.location.origin}/#/public/app/${slug}`
 })
+const publishFocusCards = computed(() => [
+  {
+    title: Number(formData.enabled) === 1 ? '当前已经启用公开访问' : '当前公开访问仍然关闭',
+    desc: Number(formData.enabled) === 1
+      ? '保存后会继续沿用这个公开入口，适合在演示、分享和外部直达场景里使用。'
+      : '关闭状态下外部无法直接访问，适合还在调整内容、提示词或访问策略的阶段。'
+  },
+  {
+    title: formData.accessType === 'PASSWORD' ? '密码访问更适合小范围受控分享' : '公开访问更适合低门槛直达体验',
+    desc: formData.accessType === 'PASSWORD'
+      ? (formData.hasPassword ? '当前已存在访问密码，留空就继续沿用旧密码。' : '首次启用密码访问时，需要先设置一组外部访问密码。')
+      : '适合无需单独发密码的演示、推广或临时协作场景，但公开范围会更广。'
+  },
+  {
+    title: formData.slug ? '建议先确认公开标识是否易于识别' : '还需要补一个可读的公开标识',
+    desc: formData.slug
+      ? `当前公开路径会使用「${formData.slug}」，建议保持简短、清晰，方便后续分享和记忆。`
+      : '公开标识会直接出现在访问路径里，建议使用简短且能体现应用用途的英文标识。'
+  }
+])
 
 const rules = reactive({
   slug: [
@@ -240,132 +275,16 @@ async function copyPublishPath() {
 </script>
 
 <style scoped>
-:deep(.publish-form-dialog) {
-  border-radius: 24px !important;
-  overflow: hidden;
-}
-
-:deep(.publish-form-dialog .el-dialog__header) {
-  margin-right: 0;
-  padding: 24px 26px 10px;
-}
-
-:deep(.publish-form-dialog .el-dialog__body) {
-  padding: 0 26px 4px;
-}
-
-:deep(.publish-form-dialog .el-dialog__footer) {
-  padding: 10px 26px 22px;
-}
-
-:deep(.publish-form .el-form-item) {
-  margin-bottom: 18px;
-}
-
-:deep(.publish-form .el-form-item__label) {
-  padding-bottom: 8px;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-:deep(.publish-form .el-input__wrapper) {
-  min-height: 44px;
-}
-
-:deep(.publish-form .el-input__inner) {
-  font-size: 15px;
-}
-
-:deep(.publish-form .el-radio.is-bordered) {
-  min-height: 44px;
-  margin: 0;
-  padding: 0 16px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.92);
-}
-
-.dialog-intro {
-  margin-bottom: 16px;
-  color: var(--space-text-soft);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.publish-summary {
-  margin-bottom: 18px;
-  padding: 16px 18px;
-  border: 1px solid var(--space-border);
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(249, 250, 251, 0.96), rgba(244, 247, 250, 0.92));
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 16px;
-}
-
-.summary-item {
+.publish-link-row {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.summary-item--full {
-  grid-column: 1 / -1;
-}
-
-.summary-label {
-  color: var(--space-text-soft);
-  font-size: 12px;
-}
-
-.summary-value {
-  color: var(--space-text);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.link-row {
-  display: flex;
-  gap: 10px;
   align-items: center;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-}
-
-.field-span-2 {
-  grid-column: 1 / -1;
-}
-
-.field-help {
-  margin-top: 6px;
-  color: var(--space-text-soft);
-  font-size: 12px;
-  line-height: 1.55;
-}
-
-.radio-group {
-  display: flex;
-  flex-wrap: wrap;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
-.publish-dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-@media (max-width: 900px) {
-  .publish-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .link-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
+.publish-path-code {
+  flex: 1;
+  min-width: min(100%, 320px);
+  justify-content: flex-start;
 }
 </style>
