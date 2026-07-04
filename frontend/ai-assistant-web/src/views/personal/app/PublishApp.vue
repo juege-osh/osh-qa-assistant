@@ -36,17 +36,6 @@
           </div>
         </div>
       </section>
-      <section class="workspace-dialog-tip-panel">
-        公开访问适合低门槛演示和外部直达；如果需要控制访问范围，优先切到密码访问，并把密码通过业务侧渠道单独发给目标用户。
-      </section>
-      <section class="workspace-info-card workspace-dialog-summary-card">
-        <div class="workspace-tip-grid">
-          <article v-for="item in publishFocusCards" :key="item.title" class="workspace-tip-card">
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-            <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-          </article>
-        </div>
-      </section>
       <el-form
         ref="publishForm"
         :model="formData"
@@ -149,26 +138,6 @@ const publishPath = computed(() => {
   }
   return `${window.location.origin}/#/public/app/${slug}`
 })
-const publishFocusCards = computed(() => [
-  {
-    title: Number(formData.enabled) === 1 ? '当前已经启用公开访问' : '当前公开访问仍然关闭',
-    desc: Number(formData.enabled) === 1
-      ? '保存后会继续沿用这个公开入口，适合在演示、分享和外部直达场景里使用。'
-      : '关闭状态下外部无法直接访问，适合还在调整内容、提示词或访问策略的阶段。'
-  },
-  {
-    title: formData.accessType === 'PASSWORD' ? '密码访问更适合小范围受控分享' : '公开访问更适合低门槛直达体验',
-    desc: formData.accessType === 'PASSWORD'
-      ? (formData.hasPassword ? '当前已存在访问密码，留空就继续沿用旧密码。' : '首次启用密码访问时，需要先设置一组外部访问密码。')
-      : '适合无需单独发密码的演示、推广或临时协作场景，但公开范围会更广。'
-  },
-  {
-    title: formData.slug ? '建议先确认公开标识是否易于识别' : '还需要补一个可读的公开标识',
-    desc: formData.slug
-      ? `当前公开路径会使用「${formData.slug}」，建议保持简短、清晰，方便后续分享和记忆。`
-      : '公开标识会直接出现在访问路径里，建议使用简短且能体现应用用途的英文标识。'
-  }
-])
 
 const rules = reactive({
   slug: [

@@ -48,15 +48,6 @@
       </section>
     </section>
 
-    <section class="workspace-section-card app-summary-panel">
-      <div class="panel-title">应用建议</div>
-      <div class="summary-list">
-        <div class="summary-item">{{ workflowSummary }}</div>
-        <div class="summary-item">还没绑定知识库的应用也可以先做界面和对话链路测试，适合早期验证交互与基础能力。</div>
-        <div class="summary-item">如果知识库已经绑定但回答效果仍然不稳，建议直接进入检索调试，先确认命中链路是否正常。</div>
-      </div>
-    </section>
-
     <section class="workspace-section-card app-focus-panel">
       <div class="workspace-overview-head">
         <div>
@@ -230,15 +221,6 @@ const currentResultCountDisplay = computed(() => currentRows.value.length)
 const boundAppCountDisplay = computed(() => currentRows.value.filter((row: { libId?: string | number | null }) => Boolean(row.libId)).length)
 const unboundAppCountDisplay = computed(() => currentRows.value.filter((row: { libId?: string | number | null }) => !row.libId).length)
 const customModelCountDisplay = computed(() => currentRows.value.filter((row: { chatModel?: string | null }) => Boolean(String(row.chatModel || '').trim())).length)
-const workflowSummary = computed(() => {
-  if (!currentRows.value.length) {
-    return '当前还没有应用，可以先创建一个轻量应用，再决定是否绑定知识库或直接开始对话测试。'
-  }
-  if (!currentRows.value.some((row: { libId?: string | number | null }) => Boolean(row.libId))) {
-    return '当前应用都还没有绑定知识库，更适合先验证对话链路和页面体验，再逐步补充知识内容。'
-  }
-  return '当前已经有应用接入知识库，适合继续通过开始聊天和检索调试来验证回答效果是否稳定。'
-})
 const appFocusCards = computed(() => [
   {
     title: boundAppCountDisplay.value === 0 ? '优先补齐知识库绑定关系' : '已绑定应用可以继续验证回答效果',

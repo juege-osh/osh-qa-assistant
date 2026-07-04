@@ -8,7 +8,7 @@
       <div class="workspace-context-actions">
         <span class="workspace-inline-tag workspace-inline-tag--soft">总会话 {{ totalChatCount }}</span>
         <span class="workspace-inline-tag workspace-inline-tag--soft">筛选后 {{ filteredChatCount }}</span>
-        <span class="workspace-inline-tag workspace-inline-tag--soft">最近更新 {{ latestUpdateTime }}</span>
+        <span class="workspace-inline-tag workspace-inline-tag--soft">最近更新 {{ latestUpdateLabel }}</span>
       </div>
     </section>
 
@@ -17,48 +17,21 @@
         <div>
           <div class="panel-title-row">
             <div class="panel-title panel-title--lg">会话管理</div>
-            <span class="workspace-status-pill workspace-status-pill--active">最近更新：{{ latestUpdateTime }}</span>
+            <span class="workspace-status-pill workspace-status-pill--active">最近更新：{{ latestUpdateLabel }}</span>
           </div>
           <div class="panel-desc workspace-panel-desc">按会话名称快速筛选，直接继续历史聊天，或先把关键会话整理命名。</div>
         </div>
-        <el-button type="primary" class="workspace-btn workspace-btn--primary" @click="addChat">
-          <el-icon><Plus /></el-icon>
-          新开聊天
-        </el-button>
-      </div>
-
-      <section class="workspace-section-card session-focus-panel">
-        <div class="workspace-overview-head">
-          <div>
-            <div class="workspace-section-title workspace-section-title--md">当前关注点</div>
-            <div class="workspace-panel-desc">先确认当前会话规模和筛选范围，再决定是继续历史对话、整理命名，还是直接新开一轮测试。</div>
-          </div>
+        <div class="session-head-actions">
+          <el-input v-model="sessionKeyword" class="session-search-input" placeholder="搜索会话名称" size="large" clearable>
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+          <el-button type="primary" class="workspace-btn workspace-btn--primary" @click="addChat">
+            <el-icon><Plus /></el-icon>
+            新开聊天
+          </el-button>
         </div>
-        <div class="workspace-tip-grid session-tip-grid">
-          <article
-            v-for="item in focusCards"
-            :key="item.title"
-            :class="['workspace-tip-card', 'session-tip-card', item.tone ? `session-tip-card--${item.tone}` : '']"
-          >
-            <div class="session-tip-card__head">
-              <span :class="['session-tip-card__dot', item.tone ? `session-tip-card__dot--${item.tone}` : '']"></span>
-              <div class="workspace-tip-card__title">{{ item.title }}</div>
-            </div>
-            <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-          </article>
-        </div>
-      </section>
-
-      <div class="session-search-panel workspace-filter-panel">
-        <div class="session-search-copy workspace-section-copy workspace-filter-panel__copy">
-          <div class="session-search-title workspace-section-title">快速筛选</div>
-          <div class="session-search-note workspace-section-desc">{{ filterSummary }}</div>
-        </div>
-        <el-input v-model="sessionKeyword" class="workspace-filter-panel__control" placeholder="搜索会话名称" size="large" clearable>
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
       </div>
 
       <div class="session-list-head workspace-overview-head">
@@ -72,7 +45,7 @@
         </div>
       </div>
 
-      <div class="session-grid workspace-selection-list workspace-selection-list--scroll space-scrollbar space-scrollbar--strong space-scrollbar--float-end">
+      <div class="session-grid workspace-selection-list workspace-selection-list--scroll space-scrollbar space-scrollbar--strong">
         <div v-for="session in filteredChats" :key="session.id" class="session-item workspace-selection-card" @click="openChat(session.id)">
           <div class="workspace-selection-card__main">
             <div class="session-name workspace-selection-card__title">{{ session.chatName }}</div>
@@ -164,15 +137,7 @@ const {
 const totalChatCount = computed(() => pageData.chats.length)
 const filteredChatCount = computed(() => filteredChats.value.length)
 const hasKeyword = computed(() => Boolean(sessionKeyword.value.trim()))
-const filterSummary = computed(() => {
-  if (!pageData.chats.length) {
-    return '当前还没有会话，创建后会自动进入列表。'
-  }
-  if (!hasKeyword.value) {
-    return `共 ${totalChatCount.value} 个会话，搜索结果会实时更新。`
-  }
-  return `关键词“${sessionKeyword.value.trim()}”命中 ${filteredChatCount.value} 个会话。`
-})
+const latestUpdateLabel = computed(() => latestUpdateTime.value || '暂无')
 const listSummary = computed(() => {
   if (!pageData.chats.length) {
     return '创建会话后会自动进入对话页，后续可以回到这里继续追问或整理命名。'
@@ -181,31 +146,6 @@ const listSummary = computed(() => {
     return `当前按“${sessionKeyword.value.trim()}”缩小到 ${filteredChatCount.value} 个会话，适合直接定位某个主题继续追问。`
   }
   return '按更新时间继续历史对话，也可以先把关键会话重命名，方便后续回看和整理。'
-})
-const focusCards = computed(() => {
-  return [
-    {
-      title: totalChatCount.value ? `当前已沉淀 ${totalChatCount.value} 个会话` : '当前还没有历史会话',
-      desc: totalChatCount.value
-        ? '如果要回看某轮测试，建议先按主题命名，再继续追问或导出整理。'
-        : '建议先发起一轮真实问题测试，后续会自动沉淀到这里，便于继续跟进。',
-      tone: totalChatCount.value ? 'success' : 'warning'
-    },
-    {
-      title: hasKeyword.value ? '当前正在按关键词缩小范围' : '当前展示全部会话',
-      desc: hasKeyword.value
-        ? `关键词“${sessionKeyword.value.trim()}”当前命中 ${filteredChatCount.value} 个会话，适合快速定位某个主题或业务场景。`
-        : '如果会话变多，可以直接按主题、问题名或业务场景搜索，减少来回翻找。',
-      tone: hasKeyword.value ? 'warning' : ''
-    },
-    {
-      title: pageData.chats.length ? '建议先继续最近会话或整理命名' : '建议先创建第一轮会话',
-      desc: pageData.chats.length
-        ? `最近更新于 ${latestUpdateTime.value}，可以继续历史对话，也可以先把关键会话重命名，方便后续回看。`
-        : '创建后会直接进入对话页，你可以马上开始测试回答质量、上下文衔接和流式返回。',
-      tone: pageData.chats.length ? 'success' : 'warning'
-    }
-  ] as const
 })
 </script>
 
@@ -222,61 +162,21 @@ const focusCards = computed(() => {
   min-height: 0;
 }
 
-.session-focus-panel {
-  padding: 18px 20px;
-}
-
-.session-tip-grid {
-  margin-top: 14px;
-}
-
 .session-list-head {
   align-items: center;
   gap: 16px;
 }
 
-.session-tip-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.session-tip-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  border-radius: 4px 0 0 4px;
-  background: rgba(148, 163, 184, 0.42);
-}
-
-.session-tip-card--success::before {
-  background: linear-gradient(180deg, #12b76a 0%, #0f9f5f 100%);
-}
-
-.session-tip-card--warning::before {
-  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
-}
-
-.session-tip-card__head {
+.session-head-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.session-tip-card__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.78);
-  flex-shrink: 0;
-}
-
-.session-tip-card__dot--success {
-  background: #12b76a;
-}
-
-.session-tip-card__dot--warning {
-  background: #f59e0b;
+.session-search-input {
+  width: min(360px, 100%);
 }
 
 .panel-title-row {
@@ -293,10 +193,28 @@ const focusCards = computed(() => {
   justify-content: space-between;
 }
 
+.session-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: minmax(132px, auto);
+  align-content: start;
+  min-height: 420px;
+  max-height: 62vh;
+  padding-right: 2px;
+}
+
 .session-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-top: 0;
+}
+
+.session-item {
+  min-height: 132px;
+}
+
+.session-grid .workspace-empty-state {
+  grid-column: 1 / -1;
   margin-top: 0;
 }
 
@@ -316,21 +234,33 @@ const focusCards = computed(() => {
 @media (max-width: 768px) {
   .panel-header,
   .session-list-head,
-  .session-item {
+  .session-item,
+  .session-head-actions {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .session-tip-grid {
-    grid-template-columns: 1fr;
   }
 
   .panel-title-row {
     align-items: flex-start;
   }
 
+  .session-search-input {
+    width: 100%;
+  }
+
+  .session-grid {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+
   .session-actions {
     justify-content: flex-end;
+  }
+}
+
+@media (max-width: 1200px) and (min-width: 769px) {
+  .session-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

@@ -48,15 +48,6 @@
       </section>
     </section>
 
-    <section class="workspace-section-card summary-panel knowledge-summary-panel">
-      <div class="panel-title">知识建议</div>
-      <div class="summary-list">
-        <div class="summary-item">{{ knowledgeWorkflowSummary }}</div>
-        <div class="summary-item">文档数量少但问题复杂时，通常先补资料比先调提示词更有效。</div>
-        <div class="summary-item">如果知识库已经绑定到应用，但回答仍然不稳，建议直接进入检索调试确认召回链路是否正常。</div>
-      </div>
-    </section>
-
     <section class="workspace-section-card knowledge-focus-panel">
       <div class="workspace-overview-head">
         <div>
@@ -603,15 +594,6 @@ const boundLibCountDisplay = computed(() => currentRows.value.filter((row: { app
 const unboundLibCountDisplay = computed(() => currentRows.value.filter((row: { appId?: string | number | null }) => !row.appId).length)
 const totalDocCountDisplay = computed(() => formatCount(currentRows.value.reduce((sum: number, row: { docCount?: number | string }) => sum + Number(row.docCount || 0), 0)))
 const totalCharCountDisplay = computed(() => formatCount(currentRows.value.reduce((sum: number, row: { charCount?: number | string }) => sum + Number(row.charCount || 0), 0)))
-const knowledgeWorkflowSummary = computed(() => {
-  if (!currentRows.value.length) {
-    return '当前还没有知识库，可以先创建一个基础知识库，把最核心的资料放进去，再继续绑定到应用。'
-  }
-  if (!currentRows.value.some((row: { appId?: string | number | null }) => Boolean(row.appId))) {
-    return '当前知识库还没有挂到应用上，更适合先完善资料和文档结构，再决定绑定到哪个应用里使用。'
-  }
-  return '当前已经有知识库接入应用，可以继续通过文档管理和检索调试来验证内容命中是否稳定。'
-})
 const knowledgeFocusCards = computed(() => [
   {
     title: boundLibCountDisplay.value === 0 ? '优先确认哪些知识库需要先挂到应用' : '已挂应用的知识库适合继续验证实际命中',
