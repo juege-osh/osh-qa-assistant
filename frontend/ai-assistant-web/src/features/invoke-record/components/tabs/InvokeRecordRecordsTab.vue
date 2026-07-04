@@ -1,27 +1,5 @@
 <template>
   <div class="tab-panel">
-    <section class="workspace-section-card records-focus-panel">
-      <div class="workspace-overview-head">
-        <div>
-          <div class="workspace-section-title workspace-section-title--md">当前记录重点</div>
-          <div class="workspace-panel-desc">先确认当前页记录规模和可操作动作，再决定是先导出、继续抽样，还是直接整理成验收条目。</div>
-        </div>
-      </div>
-      <div class="workspace-tip-grid records-tip-grid">
-        <article
-          v-for="item in recordFocusCards"
-          :key="item.title"
-          :class="['workspace-tip-card', 'records-tip-card', item.tone ? `records-tip-card--${item.tone}` : '']"
-        >
-          <div class="records-tip-card__head">
-            <span :class="['records-tip-card__dot', item.tone ? `records-tip-card__dot--${item.tone}` : '']"></span>
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-          </div>
-          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-        </article>
-      </div>
-    </section>
-
     <section class="workspace-section-card workspace-section-panel">
       <div class="workspace-section-head">
         <div>
@@ -206,31 +184,6 @@ const model = useInvokeRecordFeatureModel()
 const currentPageCount = computed(() => model.recordRows.length)
 const paginationTotalDisplay = computed(() => model.paginationTotal)
 const currentPageFailCount = computed(() => model.recordRows.filter((row: any) => Number(row.status) !== 1).length)
-const recordFocusCards = computed(() => {
-  return [
-    {
-      title: currentPageCount.value ? `当前页有 ${currentPageCount.value} 条记录` : '当前页暂无可查看记录',
-      desc: currentPageCount.value
-        ? `当前筛选结果共 ${paginationTotalDisplay.value} 条，适合先抽样看明细，再决定是否继续缩小范围。`
-        : '建议先回到上方筛选区调整条件，再重新进入记录列表查看原始样本。',
-      tone: currentPageCount.value ? 'success' : 'warning'
-    },
-    {
-      title: currentPageFailCount.value ? '当前页存在失败样本' : '当前页样本整体可用',
-      desc: currentPageFailCount.value
-        ? `当前页有 ${currentPageFailCount.value} 条失败记录，优先展开看失败原因、耗时和模型明细会更高效。`
-        : '当前页没有明显失败样本，可以更多关注回答质量、上下文衔接和长回答表现。',
-      tone: currentPageFailCount.value ? 'danger' : 'success'
-    },
-    {
-      title: currentPageCount.value ? '可以直接导出或转验收' : '先重新准备可用样本',
-      desc: currentPageCount.value
-        ? '当前页记录已经可以直接导出，或把有代表性的明细复制成验收条目继续整理。'
-        : '当记录重新出现后，可以先导出当前结果，再把关键样本整理进验收批次。',
-      tone: currentPageCount.value ? 'warning' : 'warning'
-    }
-  ] as const
-})
 
 function getStatusTagClass(status: number) {
   return Number(status) === 1 ? 'workspace-inline-tag--success' : 'workspace-inline-tag--danger'
@@ -247,7 +200,6 @@ function formatCostTime(value: number | string) {
 
 <style scoped>
 .tab-panel,
-.records-focus-panel,
 .table-panel,
 .pagination-panel {
   display: flex;
@@ -255,67 +207,10 @@ function formatCostTime(value: number | string) {
   gap: 12px;
 }
 
-.records-tip-grid {
-  margin-top: 14px;
-}
-
-.records-tip-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.records-tip-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  border-radius: 4px 0 0 4px;
-  background: rgba(148, 163, 184, 0.42);
-}
-
-.records-tip-card--success::before {
-  background: linear-gradient(180deg, #12b76a 0%, #0f9f5f 100%);
-}
-
-.records-tip-card--warning::before {
-  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
-}
-
-.records-tip-card--danger::before {
-  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-}
-
-.records-tip-card__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.records-tip-card__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.78);
-  flex-shrink: 0;
-}
-
-.records-tip-card__dot--success {
-  background: #12b76a;
-}
-
-.records-tip-card__dot--warning {
-  background: #f59e0b;
-}
-
-.records-tip-card__dot--danger {
-  background: #ef4444;
-}
-
 .records-summary-row {
   gap: 10px;
 }
 
-.records-focus-panel,
 .table-panel,
 .pagination-panel {
   padding: 18px;
@@ -342,8 +237,5 @@ function formatCostTime(value: number | string) {
     flex-direction: column;
   }
 
-  .records-tip-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

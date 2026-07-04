@@ -20,8 +20,8 @@
           先按名称缩小范围，再回看知识库绑定、模型配置和公开访问准备情况。
         </div>
       </div>
-      <div class="toolbar-actions workspace-toolbar-actions">
-        <el-form :model="searchData" :inline="true" class="workspace-toolbar-form">
+      <div class="toolbar-actions workspace-toolbar-actions app-toolbar-actions">
+        <el-form :model="searchData" :inline="true" class="workspace-toolbar-form app-toolbar-form">
           <el-form-item class="workspace-toolbar-field workspace-toolbar-field--lg">
             <el-input type="text" placeholder="按应用名称搜索" v-model="searchData.appName" clearable></el-input>
           </el-form-item>
@@ -302,6 +302,20 @@ watch(
   padding: 18px 20px;
 }
 
+.app-toolbar-actions {
+  flex: 0 1 auto;
+}
+
+.app-toolbar-form {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.app-toolbar-form .workspace-toolbar-field--lg {
+  flex: 0 1 320px;
+  min-width: 260px;
+}
+
 .workspace-resource-card__row--tight {
   flex-wrap: nowrap;
 }
@@ -334,6 +348,14 @@ watch(
 }
 
 @media (max-width: 640px) {
+  .app-toolbar-form {
+    flex-wrap: wrap;
+  }
+
+  .app-toolbar-form .workspace-toolbar-field--lg {
+    min-width: 0;
+  }
+
   .workspace-resource-card__row--tight {
     flex-wrap: wrap;
   }

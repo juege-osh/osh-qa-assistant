@@ -1,27 +1,5 @@
 <template>
   <div class="tab-panel">
-    <section class="workspace-section-card review-focus-panel">
-      <div class="workspace-overview-head">
-        <div>
-          <div class="review-title">当前复盘重点</div>
-          <div class="review-desc">先把当前聚焦、优先样本和待跟进分布看清楚，再决定继续缩样本还是直接整理任务。</div>
-        </div>
-      </div>
-      <div class="workspace-tip-grid review-tip-grid">
-        <article
-          v-for="item in reviewFocusCards"
-          :key="item.title"
-          :class="['workspace-tip-card', 'review-tip-card', item.tone ? `review-tip-card--${item.tone}` : '']"
-        >
-          <div class="review-tip-card__head">
-            <span :class="['review-tip-card__dot', item.tone ? `review-tip-card__dot--${item.tone}` : '']"></span>
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-          </div>
-          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-        </article>
-      </div>
-    </section>
-
     <section class="workspace-section-card review-panel">
       <div class="review-header">
         <div>
@@ -299,34 +277,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useInvokeRecordFeatureModel } from '../../composables/useInvokeRecordFeature'
 
 const model = useInvokeRecordFeatureModel()
-
-const reviewFocusCards = computed(() => {
-  return [
-    {
-      title: model.quickView === 'all' ? '当前正在查看全部复盘样本' : '当前已经缩小到重点样本',
-      desc: model.currentQuickViewDesc,
-      tone: model.quickView === 'fail' || model.quickView === 'followUp' ? 'danger' : model.quickView === 'slow' || model.quickView === 'long' ? 'warning' : 'success'
-    },
-    {
-      title: model.priorityReviewList.length ? `有 ${model.priorityReviewList.length} 条记录值得优先复盘` : '当前没有自动判定的重点样本',
-      desc: model.priorityReviewList.length
-        ? '建议优先看失败原因、慢请求和高风险标签聚集的记录，再决定是否纳入验收条目。'
-        : '可以继续抽样查看明细表，或先切到失败、慢请求等筛选条件重新缩小范围。',
-      tone: model.priorityReviewList.length ? 'warning' : 'success'
-    },
-    {
-      title: model.followUpCount ? `当前有 ${model.followUpCount} 条待跟进记录` : '当前没有待跟进项',
-      desc: model.followUpCount
-        ? `其中已归类 ${model.categorizedFollowUpCount} 条，适合继续整理成补知识、补切分、补提示词或补展示任务。`
-        : '如果复盘过程中发现需要后续处理的问题，可以先标记待跟进，再补充分类原因。',
-      tone: model.followUpCount ? 'danger' : 'success'
-    }
-  ] as const
-})
 
 function getStatusTagClass(status: number) {
   return Number(status) === 1 ? 'workspace-inline-tag--success' : 'workspace-inline-tag--danger'
@@ -353,71 +306,12 @@ function getReviewStatusClass(status: string) {
 
 <style scoped>
 .tab-panel,
-.review-focus-panel,
 .review-panel,
 .table-panel {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-
-.review-tip-grid {
-  margin-top: 14px;
-}
-
-.review-tip-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.review-tip-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  border-radius: 4px 0 0 4px;
-  background: rgba(148, 163, 184, 0.42);
-}
-
-.review-tip-card--success::before {
-  background: linear-gradient(180deg, #12b76a 0%, #0f9f5f 100%);
-}
-
-.review-tip-card--warning::before {
-  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
-}
-
-.review-tip-card--danger::before {
-  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-}
-
-.review-tip-card__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.review-tip-card__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.78);
-  flex-shrink: 0;
-}
-
-.review-tip-card__dot--success {
-  background: #12b76a;
-}
-
-.review-tip-card__dot--warning {
-  background: #f59e0b;
-}
-
-.review-tip-card__dot--danger {
-  background: #ef4444;
-}
-
-.review-focus-panel,
 .review-panel,
 .table-panel {
   padding: 16px;
@@ -601,14 +495,9 @@ function getReviewStatusClass(status: string) {
 }
 
 @media (max-width: 900px) {
-  .review-tip-grid,
   .review-header,
   .priority-card-head {
     flex-direction: column;
-  }
-
-  .review-tip-grid {
-    grid-template-columns: 1fr;
   }
 
   .review-badges,

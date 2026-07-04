@@ -159,10 +159,10 @@ export function createInvokeRecordFeatureModel() {
     observe: '日志字段不够、缺少关键观测、排障信息不完整',
     other: '暂时无法归入以上分类的问题'
   }
-  const tabOptions: Array<{ key: InvokeRecordTabKey; label: string; description: string }> = [
-    { key: 'records', label: '记录', description: '筛选、查看和导出调用记录。' },
-    { key: 'review', label: '复盘', description: '聚焦失败、慢请求和待跟进问题。' },
-    { key: 'acceptance', label: '验收批次', description: '保存、对比和复跑验收批次。' }
+  const tabOptions: Array<{ key: InvokeRecordTabKey; label: string }> = [
+    { key: 'records', label: '记录' },
+    { key: 'review', label: '复盘' },
+    { key: 'acceptance', label: '验收批次' }
   ]
 
   const overview = reactive<InvokeRecordOverview>({

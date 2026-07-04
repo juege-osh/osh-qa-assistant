@@ -21,8 +21,8 @@
           先按名称缩小范围，再回看文档规模、应用挂载和检索调试入口。
         </div>
       </div>
-      <div class="toolbar-actions workspace-toolbar-actions">
-        <el-form :model="searchData" :inline="true" class="workspace-toolbar-form">
+      <div class="toolbar-actions workspace-toolbar-actions knowledge-toolbar-actions">
+        <el-form :model="searchData" :inline="true" class="workspace-toolbar-form knowledge-toolbar-form">
           <el-form-item class="workspace-toolbar-field workspace-toolbar-field--md">
             <el-input type="text" placeholder="按知识库名称搜索" v-model="searchData.libName" clearable></el-input>
           </el-form-item>
@@ -1062,6 +1062,20 @@ function loadRecallSnapshots() {
   padding: 18px 20px;
 }
 
+.knowledge-toolbar-actions {
+  flex: 0 1 auto;
+}
+
+.knowledge-toolbar-form {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.knowledge-toolbar-form .workspace-toolbar-field--md {
+  flex: 0 1 320px;
+  min-width: 260px;
+}
+
 .card-list-panel {
   padding: 18px 20px;
 }
@@ -1370,6 +1384,14 @@ function loadRecallSnapshots() {
 }
 
 @media (max-width: 1100px) {
+  .knowledge-toolbar-form {
+    flex-wrap: wrap;
+  }
+
+  .knowledge-toolbar-form .workspace-toolbar-field--md {
+    min-width: 0;
+  }
+
   .recall-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
