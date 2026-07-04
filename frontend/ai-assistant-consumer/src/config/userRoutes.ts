@@ -27,7 +27,7 @@ const userRoutes: UserRoutesDefine = [
             path: "manage",
             componentPath: "personal/invokerecord/InvokeRecordManage",
             meta: {
-              authorityName: "调用记录管理",
+              authorityName: "调用记录",
               showInMenu: true,
               icon: ""
             }

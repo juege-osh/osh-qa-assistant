@@ -399,6 +399,15 @@ onMounted(() => {
   margin-right: 0 !important;
 }
 
+.side-bar.is-collapsed :deep(.workspace-menu-node__label) {
+  display: none;
+}
+
+.side-bar.is-collapsed :deep(.workspace-menu-node__main) {
+  justify-content: center;
+  gap: 0;
+}
+
 :deep(.el-sub-menu .el-menu) {
   margin: 6px 0 10px 12px;
   padding: 8px;

@@ -57,7 +57,7 @@ const staticRoutes = [
                 path: "manage",
                 component: () => import("@/views/personal/invokerecord/InvokeRecordManage.vue"),
                 meta: {
-                  authorityName: "调用记录管理",
+                  authorityName: "调用记录",
                 }
               }
             ]

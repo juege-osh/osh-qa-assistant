@@ -56,7 +56,7 @@ const staticRoutes = [
           {
             path: 'invokeRecord/manage',
             component: () => import('@/views/admin/invokerecord/InvokeRecordManage.vue'),
-            meta: { authorityName: '调用记录管理', role: 'ADMIN' }
+            meta: { authorityName: '调用记录', role: 'ADMIN' }
           },
           {
             path: 'app/manage',
@@ -92,7 +92,7 @@ const staticRoutes = [
           {
             path: 'invokeRecord/manage',
             component: () => import('@/views/personal/invokerecord/InvokeRecordManage.vue'),
-            meta: { authorityName: '调用记录管理', role: 'USER' }
+            meta: { authorityName: '调用记录', role: 'USER' }
           },
           {
             path: 'app/manage',
