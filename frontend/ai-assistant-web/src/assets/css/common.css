@@ -3800,6 +3800,14 @@ a {
   grid-template-columns: minmax(360px, 430px) minmax(0, 1.05fr);
 }
 
+.workspace-auth-shell--panel-right .workspace-auth-showcase {
+  order: 1;
+}
+
+.workspace-auth-shell--panel-right .workspace-auth-panel {
+  order: 2;
+}
+
 .workspace-auth-panel,
 .workspace-auth-showcase {
   border-radius: 24px;
@@ -3824,6 +3832,10 @@ a {
 
 .workspace-auth-copy {
   max-width: 52ch;
+}
+
+.workspace-auth-copy--rag {
+  max-width: 60ch;
 }
 
 .workspace-auth-kicker,
@@ -3917,6 +3929,139 @@ a {
   color: var(--space-text-soft);
   line-height: 1.65;
   font-size: 13px;
+}
+
+.workspace-auth-rag-board {
+  position: relative;
+  overflow: hidden;
+  margin-top: 24px;
+  padding: 22px;
+  border: 1px solid rgba(212, 221, 235, 0.96);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(99, 91, 255, 0.12), transparent 34%),
+    radial-gradient(circle at 85% 14%, rgba(56, 189, 248, 0.16), transparent 24%),
+    linear-gradient(135deg, rgba(244, 248, 255, 0.98), rgba(255, 255, 255, 0.9));
+  box-shadow:
+    0 20px 42px rgba(37, 48, 71, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84);
+}
+
+.workspace-auth-rag-glow {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  filter: blur(2px);
+}
+
+.workspace-auth-rag-glow--primary {
+  top: -56px;
+  left: -42px;
+  width: 168px;
+  height: 168px;
+  background: radial-gradient(circle, rgba(99, 91, 255, 0.18) 0%, rgba(99, 91, 255, 0) 70%);
+}
+
+.workspace-auth-rag-glow--secondary {
+  right: -34px;
+  bottom: -54px;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.18) 0%, rgba(56, 189, 248, 0) 72%);
+}
+
+.workspace-auth-rag-topbar {
+  position: relative;
+  z-index: 1;
+}
+
+.workspace-auth-rag-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.workspace-auth-rag-chip,
+.workspace-auth-rag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(203, 214, 231, 0.92);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.workspace-auth-rag-chip {
+  min-height: 30px;
+  padding: 0 12px;
+  color: #35517f;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.workspace-auth-rag-flow {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.workspace-auth-rag-step {
+  padding: 16px;
+  border: 1px solid rgba(215, 223, 236, 0.96);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.74);
+  backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.workspace-auth-rag-step__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.workspace-auth-rag-step__index,
+.workspace-auth-rag-step__tag {
+  color: #4b648d;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.workspace-auth-rag-step__index {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(233, 239, 249, 0.9);
+}
+
+.workspace-auth-icon--rag {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(231, 242, 255, 0.92));
+  color: #35517f;
+}
+
+.workspace-auth-rag-step__tag {
+  display: inline-block;
+  margin-top: 14px;
+}
+
+.workspace-auth-grid--rag {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.workspace-auth-card--rag {
+  min-height: 100px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 250, 255, 0.9));
+  box-shadow: 0 14px 28px rgba(37, 48, 71, 0.04);
 }
 
 .workspace-auth-action-row {
@@ -4015,9 +4160,19 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .workspace-auth-shell--panel-right .workspace-auth-panel,
+  .workspace-auth-shell--panel-right .workspace-auth-showcase {
+    order: initial;
+  }
+
   .workspace-auth-panel,
   .workspace-auth-showcase {
     padding: 22px;
+  }
+
+  .workspace-auth-rag-flow,
+  .workspace-auth-grid--rag {
+    grid-template-columns: 1fr;
   }
 
   .workspace-auth-title {
@@ -4046,6 +4201,11 @@ a {
 
   .workspace-auth-grid {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-auth-rag-board {
+    padding: 18px;
+    border-radius: 24px;
   }
 
   .workspace-auth-metric-strip {

@@ -90,6 +90,15 @@
                   >
                     {{ getPublishStatusText(row.id) }}
                   </span>
+                  <div class="workspace-resource-card__actions-inline workspace-resource-card__actions-inline--compact">
+                    <el-button
+                      class="workspace-btn workspace-btn--ghost workspace-btn--sm"
+                      :disabled="!canCopyPublishPath(row.id)"
+                      @click="copyPublishPath(row.id)"
+                    >
+                      复制路径
+                    </el-button>
+                  </div>
                 </div>
               </div>
               <div class="workspace-resource-card__desc">
@@ -144,6 +153,7 @@ import PublishApp from '@/views/personal/app/PublishApp.vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useResource } from '@/hooks/useResource';
+import { writeClipboardText } from '@/util/clipboard';
 
 // 添加对话框是否显示
 let addDialogVisible = ref(false)
@@ -169,7 +179,7 @@ let {
 
 let router = useRouter()
 let {toAddressable} = useResource()
-const publishStatusMap = ref<Record<string, { enabled: number; accessType: string }>>({})
+const publishStatusMap = ref<Record<string, { enabled: number; accessType: string; slug: string }>>({})
 const currentRows = computed(() => tableData.rows || [])
 const totalAppCountDisplay = computed(() => tableData.total || 0)
 const currentResultCountDisplay = computed(() => currentRows.value.length)
@@ -255,6 +265,33 @@ function getPublishStatusClass(appId: string | number) {
   return 'workspace-resource-card__value--muted'
 }
 
+function getPublishPath(appId: string | number) {
+  const status = publishStatusMap.value[String(appId)]
+  const slug = String(status?.slug || '').trim()
+  if (!slug) {
+    return ''
+  }
+  return `${window.location.origin}/#/public/app/${slug}`
+}
+
+function canCopyPublishPath(appId: string | number) {
+  return Boolean(getPublishPath(appId))
+}
+
+async function copyPublishPath(appId: string | number) {
+  const publishPath = getPublishPath(appId)
+  if (!publishPath) {
+    ElMessage.warning('请先完成公开发布配置后再复制路径')
+    return
+  }
+  try {
+    await writeClipboardText(publishPath)
+    ElMessage.success('公开路径已复制')
+  } catch (_error) {
+    ElMessage.error('复制失败，请手动复制')
+  }
+}
+
 async function loadPublishStatuses() {
   const rows = currentRows.value
   if (!rows.length) {
@@ -266,9 +303,13 @@ async function loadPublishStatuses() {
     try {
       const result = await queryPublishConfigApi(String(row.id))
       const data = result.data || {}
-      return [String(row.id), { enabled: Number(data.enabled ?? 0), accessType: String(data.accessType || 'PUBLIC') }] as const
+      return [String(row.id), {
+        enabled: Number(data.enabled ?? 0),
+        accessType: String(data.accessType || 'PUBLIC'),
+        slug: String(data.slug || '').trim()
+      }] as const
     } catch {
-      return [String(row.id), { enabled: 0, accessType: 'PUBLIC' }] as const
+      return [String(row.id), { enabled: 0, accessType: 'PUBLIC', slug: '' }] as const
     }
   }))
 

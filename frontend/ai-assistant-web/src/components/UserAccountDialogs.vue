@@ -6,28 +6,6 @@
     width="620px"
     @close="handleUpdateProfileDiaCancel"
   >
-    <div class="dialog-intro">
-      头像会同步展示在工作台导航和会话相关区域，保持清晰、稳定，后续协作识别会更顺手。
-    </div>
-    <section class="workspace-info-card workspace-dialog-summary-card">
-      <div class="workspace-info-grid workspace-info-grid--compact">
-        <div class="workspace-info-item">
-          <div class="workspace-info-label">当前账号</div>
-          <div class="workspace-info-value">{{ updateProfileFormData.username || userStore.userInfo.username || '未命名账号' }}</div>
-        </div>
-        <div class="workspace-info-item">
-          <div class="workspace-info-label">显示位置</div>
-          <div class="workspace-info-value">侧边栏、协作入口</div>
-        </div>
-        <div class="workspace-info-item workspace-info-item--full">
-          <div class="workspace-info-label">更新建议</div>
-          <div class="workspace-info-value workspace-note-strong">优先使用清晰头像，方便后续排班、协作和身份识别。</div>
-        </div>
-      </div>
-    </section>
-    <section class="workspace-dialog-tip-panel">
-      用户编号和用户名作为账号识别信息保持只读，当前弹窗只处理展示资料更新。
-    </section>
     <el-form
       ref="updateProfileForm"
       :model="updateProfileFormData"
@@ -65,28 +43,6 @@
     width="620px"
     @close="handleUpdatePwdDiaCancel"
   >
-    <div class="dialog-intro">
-      修改后立即生效，建议使用自己容易管理、但不易被猜到的密码组合。
-    </div>
-    <section class="workspace-info-card workspace-dialog-summary-card">
-      <div class="workspace-info-grid workspace-info-grid--compact">
-        <div class="workspace-info-item">
-          <div class="workspace-info-label">适用账号</div>
-          <div class="workspace-info-value">{{ userStore.userInfo.username || '当前账号' }}</div>
-        </div>
-        <div class="workspace-info-item">
-          <div class="workspace-info-label">生效方式</div>
-          <div class="workspace-info-value">保存后立即更新</div>
-        </div>
-        <div class="workspace-info-item workspace-info-item--full">
-          <div class="workspace-info-label">安全提醒</div>
-          <div class="workspace-info-value workspace-note-strong">建议避免和其他系统复用相同密码，修改完成后按自己的习惯妥善保管。</div>
-        </div>
-      </div>
-    </section>
-    <section class="workspace-dialog-tip-panel">
-      这里不会展示旧密码内容；确认无误后直接保存即可。
-    </section>
     <el-form
       ref="updatePwdForm"
       :model="updatePwdFormData"

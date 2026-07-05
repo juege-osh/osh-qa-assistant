@@ -35,17 +35,6 @@
           </div>
         </div>
       </section>
-      <section class="workspace-dialog-tip-panel">
-        如果当前应用还在早期测试阶段，可以先绑定一套最核心的资料，再通过检索调试逐步扩大内容范围；如果暂时没有合适知识库，也可以稍后回到应用列表继续绑定。
-      </section>
-      <section class="workspace-info-card workspace-dialog-summary-card">
-        <div class="workspace-tip-grid">
-          <article v-for="item in bindFocusCards" :key="item.title" class="workspace-tip-card">
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-            <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-          </article>
-        </div>
-      </section>
       <el-form ref="bindForm" :model="formData" :rules="rules" label-position="top">
         <div class="workspace-form-grid workspace-form-grid--single">
           <el-form-item label="应用名称" prop="appName">
@@ -95,26 +84,6 @@ const selectedLibName = computed(() => {
   const matched = pageData.knowledgeLibs.find((item: AnyObjDefine) => String(item.id) === String(formData.libId))
   return matched?.libName || '请选择知识库'
 })
-const bindFocusCards = computed(() => [
-  {
-    title: currentLibName.value ? '已经有绑定关系，可按新内容重选' : '当前还没有绑定知识库',
-    desc: currentLibName.value
-      ? `当前绑定的是「${currentLibName.value}」，如果回答方向要调整，可以直接切换到更匹配的新知识库。`
-      : '这个应用还没有知识来源，适合先绑定一套最核心的资料后再开始问答验证。'
-  },
-  {
-    title: pageData.knowledgeLibs.length ? '优先选择范围清晰的知识库' : '需要先准备可用知识库',
-    desc: pageData.knowledgeLibs.length
-      ? `当前可选 ${availableLibCountDisplay.value} 个知识库，建议优先挑名称和内容边界最清楚的一套。`
-      : '当前没有可选知识库，建议先创建知识库并上传核心资料，再回来完成绑定。'
-  },
-  {
-    title: selectedLibName.value !== '请选择知识库' ? '绑定后建议继续做检索验证' : '选定后可继续进入检索调试',
-    desc: selectedLibName.value !== '请选择知识库'
-      ? `选定「${selectedLibName.value}」后，建议继续通过开始聊天和检索调试确认命中是否稳定。`
-      : '完成绑定后，可以直接从应用页进入聊天或检索调试继续验证实际效果。'
-  }
-])
 // props
 const props = defineProps<{
   bindLibDialogVisible: boolean,

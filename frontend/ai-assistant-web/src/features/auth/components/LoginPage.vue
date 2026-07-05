@@ -1,32 +1,5 @@
 <template>
-  <AuthSplitLayout>
-    <template #showcase>
-      <div class="workspace-auth-copy">
-        <div class="workspace-auth-kicker">统一工作入口</div>
-        <h1 class="workspace-auth-title">进入工作台，继续当前的问答、资料整理与验证进度。</h1>
-        <p class="workspace-auth-desc">登录后即可回到统一工作空间，在同一套页面里继续应用配置、知识整理和会话验证。</p>
-      </div>
-
-      <div class="workspace-auth-metric-strip">
-        <article v-for="item in valueMetrics" :key="item.label" class="workspace-auth-metric">
-          <div class="workspace-auth-metric__value">{{ item.value }}</div>
-          <div class="workspace-auth-metric__label">{{ item.label }}</div>
-        </article>
-      </div>
-
-      <div class="workspace-auth-grid">
-        <article class="workspace-auth-card workspace-auth-card--compact" v-for="item in valueCards" :key="item.title">
-          <div class="workspace-auth-icon">
-            <component :is="item.icon" />
-          </div>
-          <div>
-            <h3 class="workspace-auth-card-title">{{ item.title }}</h3>
-            <p class="workspace-auth-card-text">{{ item.text }}</p>
-          </div>
-        </article>
-      </div>
-    </template>
-
+  <AuthSplitLayout :panel-right="true">
     <template #panel>
       <div class="workspace-auth-panel-head">
         <div class="workspace-auth-panel-kicker">欢迎回来</div>
@@ -90,24 +63,60 @@
             <el-link @click="toRegister" type="primary" :underline="false">立即注册</el-link>
           </div>
         </div>
-
-        <section class="workspace-auth-note-card">
-          <div class="workspace-auth-note-card__title">登录提醒</div>
-          <div class="workspace-auth-note-card__desc">先确认身份和当前环境，再输入账号、密码与验证码，能更快进入正确工作空间。</div>
-          <div class="workspace-auth-list">
-            <div v-for="item in loginTips" :key="item.step" class="workspace-auth-list__item">
-              <span class="workspace-auth-list__badge">{{ item.step }}</span>
-              <span>{{ item.text }}</span>
-            </div>
-          </div>
-        </section>
       </el-form>
+    </template>
+
+    <template #showcase>
+      <div class="workspace-auth-copy workspace-auth-copy--rag">
+        <div class="workspace-auth-kicker">RAG 应用问答系统</div>
+        <h1 class="workspace-auth-title">让资料接入、检索增强与回答生成，在一个工作台里连成闭环。</h1>
+        <p class="workspace-auth-desc">
+          登录后继续整理知识、配置应用并执行多轮问答验证，快速观察答案是否真正建立在可检索、可追溯的上下文之上。
+        </p>
+      </div>
+
+      <section class="workspace-auth-rag-board">
+        <div class="workspace-auth-rag-glow workspace-auth-rag-glow--primary"></div>
+        <div class="workspace-auth-rag-glow workspace-auth-rag-glow--secondary"></div>
+
+        <div class="workspace-auth-rag-topbar">
+          <span class="workspace-auth-rag-chip">知识库在线</span>
+          <span class="workspace-auth-rag-chip">支持连续验证</span>
+        </div>
+
+        <div class="workspace-auth-rag-flow">
+          <article v-for="item in ragPipeline" :key="item.step" class="workspace-auth-rag-step">
+            <div class="workspace-auth-rag-step__head">
+              <span class="workspace-auth-rag-step__index">{{ item.step }}</span>
+              <div class="workspace-auth-icon workspace-auth-icon--rag">
+                <component :is="item.icon" />
+              </div>
+            </div>
+            <div class="workspace-auth-rag-step__tag">{{ item.tag }}</div>
+            <h3 class="workspace-auth-card-title">{{ item.title }}</h3>
+            <p class="workspace-auth-card-text">{{ item.text }}</p>
+          </article>
+        </div>
+
+      </section>
+
+      <div class="workspace-auth-grid workspace-auth-grid--rag">
+        <article class="workspace-auth-card workspace-auth-card--compact workspace-auth-card--rag" v-for="item in ragHighlights" :key="item.title">
+          <div class="workspace-auth-icon workspace-auth-icon--rag">
+            <component :is="item.icon" />
+          </div>
+          <div>
+            <h3 class="workspace-auth-card-title">{{ item.title }}</h3>
+            <p class="workspace-auth-card-text">{{ item.text }}</p>
+          </div>
+        </article>
+      </div>
     </template>
   </AuthSplitLayout>
 </template>
 
 <script setup lang="ts">
-import { ChatDotRound, Connection, Lock, UserFilled } from '@element-plus/icons-vue'
+import { ChatDotRound, Collection, Connection, Lock, Promotion, UserFilled } from '@element-plus/icons-vue'
 import AuthSplitLayout from './AuthSplitLayout.vue'
 import { useLoginFeature } from '../composables/useLoginFeature'
 
@@ -123,18 +132,15 @@ const {
   toForgetPassword
 } = useLoginFeature()
 
-const valueCards = [
-  { icon: ChatDotRound, title: '对话验证', text: '继续多轮问答测试，快速查看上下文与输出表现。' },
-  { icon: Connection, title: '资料整理', text: '统一收拢文档、知识库与应用配置，减少来回切换。' }
+const ragPipeline = [
+  { step: '01', icon: Collection, tag: '多源接入', title: '资料入库', text: '将制度文档、FAQ 与业务说明统一沉淀为可持续更新的知识底座。' },
+  { step: '02', icon: Connection, tag: '上下文组装', title: '语义检索', text: '围绕当前问题召回相关片段，帮助回答更聚焦、更贴近真实资料。' },
+  { step: '03', icon: Promotion, tag: '连续追问', title: '生成作答', text: '在检索结果基础上组织回答，并继续多轮验证上下文与输出质量。' }
 ]
 
-const valueMetrics = [
-  { value: '统一入口', label: '登录后直接回到对应身份的工作空间' },
-  { value: '连续推进', label: '资料整理、应用配置与问答验证在同一路径里完成' }
-]
-
-const loginTips = [
-  { step: '1', text: '先确认当前身份，系统会按用户端或管理端进入对应页面。' },
-  { step: '2', text: '账号、密码和验证码建议都按当前环境重新确认，避免基础输入错误影响进入。' }
+const ragHighlights = [
+  { icon: Collection, title: '统一知识入口', text: '文档、知识库与应用资料在同一工作台收拢，减少分散维护。' },
+  { icon: Connection, title: '可检索上下文', text: '回答建立在命中资料之上，便于持续核对来源与命中效果。' },
+  { icon: ChatDotRound, title: '多轮问答验证', text: '继续追问、回看上下文与输出表现，让验证过程更连贯。' }
 ]
 </script>

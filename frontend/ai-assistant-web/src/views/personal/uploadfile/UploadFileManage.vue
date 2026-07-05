@@ -48,37 +48,6 @@
       </section>
     </section>
 
-    <section class="workspace-section-card summary-panel upload-summary-panel">
-      <div class="panel-title">处理建议</div>
-      <div class="summary-list">
-        <div class="summary-item">{{ workflowSummary }}</div>
-        <div class="summary-item">如果当前页文件内容需要重新切分，先进入预览查看 chunk 是否自然，再决定是否重建索引。</div>
-        <div class="summary-item">召回次数偏高但效果不理想时，优先检查原始文档质量、切分规则和是否存在重复内容。</div>
-      </div>
-    </section>
-
-    <section class="workspace-section-card upload-focus-panel">
-      <div class="workspace-overview-head">
-        <div>
-          <div class="panel-title panel-title--md">当前关注点</div>
-          <div class="workspace-panel-desc">把当前文档状态翻译成更直接的处理动作，方便决定先看启用状态、切分规模还是召回热度。</div>
-        </div>
-      </div>
-      <div class="workspace-tip-grid upload-tip-grid">
-        <article
-          v-for="item in uploadFocusCards"
-          :key="item.title"
-          :class="['workspace-tip-card', 'upload-tip-card', `upload-tip-card--${item.tone}`]"
-        >
-          <div class="upload-tip-card__head">
-            <span :class="['upload-tip-card__dot', `upload-tip-card__dot--${item.tone}`]"></span>
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-          </div>
-          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-        </article>
-      </div>
-    </section>
-
     <section class="toolbar-panel workspace-section-card workspace-toolbar-panel">
       <div class="toolbar-copy workspace-toolbar-copy">
         <div class="workspace-toolbar-kicker">文档资产</div>
@@ -396,46 +365,10 @@ const enabledFileCountDisplay = computed(() => {
 const disabledFileCountDisplay = computed(() => {
   return formatCount(tableData.rows.filter((row: { status?: number }) => Number(row.status) !== 1).length)
 })
-const currentPageCharCountDisplay = computed(() => {
-  const total = tableData.rows.reduce((sum: number, row: { charCount?: number | string }) => sum + Number(row.charCount || 0), 0)
-  return formatCount(total)
-})
 const currentPageRecallDisplay = computed(() => {
   const total = tableData.rows.reduce((sum: number, row: { recallCount?: number | string }) => sum + Number(row.recallCount || 0), 0)
   return formatCount(total)
 })
-const workflowSummary = computed(() => {
-  if (!tableData.rows.length) {
-    return '当前知识库还没有文档，可以先上传高质量资料，再回到这里查看切分、启用状态和召回情况。'
-  }
-  if (!tableData.rows.some((row: { status?: number }) => Number(row.status) === 1)) {
-    return '当前页还没有启用中的文档，知识库暂时无法稳定参与检索，建议先启用合适文件后再测试问答。'
-  }
-  return '当前知识库已经有可用文档，适合继续检查召回情况、试算切分规则，并按需重建索引。'
-})
-const uploadFocusCards = computed(() => [
-  {
-    title: enabledFileCountDisplay.value === '0' ? '优先确认关键文档是否误停用' : '启用中的文档适合继续看真实命中',
-    desc: enabledFileCountDisplay.value === '0'
-      ? '当前页还没有启用中的文档，知识库暂时无法稳定参与检索，建议先确认状态是否设置正确。'
-      : `当前已有 ${enabledFileCountDisplay.value} 个启用中文档，适合继续结合召回和预览结果判断内容是否真正可用。`,
-    tone: enabledFileCountDisplay.value === '0' ? 'warning' : 'success'
-  },
-  {
-    title: tableData.rows.length ? '高字符量文件值得优先回看切分策略' : '等待文档进入当前结果后再判断切分规模',
-    desc: tableData.rows.length
-      ? `当前结果累计字符量 ${currentPageCharCountDisplay.value}，如果回答效果不稳定，建议先预览 chunk 是否过粗、过碎或语义断裂。`
-      : '当前页还没有文件结果，建议先切换到目标知识库或上传资料后再继续检查。',
-    tone: tableData.rows.length ? 'warning' : 'success'
-  },
-  {
-    title: currentPageRecallDisplay.value === '0' ? '低召回文档适合优先复查命名与归属' : '可以继续结合召回热度安排处理顺序',
-    desc: currentPageRecallDisplay.value === '0'
-      ? '当前结果里的文件召回热度偏低，适合优先检查标题命名、知识库归属和切分规则是否合理。'
-      : `当前结果累计召回 ${currentPageRecallDisplay.value} 次，可以继续区分哪些文档高频命中、哪些长期沉默。`,
-    tone: currentPageRecallDisplay.value === '0' ? 'warning' : 'success'
-  }
-] as const)
 
 // 处理请求入参
 function handleLibId() {
@@ -592,67 +525,12 @@ onMounted(() => {
   gap: 16px;
 }
 
-.upload-summary-panel,
-.upload-focus-panel {
-  padding: 18px 20px;
-}
-
 .preview-dialog-tip {
   margin-bottom: 12px;
 }
 
 .preview-summary-panel {
   padding: 18px;
-}
-
-.upload-tip-grid {
-  margin-top: 14px;
-}
-
-.upload-tip-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.upload-tip-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  border-radius: 4px 0 0 4px;
-  background: rgba(148, 163, 184, 0.42);
-}
-
-.upload-tip-card--success::before {
-  background: linear-gradient(180deg, #12b76a 0%, #0f9f5f 100%);
-}
-
-.upload-tip-card--warning::before {
-  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
-}
-
-.upload-tip-card__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.upload-tip-card__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  background: rgba(148, 163, 184, 0.9);
-}
-
-.upload-tip-card__dot--success {
-  background: #12b76a;
-  box-shadow: 0 0 0 4px rgba(18, 183, 106, 0.12);
-}
-
-.upload-tip-card__dot--warning {
-  background: #f59e0b;
-  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14);
 }
 
 .chunk-card {

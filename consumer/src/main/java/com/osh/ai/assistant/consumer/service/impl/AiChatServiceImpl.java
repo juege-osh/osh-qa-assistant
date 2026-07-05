@@ -63,7 +63,6 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class AiChatServiceImpl implements AiChatService {
-    private static final int REFERENCE_SNIPPET_LIMIT = 120;
     private static final int SILENT_CHAT_MAX_ATTEMPTS = 3;
     private static final long SILENT_CHAT_RETRY_SLEEP_MILLIS = 1500L;
     @Resource
@@ -574,25 +573,12 @@ public class AiChatServiceImpl implements AiChatService {
             return null;
         }
         Map<String, UploadFileDO> uploadFileMap = buildUploadFileMap(documents);
-        if (uploadFileMap.isEmpty()) {
+        List<String> referenceFileNames = collectReferenceFileNames(documents, uploadFileMap);
+        if (CollUtil.isEmpty(referenceFileNames)) {
             return null;
         }
         StringBuilder builder = new StringBuilder("---\n**参考来源**\n");
-        int limit = Math.min(documents.size(), 3);
-        for (int i = 0; i < limit; i++) {
-            Document document = documents.get(i);
-            UploadFileDO uploadFileDO = uploadFileMap.get(document.getId());
-            if (uploadFileDO == null) {
-                continue;
-            }
-            builder.append(i + 1)
-                .append(". ")
-                .append(uploadFileDO.getFileName())
-                .append("\n");
-            builder.append("   片段: ")
-                .append(buildSnippet(document.getText()))
-                .append("\n");
-        }
+        appendReferenceFileNames(builder, referenceFileNames);
         return builder.toString();
     }
 
@@ -601,26 +587,13 @@ public class AiChatServiceImpl implements AiChatService {
             return null;
         }
         Map<String, UploadFileDO> uploadFileMap = buildUploadFileMap(documents);
-        if (uploadFileMap.isEmpty()) {
+        List<String> referenceFileNames = collectReferenceFileNames(documents, uploadFileMap);
+        if (CollUtil.isEmpty(referenceFileNames)) {
             return null;
         }
         StringBuilder builder = new StringBuilder("---\n**可补充核对的资料**\n");
         builder.append("以下资料与当前问题可能接近,但暂不足以支撑可靠回答:\n");
-        int limit = Math.min(documents.size(), 3);
-        for (int i = 0; i < limit; i++) {
-            Document document = documents.get(i);
-            UploadFileDO uploadFileDO = uploadFileMap.get(document.getId());
-            if (uploadFileDO == null) {
-                continue;
-            }
-            builder.append(i + 1)
-                .append(". ")
-                .append(uploadFileDO.getFileName())
-                .append("\n");
-            builder.append("   片段: ")
-                .append(buildSnippet(document.getText()))
-                .append("\n");
-        }
+        appendReferenceFileNames(builder, referenceFileNames);
         return builder.toString();
     }
 
@@ -641,15 +614,25 @@ public class AiChatServiceImpl implements AiChatService {
         return ret;
     }
 
-    private String buildSnippet(String text) {
-        if (StrUtil.isBlank(text)) {
-            return "暂无可展示片段";
+    private List<String> collectReferenceFileNames(List<Document> documents, Map<String, UploadFileDO> uploadFileMap) {
+        return documents.stream()
+            .map(Document::getId)
+            .map(uploadFileMap::get)
+            .filter(Objects::nonNull)
+            .map(UploadFileDO::getFileName)
+            .filter(StrUtil::isNotBlank)
+            .distinct()
+            .limit(3)
+            .toList();
+    }
+
+    private void appendReferenceFileNames(StringBuilder builder, List<String> referenceFileNames) {
+        for (int i = 0; i < referenceFileNames.size(); i++) {
+            builder.append(i + 1)
+                .append(". ")
+                .append(referenceFileNames.get(i))
+                .append("\n");
         }
-        String normalized = text.replace("\r\n", "\n").replace('\r', '\n').replace('\n', ' ').trim();
-        if (normalized.length() <= REFERENCE_SNIPPET_LIMIT) {
-            return normalized;
-        }
-        return normalized.substring(0, REFERENCE_SNIPPET_LIMIT) + "...";
     }
 
     private boolean isHighRiskOutOfKnowledgeQuestion(String userInput) {

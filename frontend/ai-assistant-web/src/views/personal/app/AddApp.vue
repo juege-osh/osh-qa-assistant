@@ -8,36 +8,6 @@
       :before-close="handleCancel"
       width="680px"
     >
-      <div class="dialog-intro">
-        先填名称和用途，创建后就能开始测试，其他配置后面也能再改。
-      </div>
-      <section class="workspace-info-card workspace-dialog-summary-card">
-        <div class="workspace-info-grid workspace-info-grid--compact">
-          <div class="workspace-info-item">
-            <div class="workspace-info-label">创建后可继续</div>
-            <div class="workspace-info-value">绑定知识库、开始聊天、公开发布</div>
-          </div>
-          <div class="workspace-info-item">
-            <div class="workspace-info-label">可选知识库</div>
-            <div class="workspace-info-value">{{ availableLibCountDisplay }}</div>
-          </div>
-          <div class="workspace-info-item workspace-info-item--full">
-            <div class="workspace-info-label">建议创建顺序</div>
-            <div class="workspace-info-value workspace-note-strong">先把应用定位写清楚，再决定是否接入知识库、专用模型和公开访问策略。</div>
-          </div>
-        </div>
-      </section>
-      <section class="workspace-dialog-tip-panel">
-        应用创建完成后，不一定要一次把所有配置补齐。更稳妥的方式通常是：先创建基础应用并确认交互，再逐步补知识来源、提示词和模型策略。
-      </section>
-      <section class="workspace-info-card workspace-dialog-summary-card">
-        <div class="workspace-tip-grid">
-          <article v-for="item in createAppFocusCards" :key="item.title" class="workspace-tip-card">
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-            <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-          </article>
-        </div>
-      </section>
       <el-form
         ref="addForm"
         :model="formData"
@@ -100,12 +70,11 @@
   </div>
 </template>
 <script setup name='AddApp' lang='ts'>
-import { computed, reactive, ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { addAppApi } from '@/api/workspace/appApi';
 import { ElMessage } from 'element-plus';
 import type { AnyObjsDefine } from '@/types/common';
 import FileUpload from '@/components/FileUpload.vue';
-import { listAvailableLibApi } from '@/api/workspace/knowledgeLibApi';
 
 let formData = reactive({
   appName: '',
@@ -121,26 +90,6 @@ let rules = reactive({
   libId: [{ required: true, message: "请选择知识库", trigger: "blur" }],
   outLibEnable: [{ required: true, message: "请选择是否回答", trigger: "blur" }],
 })
-let pageData = reactive({
-  knowledgeLibs: [] as AnyObjsDefine
-})
-const availableLibCountDisplay = computed(() => `${pageData.knowledgeLibs.length.toLocaleString('zh-CN')} 个`)
-const createAppFocusCards = computed(() => [
-  {
-    title: '先把应用定位写清楚',
-    desc: '名称和描述越清楚，后续绑定知识库、公开展示和协作维护时越容易识别。'
-  },
-  {
-    title: pageData.knowledgeLibs.length ? '知识库可以稍后再绑定' : '没有知识库时也能先完成应用创建',
-    desc: pageData.knowledgeLibs.length
-      ? `当前有 ${availableLibCountDisplay.value} 可用知识库，但并不需要在创建时一次决定好，后续仍可灵活绑定。`
-      : '即使当前还没有可用知识库，也可以先创建应用、确认交互，再逐步补资料来源。'
-  },
-  {
-    title: '先用默认模型试通链路',
-    desc: '只有在不同业务场景回答差异明显时，再单独补充专用模型和更细的提示词策略。'
-  }
-])
 defineProps<{ addDialogVisible: boolean }>()
 
 let emitter = defineEmits(["closeDialog", "addSuccess"])
@@ -173,16 +122,6 @@ function handleFileListChange(uploadResultList: AnyObjsDefine) {
   }
   addForm.value.validateField('iconPath');
 }
-// 列出知识库
-function listAvailable() {
- listAvailableLibApi().then(result => {
-    if(result.data) {
-      pageData.knowledgeLibs = result.data
-    }
-  })
-}
 // 打开对话框回调
-function handleOpen() {
-  listAvailable()
-}
+function handleOpen() {}
 </script>
