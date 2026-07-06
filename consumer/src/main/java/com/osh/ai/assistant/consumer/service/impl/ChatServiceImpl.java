@@ -53,6 +53,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
     private InvokeManager invokeManager;
     @Resource
     private AiChatService aiChatService;
+    // 一个会话对应一个 SSE 推送通道，聊天任务启动后会按 chatId 找到对应 emitter 持续回推内容。
     private final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
 
     @Override
@@ -79,6 +80,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
             throw new BizEx("会话连接失败");
         }
         if (previous != null) {
+            // 同一会话只保留最新连接，避免前端重连后旧连接继续占用资源。
             previous.complete();
         }
         // 连接完成或出错时清理
@@ -103,6 +105,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
         InvokeRecordBuilder builder = invokeManager.initInvokeRecordBuild(chatDTO,crtUser,app);
         // 保存用户输入的聊天信息
         chatMessageService.addUserMessage(chatReq);
+        // 模型调用和知识库检索都可能比较慢，异步执行后，结果再通过前面建立的 SSE 通道返回。
         executorService.execute(() -> {
             String assistantMessage = aiChatService.doChat(sseEmitter,app,builder,false);
             // 保存ai响应的完整结果

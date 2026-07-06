@@ -166,6 +166,7 @@ public class AiChatServiceImpl implements AiChatService {
         StringBuilder retSb = new StringBuilder();
         InvokeRecordDetailBuilder detailBuilder4llm = initDetailBuilder4llm(builder, app);
         ChatResponsePlan responsePlan = obtainResponse(builder, app);
+        // 这里拿到的是上游模型的“流式响应”，后面会把它逐段转发成浏览器可消费的 SSE 消息。
         Flux<ChatResponse> fluxResponse = responsePlan.response();
         String referencesMarkdown = responsePlan.referencesMarkdown();
         CountDownLatch cdl = new CountDownLatch(1);
@@ -235,7 +236,8 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     /**
-     * 发送数据到客户端
+     * 发送数据到客户端。
+     * 这里是下游 SSE 的统一出口，前端 EventSource 收到的每一段文本都从这里发出。
      */
     private void sendData(SseEmitter sseEmitter,String content) {
         try {
@@ -309,11 +311,13 @@ public class AiChatServiceImpl implements AiChatService {
             return;
         }
         retSb.append(text);
+        // 上游模型每吐出一个分片，就立刻通过 SSE 推给前端，形成“打字机效果”。
         sendData(sseEmitter,text);
     }
 
     /**
-     * 获取响应
+     * 获取响应。
+     * 这里负责把“检索结果 + 应用配置 + 用户问题”组装成最终的大模型请求计划。
      */
     private ChatResponsePlan obtainResponse(InvokeRecordBuilder builder, AppDO app) {
         ChatDTO chatDTO = builder.getChatDto();
@@ -375,6 +379,7 @@ public class AiChatServiceImpl implements AiChatService {
             });
             uploadFileService.incrRecallCount(documents.stream().map(Document::getId).toList());
         }
+        // 关键点: 不是一次性拿完整字符串，而是以流的形式消费上游模型输出。
         return ChatResponsePlan.okWithReferences(chatClientRequestSpec.stream().chatResponse(), buildReferencesMarkdown(documents));
     }
 
@@ -702,21 +707,24 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     /**
+     * 对向量召回结果做二次重排，让更贴近用户问题的片段排到前面。
      * copied from {@link com.alibaba.cloud.ai.advisor.RetrievalRerankAdvisor}
      */
     protected List<Document> doRerank(String userInput, List<Document> documents) {
+        // 未开启 rerank、未注入模型或没有候选文档时，直接返回原始召回结果。
         if (!rerankEnabled || rerankModel == null || CollectionUtils.isEmpty(documents)) {
             return documents;
         }
 
         try {
+            // 将用户问题和候选文档一起交给 rerank 模型重新打分。
             var rerankRequest = new RerankRequest(userInput, documents);
-            // 执行重排序
             RerankResponse response = rerankModel.call(rerankRequest);
             if (response == null || response.getResults() == null) {
                 return documents;
             }
 
+            // 仅保留达到阈值的结果，并按分数从高到低输出重排后的文档列表。
             return response.getResults()
                 .stream()
                 .filter(doc -> doc != null && doc.getScore() >= ConsumerConstants.MIN_SCORE)
@@ -724,6 +732,7 @@ public class AiChatServiceImpl implements AiChatService {
                 .map(DocumentWithScore::getOutput)
                 .collect(Collectors.toList());
         } catch (Exception e) {
+            // rerank 失败不打断主链路，降级回向量召回结果继续回答。
             log.warn("rerank failed, fallback to vector search results", e);
             return documents;
         }
