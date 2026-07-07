@@ -41,7 +41,7 @@
               </span>
             </template>
             <template #default>
-              支持 TXT、MARKDOWN、PDF、HTML、XLSX、XLS、PROPERTIES、DOC、DOCX、CSV、PPTX、XML、PPT、MD、HTM。
+              支持 {{ supportedFormatLabel }}。
             </template>
           </FileUpload>
         </el-form-item>
@@ -73,6 +73,25 @@ let addForm = ref()
 let route = useRoute()
 let router = useRouter()
 let fileUploadRef = ref()
+const supportedFormats = [
+  'TXT',
+  'MARKDOWN',
+  'PDF',
+  'HTML',
+  'XLSX',
+  'XLS',
+  'PROPERTIES',
+  'DOC',
+  'DOCX',
+  'CSV',
+  'PPTX',
+  'XML',
+  'PPT',
+  'MD',
+  'HTM'
+]
+const supportedFormatCount = computed(() => supportedFormats.length)
+const supportedFormatLabel = supportedFormats.join('、')
 const currentLibDisplay = computed(() => String(formData.libId || '').trim() || '--')
 
 function onSubmit() {

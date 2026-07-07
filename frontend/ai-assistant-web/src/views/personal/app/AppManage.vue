@@ -299,21 +299,25 @@ async function loadPublishStatuses() {
     return
   }
 
-  const statusEntries = await Promise.all(rows.map(async (row: { id: string | number }) => {
+  const statusEntries = await Promise.all(rows.map(async (row) => {
+    const rowId = String(row.id || '').trim()
+    if (!rowId) {
+      return ['', { enabled: 0, accessType: 'PUBLIC', slug: '' }] as const
+    }
     try {
-      const result = await queryPublishConfigApi(String(row.id))
+      const result = await queryPublishConfigApi(rowId)
       const data = result.data || {}
-      return [String(row.id), {
+      return [rowId, {
         enabled: Number(data.enabled ?? 0),
         accessType: String(data.accessType || 'PUBLIC'),
         slug: String(data.slug || '').trim()
       }] as const
     } catch {
-      return [String(row.id), { enabled: 0, accessType: 'PUBLIC', slug: '' }] as const
+      return [rowId, { enabled: 0, accessType: 'PUBLIC', slug: '' }] as const
     }
   }))
 
-  publishStatusMap.value = Object.fromEntries(statusEntries)
+  publishStatusMap.value = Object.fromEntries(statusEntries.filter(([id]) => id))
 }
 // 解绑知识库
 function unbindLib(appId:string) {
