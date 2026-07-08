@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import com.osh.ai.assistant.common.config.properties.AuthorizationProperties;
+import com.osh.ai.assistant.common.config.properties.PublicTrafficProtectionProperties;
 import com.osh.ai.assistant.common.config.properties.UploadProperties;
 import com.osh.ai.assistant.common.interceptor.AuthorizationInterceptor;
+import com.osh.ai.assistant.common.interceptor.PublicTrafficProtectionInterceptor;
 import jakarta.annotation.Resource;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -30,11 +32,19 @@ public class UnifiedWebMvcConfig implements WebMvcConfigurer {
     private AuthorizationProperties authorizationProperties;
 
     @Resource
+    private PublicTrafficProtectionProperties publicTrafficProtectionProperties;
+
+    @Resource
     private UploadProperties uploadProperties;
 
     @Bean
     public AuthorizationInterceptor authorizationInterceptor() {
         return new AuthorizationInterceptor();
+    }
+
+    @Bean
+    public PublicTrafficProtectionInterceptor publicTrafficProtectionInterceptor() {
+        return new PublicTrafficProtectionInterceptor(publicTrafficProtectionProperties);
     }
 
     @Bean
@@ -68,6 +78,9 @@ public class UnifiedWebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(publicTrafficProtectionInterceptor())
+            .addPathPatterns("/**")
+            .order(-100);
         registry.addInterceptor(authorizationInterceptor())
             .addPathPatterns("/**")
             .excludePathPatterns(authorizationProperties.getWhiteList())

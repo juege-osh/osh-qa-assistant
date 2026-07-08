@@ -5,6 +5,7 @@ import com.osh.ai.assistant.common.config.MybatisPlusConfig;
 import com.osh.ai.assistant.common.config.RedisConfig;
 import com.osh.ai.assistant.common.config.properties.AuthorizationProperties;
 import com.osh.ai.assistant.common.config.properties.EnvProperties;
+import com.osh.ai.assistant.common.config.properties.PublicTrafficProtectionProperties;
 import com.osh.ai.assistant.common.config.properties.UploadProperties;
 import com.osh.ai.assistant.common.controller.StorageController;
 import com.osh.ai.assistant.consumer.ConsumerApp;
@@ -32,6 +33,7 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 @EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)
 @EnableConfigurationProperties({
     AuthorizationProperties.class,
+    PublicTrafficProtectionProperties.class,
     UploadProperties.class,
     EnvProperties.class,
     RagSplitProperties.class,

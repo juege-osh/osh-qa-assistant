@@ -63,6 +63,77 @@ spring:
           model: gte-rerank
 
 ai-assistant:
+  public-traffic-protection:
+    enabled: true
+    trust-forward-headers: true
+    max-tracked-clients: 100000
+    rules:
+      - name: backend-auth-captcha
+        path-pattern: /auth/getCode
+        method: GET
+        permits: 20
+        window-seconds: 60
+        message: 验证码请求过于频繁，请稍后再试
+      - name: backend-auth-login
+        path-pattern: /auth/login
+        method: POST
+        permits: 10
+        window-seconds: 60
+        message: 登录请求过于频繁，请稍后再试
+      - name: manager-login-captcha
+        path-pattern: /manager/manager/getCode
+        method: GET
+        permits: 20
+        window-seconds: 60
+        message: 验证码请求过于频繁，请稍后再试
+      - name: manager-login
+        path-pattern: /manager/manager/login
+        method: POST
+        permits: 10
+        window-seconds: 60
+        message: 登录请求过于频繁，请稍后再试
+      - name: consumer-login-captcha
+        path-pattern: /consumer/user/getCode
+        method: GET
+        permits: 20
+        window-seconds: 60
+        message: 验证码请求过于频繁，请稍后再试
+      - name: consumer-login
+        path-pattern: /consumer/user/login
+        method: POST
+        permits: 12
+        window-seconds: 60
+        message: 登录请求过于频繁，请稍后再试
+      - name: consumer-register
+        path-pattern: /consumer/user/register
+        method: POST
+        permits: 5
+        window-seconds: 300
+        message: 注册请求过于频繁，请稍后再试
+      - name: open-api-chat
+        path-pattern: /consumer/api/chat
+        method: POST
+        permits: 30
+        window-seconds: 60
+        message: 对话请求过于频繁，请稍后再试
+      - name: public-app-detail
+        path-pattern: /consumer/public/app/detail
+        method: GET
+        permits: 120
+        window-seconds: 60
+        message: 访问过于频繁，请稍后再试
+      - name: public-app-password
+        path-pattern: /consumer/public/app/verifyPassword
+        method: POST
+        permits: 15
+        window-seconds: 60
+        message: 密码校验请求过于频繁，请稍后再试
+      - name: public-app-chat
+        path-pattern: /consumer/public/app/chat
+        method: POST
+        permits: 20
+        window-seconds: 60
+        message: 公开应用对话请求过于频繁，请稍后再试
   chat:
     provider: ${AI_ASSISTANT_CHAT_PROVIDER:openai}
     model: ${AI_ASSISTANT_CHAT_MODEL:MiniMax-M2.7-highspeed}
