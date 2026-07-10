@@ -1,20 +1,39 @@
 <template>
-  <div class="add-file mt-dot5">
-    <div class="top mb-dot5">
-      <div class="back"  @click="$router.back()">
-        <div class="back-icon"><el-icon color="#409eff">
-            <Back />
-          </el-icon></div>
-        <div><el-text>返回</el-text></div>
+  <div class="page-shell add-file-page">
+    <section class="workspace-context-strip">
+      <div class="workspace-context-copy">
+        <el-button text class="workspace-btn workspace-btn--text" @click="$router.back()">返回文档管理</el-button>
+        <span class="workspace-context-note">上传完成后会自动回到当前知识库的文档列表，便于继续查看切分和索引状态。</span>
       </div>
-    </div>
-    <div style="margin-top: 20px;">
+      <div class="workspace-context-actions">
+        <span class="workspace-inline-tag workspace-inline-tag--soft">知识库 {{ currentLibDisplay }}</span>
+        <span class="workspace-inline-tag workspace-inline-tag--soft">支持格式 {{ supportedFormatCount }}</span>
+        <span class="workspace-inline-tag workspace-inline-tag--soft">单文件 ≤ 15MB</span>
+      </div>
+    </section>
+
+    <section class="workspace-section-card add-file-panel">
+      <div class="workspace-task-panel-head">
+        <div>
+          <div class="panel-title">上传文件</div>
+          <div class="dialog-intro workspace-task-panel-intro">
+            推荐先上传高质量、结构清晰的资料，再到文档管理页查看切分和索引状态。
+          </div>
+        </div>
+        <div class="workspace-inline-tags">
+          <span class="workspace-inline-tag workspace-inline-tag--active">目标知识库 {{ currentLibDisplay }}</span>
+          <span class="workspace-inline-tag workspace-inline-tag--soft">上传后可立即回看</span>
+        </div>
+      </div>
+      <section class="workspace-dialog-tip-panel add-file-tip-panel">
+        上传只是第一步。更稳妥的流程通常是：先放入高质量原文，再回到文档管理页预览 chunk，最后按需要重建索引并开始问答验证。
+      </section>
       <el-form ref="addForm" :model="formData" :rules="rules">
-        <el-form-item prop="storePath" style="width: 100%;">
+        <el-form-item prop="storePath" class="workspace-upload-drop">
           <FileUpload :drag="true" listType="text"
             @file-list-change="handleFileListChange" ref="fileUploadRef">
             <template v-slot:trigger>
-              <el-icon>
+              <el-icon class="add-file-upload-icon">
                 <UploadFilled />
               </el-icon>
               <span class="el-upload__text">
@@ -22,24 +41,26 @@
               </span>
             </template>
             <template #default>
-              支持 TXT、 MARKDOWN、PDF、 HTML、 XLSX、 XLS、PROPERTIES、 DOC、 DOCX、 CSV、PPTX、 XML、 PPT、 MD、 HTM，每个文件不超过 15MB
+              支持 {{ supportedFormatLabel }}。
             </template>
           </FileUpload>
         </el-form-item>
-        <div style="text-align: center;">
-          <el-button type="primary" @click="onSubmit()">提交</el-button>
+        <div class="workspace-dialog-footer add-file-footer">
+          <el-button class="workspace-btn workspace-btn--ghost" @click="$router.back()">取消</el-button>
+          <el-button type="primary" class="workspace-btn workspace-btn--primary" @click="onSubmit()">提交文件</el-button>
         </div>
       </el-form>
-    </div>
+    </section>
   </div>
 </template>
 <script setup name='AddFile' lang='ts'>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import FileUpload from '@/components/FileUpload.vue';
 import type { AnyObjsDefine } from '@/types/common';
 import { addUploadFileApi } from '@/api/workspace/uploadFileApi';
 import { ElMessage } from 'element-plus';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import { UploadFilled } from '@element-plus/icons-vue';
 let formData = reactive({
   libId: '',
   storePath: '',
@@ -50,14 +71,41 @@ let rules = reactive({
 })
 let addForm = ref()
 let route = useRoute()
+let router = useRouter()
 let fileUploadRef = ref()
+const supportedFormats = [
+  'TXT',
+  'MARKDOWN',
+  'PDF',
+  'HTML',
+  'XLSX',
+  'XLS',
+  'PROPERTIES',
+  'DOC',
+  'DOCX',
+  'CSV',
+  'PPTX',
+  'XML',
+  'PPT',
+  'MD',
+  'HTM'
+]
+const supportedFormatCount = computed(() => supportedFormats.length)
+const supportedFormatLabel = supportedFormats.join('、')
+const currentLibDisplay = computed(() => String(formData.libId || '').trim() || '--')
+
 function onSubmit() {
+  if (!formData.libId) {
+    ElMessage.warning('请先从知识库列表进入文件管理，再添加文件')
+    return
+  }
   addForm.value.validate((valid: boolean) => {
     if (!valid) return
     addUploadFileApi(formData).then(result => {
       ElMessage({ "message": result.msg, "type": "success" })
       fileUploadRef.value.doClearFileList()
       addForm.value.resetFields()
+      router.back()
     })
   })
 }
@@ -77,6 +125,9 @@ function handleLibId() {
   const libIdFromQs = route.query.libId
   if(libIdFromQs) {
     formData.libId = libIdFromQs as string
+  } else {
+    ElMessage.warning('缺少知识库信息，请先从知识库列表进入文件管理')
+    router.replace('/workspace/knowledgeLib/manage')
   }
 }
 onMounted(() => {
@@ -84,35 +135,32 @@ onMounted(() => {
 })
 </script>
 <style scoped>
-.top {
-  display: flex;
-  align-items: center;
-  /* 垂直居中 */
+.add-file-page {
+  gap: 16px;
 }
 
-.back {
-  /* 让图标和文字在一行 */
-  display: inline-flex;
-  /* 垂直居中 */
-  align-items: center;
-  /* 禁止换行 */
-  white-space: nowrap;
-  /* 把剩余空间全给右侧，保证 steps 居中 */
-  margin-right: auto;
-    cursor: pointer;
+.add-file-panel {
+  padding: 22px 24px 20px;
 }
 
-.back-icon {
-  margin-right: 0.3rem;
+.add-file-upload-icon {
+  margin-right: 8px;
+  font-size: 20px;
+  color: var(--space-primary);
 }
 
-.steps {
-  flex: 1;
-  padding: 0 100px;
-  font-size: 12px;
+.add-file-footer {
+  margin-top: 18px;
 }
 
-:deep(.el-step__title) {
-  font-size: 12px;
+.add-file-tip-panel {
+  margin-bottom: 18px;
+}
+
+@media (max-width: 900px) {
+  .workspace-task-panel-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>

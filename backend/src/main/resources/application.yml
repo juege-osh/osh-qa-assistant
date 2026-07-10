@@ -18,6 +18,13 @@ spring:
       max-wait: 60000
       min-idle: 1
       validation-query: select 1
+      test-while-idle: true
+      test-on-borrow: true
+      test-on-return: false
+      keep-alive: true
+      time-between-eviction-runs-millis: 30000
+      min-evictable-idle-time-millis: 60000
+      max-evictable-idle-time-millis: 300000
   servlet:
     multipart:
       enabled: true
@@ -27,7 +34,7 @@ spring:
   data:
     redis:
       host: ${AI_ASSISTANT_REDIS_HOST:127.0.0.1}
-      port: ${AI_ASSISTANT_REDIS_PORT:6379}
+      port: ${AI_ASSISTANT_REDIS_PORT:56379}
       password: ${AI_ASSISTANT_REDIS_PASSWORD:replace-with-your-redis-password}
       timeout: 60000
       lettuce:
@@ -40,8 +47,8 @@ spring:
       qdrant:
         collection-name: assistant_knowledge_lib
         host: ${AI_ASSISTANT_QDRANT_HOST:127.0.0.1}
-        port: ${AI_ASSISTANT_QDRANT_PORT:6334}
-        initialize-schema: true
+        port: ${AI_ASSISTANT_QDRANT_PORT:56334}
+        initialize-schema: ${SPRING_AI_VECTORSTORE_QDRANT_INITIALIZE_SCHEMA:false}
     dashscope:
       api-key: ${AI_ASSISTANT_DASHSCOPE_API_KEY:dummy-dashscope-key}
       chat:
@@ -56,6 +63,77 @@ spring:
           model: gte-rerank
 
 ai-assistant:
+  public-traffic-protection:
+    enabled: true
+    trust-forward-headers: true
+    max-tracked-clients: 100000
+    rules:
+      - name: backend-auth-captcha
+        path-pattern: /auth/getCode
+        method: GET
+        permits: 20
+        window-seconds: 60
+        message: 验证码请求过于频繁，请稍后再试
+      - name: backend-auth-login
+        path-pattern: /auth/login
+        method: POST
+        permits: 10
+        window-seconds: 60
+        message: 登录请求过于频繁，请稍后再试
+      - name: manager-login-captcha
+        path-pattern: /manager/manager/getCode
+        method: GET
+        permits: 20
+        window-seconds: 60
+        message: 验证码请求过于频繁，请稍后再试
+      - name: manager-login
+        path-pattern: /manager/manager/login
+        method: POST
+        permits: 10
+        window-seconds: 60
+        message: 登录请求过于频繁，请稍后再试
+      - name: consumer-login-captcha
+        path-pattern: /consumer/user/getCode
+        method: GET
+        permits: 20
+        window-seconds: 60
+        message: 验证码请求过于频繁，请稍后再试
+      - name: consumer-login
+        path-pattern: /consumer/user/login
+        method: POST
+        permits: 12
+        window-seconds: 60
+        message: 登录请求过于频繁，请稍后再试
+      - name: consumer-register
+        path-pattern: /consumer/user/register
+        method: POST
+        permits: 5
+        window-seconds: 300
+        message: 注册请求过于频繁，请稍后再试
+      - name: open-api-chat
+        path-pattern: /consumer/api/chat
+        method: POST
+        permits: 30
+        window-seconds: 60
+        message: 对话请求过于频繁，请稍后再试
+      - name: public-app-detail
+        path-pattern: /consumer/public/app/detail
+        method: GET
+        permits: 120
+        window-seconds: 60
+        message: 访问过于频繁，请稍后再试
+      - name: public-app-password
+        path-pattern: /consumer/public/app/verifyPassword
+        method: POST
+        permits: 15
+        window-seconds: 60
+        message: 密码校验请求过于频繁，请稍后再试
+      - name: public-app-chat
+        path-pattern: /consumer/public/app/chat
+        method: POST
+        permits: 20
+        window-seconds: 60
+        message: 公开应用对话请求过于频繁，请稍后再试
   chat:
     provider: ${AI_ASSISTANT_CHAT_PROVIDER:openai}
     model: ${AI_ASSISTANT_CHAT_MODEL:MiniMax-M2.7-highspeed}
@@ -79,6 +157,12 @@ ai-assistant:
     base-url: ${AI_ASSISTANT_OPENAI_BASE_URL:https://v2.aicodee.com}
     api-key: ${AI_ASSISTANT_OPENAI_API_KEY:}
     completions-path: ${AI_ASSISTANT_OPENAI_COMPLETIONS_PATH:/v1/chat/completions}
+  qdrant:
+    probe:
+      enabled: ${AI_ASSISTANT_QDRANT_PROBE_ENABLED:true}
+      warn-after-seconds: ${AI_ASSISTANT_QDRANT_PROBE_WARN_AFTER_SECONDS:10}
+      check-timeout-seconds: ${AI_ASSISTANT_QDRANT_PROBE_CHECK_TIMEOUT_SECONDS:10}
+      retry-interval-seconds: ${AI_ASSISTANT_QDRANT_PROBE_RETRY_INTERVAL_SECONDS:10}
 
 mybatis-plus:
   mapper-locations: classpath*:/mybatis/mapper/*Mapper.xml
@@ -99,10 +183,24 @@ auth:
     - /consumer/user/login
     - /consumer/user/register
     - /consumer/api/chat
+    - /consumer/public/app/detail
+    - /consumer/public/app/verifyPassword
+    - /consumer/public/app/chat
     - /consumer/sse/**
     - /manager/resources/**
     - /consumer/resources/**
     - /resources/**
 
 upload:
+  # 默认 local 兼容原本地上传；配置为 oss 后走 S3 兼容对象存储。
+  storage-type: ${AI_ASSISTANT_UPLOAD_STORAGE_TYPE:local}
   static-dir: ${AI_ASSISTANT_UPLOAD_DIR:/Users/rengang/chuangye/osh-projects/osh-rag/osh-qa-assistant/文档/upload}
+  # 优先使用 AI_ASSISTANT_OSS_*，同时兼容原 osh-backend 的 x-file-storage.cloudflare-r2.* 配置前缀。
+  oss:
+    access-key: ${AI_ASSISTANT_OSS_ACCESS_KEY:${x-file-storage.cloudflare-r2.access-key:}}
+    secret-key: ${AI_ASSISTANT_OSS_SECRET_KEY:${x-file-storage.cloudflare-r2.secret-key:}}
+    endpoint: ${AI_ASSISTANT_OSS_ENDPOINT:${x-file-storage.cloudflare-r2.endpoint:}}
+    bucket-name: ${AI_ASSISTANT_OSS_BUCKET_NAME:${x-file-storage.cloudflare-r2.bucket-name:}}
+    public-domain: ${AI_ASSISTANT_OSS_PUBLIC_DOMAIN:${x-file-storage.cloudflare-r2.public-domain:}}
+    base-path: ${AI_ASSISTANT_OSS_BASE_PATH:${x-file-storage.cloudflare-r2.base-path:}}
+    path-style-access: ${AI_ASSISTANT_OSS_PATH_STYLE_ACCESS:true}

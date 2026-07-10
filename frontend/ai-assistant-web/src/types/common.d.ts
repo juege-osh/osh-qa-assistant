@@ -10,6 +10,8 @@ export interface UserRouteMetaDefine {
   showInMenu?:boolean,
   // element plus图标的名字,如  Plus
   icon?:string,
+  // 当前路由在侧栏中应高亮的一级入口
+  activeMenuPath?:string,
 }
 /**
  * 用户路由信息

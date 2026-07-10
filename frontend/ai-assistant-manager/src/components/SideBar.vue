@@ -119,42 +119,48 @@ onMounted(() => {
 .collapse {
   margin: 12px;
   padding: 10px;
-  color: var(--space-text);
+  color: var(--space-muted);
   text-align: center;
   cursor: pointer;
   line-height: 1.5;
-  border: 1px solid var(--space-border);
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(52, 211, 153, 0.18), rgba(245, 158, 11, 0.18));
-  box-shadow: var(--space-glow);
+  border: 1px solid rgba(227, 232, 241, 0.8);
+  border-radius: 12px;
+  background: rgba(248, 251, 255, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.collapse:hover {
+  color: var(--space-primary);
+  background: rgba(64, 158, 255, 0.08);
 }
 
 .side-head {
-  padding: 18px 14px 6px;
+  padding: 20px 16px 10px;
 }
 
 .side-eyebrow {
   color: var(--space-primary);
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
 }
 
 .side-title {
   margin-top: 10px;
-  font-size: 22px;
+  font-size: 17px;
   font-weight: 800;
+  color: var(--space-text);
 }
 
 .side-desc {
   margin-top: 10px;
-  color: var(--space-muted);
+  color: var(--space-text-soft);
   line-height: 1.7;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .el-menu {
-  padding: 10px;
+  padding: 12px;
   border-right-width: 0;
 }
 
@@ -166,15 +172,20 @@ onMounted(() => {
 
 :deep(.el-sub-menu__title),
 :deep(.el-menu-item) {
-  height: 46px;
-  margin: 6px 0;
+  height: 44px;
+  margin: 4px 0;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
   letter-spacing: .02em;
+  font-weight: 600;
 }
 
 :deep(.el-sub-menu__title:hover),
 :deep(.el-menu-item:focus),
 :deep(.el-menu-item:hover),
 :deep(.el-menu-item.is-active) {
-  background: linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(245, 158, 11, 0.24)) !important;
+  background: linear-gradient(90deg, rgba(64, 158, 255, 0.12), rgba(64, 158, 255, 0.04)) !important;
+  color: var(--space-primary) !important;
+  box-shadow: inset 3px 0 0 var(--space-primary);
 }
 </style>

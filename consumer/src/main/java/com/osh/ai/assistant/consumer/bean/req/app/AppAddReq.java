@@ -32,4 +32,6 @@ public class AppAddReq {
     @NotNull
     @EnumValue(clazz = YesNoEnum.class)
     private Integer outLibEnable;
+    private String customPrompt;
+    private String chatModel;
 }

@@ -15,6 +15,7 @@ public enum  CodeEnum implements BaseEnum<Integer> {
 
     BIZ_ERR(30000,"业务异常"),
     AUTH_ERR(30001,"权限不足"),
+    RATE_LIMIT_ERR(30002,"请求过于频繁，请稍后再试"),
 
     SYS_ERR(90000,"系统异常"),
     ;

@@ -35,3 +35,23 @@ export function deleteUploadFileByIdApi(id:string) {
       params: {id}
   })
 }
+
+/**
+ * 按文件重建索引
+ */
+export function rebuildUploadFileByIdApi(id:string) {
+  return doGet({
+      url: "/consumer/uploadFile/rebuildById",
+      params: {id}
+  })
+}
+
+/**
+ * 按知识库批量重建索引
+ */
+export function rebuildUploadFileByLibIdApi(libId:string) {
+  return doGet({
+      url: "/consumer/uploadFile/rebuildByLibId",
+      params: {libId}
+  })
+}

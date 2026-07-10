@@ -206,24 +206,54 @@ function closeAll(){
   position: absolute;
   list-style-type: none;
   padding: 6px;
-  border: 1px solid var(--space-border);
-  border-radius: 14px;
+  border: 1px solid rgba(227, 232, 241, 0.9);
+  border-radius: 12px;
   font-size: 12px;
   font-weight: 400;
   color: var(--space-text);
-  background: rgba(7, 14, 36, 0.94);
-  box-shadow: var(--space-shadow);
-  backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 36px rgba(37, 48, 71, 0.12);
+  backdrop-filter: blur(12px);
 }
 
 .context-menu li {
   margin: 0;
   padding: 8px 16px;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: 6px;
 }
 
 .context-menu li:hover {
-  background: rgba(52, 211, 153, 0.16);
+  background: rgba(64, 158, 255, 0.06);
+}
+
+:deep(.el-tabs) {
+  padding: 4px;
+  border: 1px solid rgba(227, 232, 241, 0.76);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 10px 24px rgba(37, 48, 71, 0.05);
+}
+
+:deep(.el-tabs__header) {
+  margin: 0;
+  padding: 8px 12px 0;
+}
+
+:deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+:deep(.el-tabs__item) {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px 10px 0 0;
+  color: var(--space-text-soft);
+  font-weight: 600;
+}
+
+:deep(.el-tabs__item.is-active) {
+  color: var(--space-primary);
+  background: rgba(64, 158, 255, 0.08);
 }
 </style>

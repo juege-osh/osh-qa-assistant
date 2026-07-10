@@ -40,12 +40,12 @@ const userRoutes: UserRoutesDefine = [
   {
     path: "invokeRecord",
     componentPath: "invokerecord/InvokeRecordHome",
-    children: [
-      {
-        path: "manage",
-        componentPath: "invokerecord/InvokeRecordManage",
-        meta: {
-          authorityName: "调用记录管理",
+        children: [
+          {
+            path: "manage",
+            componentPath: "invokerecord/InvokeRecordManage",
+            meta: {
+          authorityName: "调用记录",
           showInMenu: true,
           icon: "Link"
         }

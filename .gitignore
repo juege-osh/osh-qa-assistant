@@ -14,11 +14,16 @@ dist/
 *.log
 logs/
 .local-runlogs/
+.laughing-runtime/
+QAENV_DEPLOY_LOCAL_REVIEW.md
+.qaenv-laughing.env.local
 
 # IDE
 .idea/
 .vscode/
 *.iml
+*.swp
+*.swo
 
 # OS
 .DS_Store
@@ -32,3 +37,12 @@ deploy/video/
 *.mp4
 *.aiff
 *.mov
+
+deploy
+upload/resources
+bun.lock
+CLAUDE.md
+AGENTS.md
+.codebase-memory
+课件
+演示知识库示例

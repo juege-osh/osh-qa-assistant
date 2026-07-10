@@ -231,11 +231,11 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 10px 16px 10px 10px;
-  border: 1px solid rgba(52, 211, 153, 0.22);
+  padding: 10px 18px 10px 10px;
+  border: 1px solid rgba(64, 158, 255, 0.08);
   border-radius: 18px;
-  background: linear-gradient(135deg, rgba(11, 22, 52, 0.92), rgba(18, 32, 72, 0.7));
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 14px 32px rgba(0, 0, 0, 0.28);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(243, 248, 255, 0.92));
+  box-shadow: 0 14px 30px rgba(64, 158, 255, 0.08);
 }
 
 .nav-brand-mark {
@@ -243,11 +243,8 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
   width: 42px;
   height: 42px;
   border-radius: 14px;
-  background:
-    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.98), rgba(52, 211, 153, 0.95) 14%, rgba(124, 92, 255, 0.85) 48%, rgba(13, 23, 52, 0.92) 76%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 10px 26px rgba(72, 214, 255, 0.22);
+  background: linear-gradient(135deg, #66b1ff 0%, #409eff 68%, #2f7fe2 100%);
+  box-shadow: 0 12px 26px rgba(64, 158, 255, 0.28);
 }
 
 .nav-brand-mark::before,
@@ -262,8 +259,8 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
   height: 12px;
   top: 15px;
   left: 15px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.55);
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .nav-brand-mark::after {
@@ -271,8 +268,8 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
   height: 26px;
   top: 8px;
   left: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.42);
-  opacity: 0.72;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  opacity: 0.8;
 }
 
 .nav-brand-copy {
@@ -283,8 +280,8 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
 }
 
 .nav-title {
-  color: #fff;
-  font-size: 20px;
+  color: var(--space-text);
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: 0.03em;
   line-height: 1;
@@ -293,13 +290,13 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
 .nav-divider {
   width: 1px;
   height: 18px;
-  background: rgba(52, 211, 153, 0.26);
+  background: var(--space-border);
 }
 
 .nav-subtitle {
-  color: var(--space-muted);
-  font-size: 12px;
-  font-weight: 600;
+  color: var(--space-text-soft);
+  font-size: 11px;
+  font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   line-height: 1;
@@ -314,10 +311,10 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
 
 .profile-container {
   padding: 6px 12px;
-  border: 1px solid var(--space-border);
+  border: 1px solid rgba(64, 158, 255, 0.08);
   border-radius: 999px;
-  background: rgba(52, 211, 153, 0.08);
-  box-shadow: var(--space-glow);
+  background: rgba(248, 251, 255, 0.92);
+  box-shadow: 0 10px 24px rgba(37, 48, 71, 0.05);
 }
 
 .cursor-pointer {
@@ -327,12 +324,12 @@ function handleFileListChange(uploadResultList:AnyObjsDefine) {
 }
 
 .avatar {
-  border: 2px solid rgba(52, 211, 153, 0.5);
-  box-shadow: 0 0 20px rgba(52, 211, 153, 0.32);
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 18px rgba(37, 48, 71, 0.12);
 }
 
 .arrow {
-  color: var(--space-primary);
+  color: var(--space-muted);
 }
 
 :deep(.el-dialog) {

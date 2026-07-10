@@ -16,6 +16,13 @@ spring:
       max-wait: 60000
       min-idle: 1
       validation-query: select 1
+      test-while-idle: true
+      test-on-borrow: true
+      test-on-return: false
+      keep-alive: true
+      time-between-eviction-runs-millis: 30000
+      min-evictable-idle-time-millis: 60000
+      max-evictable-idle-time-millis: 300000
   application:
     name: consumer
   servlet:
@@ -45,8 +52,8 @@ spring:
       qdrant:
         collection-name: assistant_knowledge_lib
         host: ${AI_ASSISTANT_QDRANT_HOST:127.0.0.1}
-        port: ${AI_ASSISTANT_QDRANT_PORT:6334}
-        initialize-schema: true
+        port: ${AI_ASSISTANT_QDRANT_PORT:56334}
+        initialize-schema: ${SPRING_AI_VECTORSTORE_QDRANT_INITIALIZE_SCHEMA:false}
     # 阿里百炼的配置
     dashscope:
       api-key: ${AI_ASSISTANT_DASHSCOPE_API_KEY:dummy-dashscope-key}
@@ -79,12 +86,56 @@ auth:
     - /user/register
     - /api/chat
     - /chat/connect
+    - /public/app/detail
+    - /public/app/verifyPassword
+    - /public/app/chat
     # 测试sse
     - /sse/**
 
 # 上传目录配置
 upload:
+  # 默认 local 兼容原本地上传；配置为 oss 后走 S3 兼容对象存储。
+  storage-type: ${AI_ASSISTANT_UPLOAD_STORAGE_TYPE:local}
   static-dir: ${AI_ASSISTANT_UPLOAD_DIR:/Users/rengang/chuangye/osh-projects/osh-rag/osh-qa-assistant/文档/upload}
+  # 优先使用 AI_ASSISTANT_OSS_*，同时兼容原 osh-backend 的 x-file-storage.cloudflare-r2.* 配置前缀。
+  oss:
+    access-key: ${AI_ASSISTANT_OSS_ACCESS_KEY:${x-file-storage.cloudflare-r2.access-key:}}
+    secret-key: ${AI_ASSISTANT_OSS_SECRET_KEY:${x-file-storage.cloudflare-r2.secret-key:}}
+    endpoint: ${AI_ASSISTANT_OSS_ENDPOINT:${x-file-storage.cloudflare-r2.endpoint:}}
+    bucket-name: ${AI_ASSISTANT_OSS_BUCKET_NAME:${x-file-storage.cloudflare-r2.bucket-name:}}
+    public-domain: ${AI_ASSISTANT_OSS_PUBLIC_DOMAIN:${x-file-storage.cloudflare-r2.public-domain:}}
+    base-path: ${AI_ASSISTANT_OSS_BASE_PATH:${x-file-storage.cloudflare-r2.base-path:}}
+    path-style-access: ${AI_ASSISTANT_OSS_PATH_STYLE_ACCESS:true}
 # 资源环境配置
 env:
   base-resource-url: http://localhost:9000/consumer/
+
+ai-assistant:
+  alert:
+    enabled: ${AI_ASSISTANT_ALERT_ENABLED:false}
+    subject-prefix: ${AI_ASSISTANT_ALERT_SUBJECT_PREFIX:[OSH QA Assistant]}
+    recipients: ${AI_ASSISTANT_ALERT_RECIPIENTS:}
+    dedupe-minutes: ${AI_ASSISTANT_ALERT_DEDUPE_MINUTES:30}
+    recovery-enabled: ${AI_ASSISTANT_ALERT_RECOVERY_ENABLED:true}
+  db:
+    probe:
+      enabled: ${AI_ASSISTANT_DB_PROBE_ENABLED:true}
+      warn-after-seconds: ${AI_ASSISTANT_DB_PROBE_WARN_AFTER_SECONDS:10}
+      retry-interval-seconds: ${AI_ASSISTANT_DB_PROBE_RETRY_INTERVAL_SECONDS:10}
+      check-timeout-seconds: ${AI_ASSISTANT_DB_PROBE_CHECK_TIMEOUT_SECONDS:5}
+  qdrant:
+    probe:
+      enabled: ${AI_ASSISTANT_QDRANT_PROBE_ENABLED:true}
+      warn-after-seconds: ${AI_ASSISTANT_QDRANT_PROBE_WARN_AFTER_SECONDS:10}
+      check-timeout-seconds: ${AI_ASSISTANT_QDRANT_PROBE_CHECK_TIMEOUT_SECONDS:10}
+      retry-interval-seconds: ${AI_ASSISTANT_QDRANT_PROBE_RETRY_INTERVAL_SECONDS:10}
+  rag:
+    split:
+      strategy: ${AI_ASSISTANT_RAG_SPLIT_STRATEGY:semantic}
+      chunk-size: ${AI_ASSISTANT_RAG_SPLIT_CHUNK_SIZE:800}
+      min-chunk-size-chars: ${AI_ASSISTANT_RAG_SPLIT_MIN_CHUNK_SIZE_CHARS:350}
+      min-chunk-length-to-embed: ${AI_ASSISTANT_RAG_SPLIT_MIN_CHUNK_LENGTH_TO_EMBED:5}
+      max-num-chunks: ${AI_ASSISTANT_RAG_SPLIT_MAX_NUM_CHUNKS:10000}
+      keep-separator: ${AI_ASSISTANT_RAG_SPLIT_KEEP_SEPARATOR:true}
+      semantic-section-max-chars: ${AI_ASSISTANT_RAG_SPLIT_SEMANTIC_SECTION_MAX_CHARS:1200}
+      preview-chunk-limit: ${AI_ASSISTANT_RAG_SPLIT_PREVIEW_CHUNK_LIMIT:8}

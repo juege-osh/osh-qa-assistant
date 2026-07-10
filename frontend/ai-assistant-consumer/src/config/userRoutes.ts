@@ -27,7 +27,7 @@ const userRoutes: UserRoutesDefine = [
             path: "manage",
             componentPath: "personal/invokerecord/InvokeRecordManage",
             meta: {
-              authorityName: "调用记录管理",
+              authorityName: "调用记录",
               showInMenu: true,
               icon: ""
             }
@@ -71,6 +71,36 @@ const userRoutes: UserRoutesDefine = [
           authorityName: "使用统计",
           showInMenu: true,
           icon: ""
+        }
+      },
+      {
+        path: "uploadFile",
+        componentPath: "personal/uploadfile/UploadFileHome",
+        children: [
+          {
+            path: "manage",
+            componentPath: "personal/uploadfile/UploadFileManage",
+            meta: {
+              authorityName: "文档管理",
+              activeMenuPath: "/personal/knowledgeLib/manage"
+            }
+          },
+          {
+            path: "toAdd",
+            componentPath: "personal/uploadfile/AddFile",
+            meta: {
+              authorityName: "添加文档",
+              activeMenuPath: "/personal/knowledgeLib/manage"
+            }
+          }
+        ]
+      },
+      {
+        path: "chat",
+        componentPath: "personal/chat/Chat",
+        meta: {
+          authorityName: "智能聊天助手",
+          activeMenuPath: "/personal/app/manage"
         }
       }
     ]

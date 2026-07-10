@@ -52,7 +52,8 @@ public class ChatController {
     }
 
     /**
-     * SSE 连接端点
+     * SSE 连接端点。
+     * 前端会先建立这条长连接，后面聊天过程中生成的分片内容都通过它持续推回浏览器。
      */
     @GetMapping("/connect")
     public SseEmitter connect(@RequestParam("chatId") Long chatId) {
@@ -60,7 +61,8 @@ public class ChatController {
     }
 
     /**
-     * 聊天
+     * 聊天请求入口。
+     * 这里和 SSE 连接分开设计: 当前请求负责提交问题，流式结果走 /connect 对应的长连接返回。
      */
     @PostMapping(value = "/chat")
     public Result<Void> chat(@RequestBody @Validated ChatReq chatReq) {

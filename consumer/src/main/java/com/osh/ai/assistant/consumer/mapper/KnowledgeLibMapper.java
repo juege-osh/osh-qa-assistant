@@ -18,4 +18,6 @@ public interface KnowledgeLibMapper extends BaseMapper<KnowledgeLibDO> {
     List<KnowledgeLibVO> queryList(KnowledgeLibPageReq pageReq);
 
     List<KnowledgeLibDO> listUnUsed(@Param("userId") Long userId);
+
+    KnowledgeLibVO queryDetail(@Param("id") Long id, @Param("userId") Long userId);
 }

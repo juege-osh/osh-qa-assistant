@@ -1,0 +1,163 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: ai-assistant-backend-laughing
+  main:
+    allow-circular-references: true
+  mail:
+    host: ${AI_ASSISTANT_ALERT_SMTP_HOST:}
+    port: ${AI_ASSISTANT_ALERT_SMTP_PORT:587}
+    username: ${AI_ASSISTANT_ALERT_SMTP_USERNAME:}
+    password: ${AI_ASSISTANT_ALERT_SMTP_PASSWORD:}
+    protocol: ${AI_ASSISTANT_ALERT_SMTP_PROTOCOL:smtp}
+    properties:
+      mail:
+        smtp:
+          auth: ${AI_ASSISTANT_ALERT_SMTP_AUTH:true}
+          ssl:
+            enable: ${AI_ASSISTANT_ALERT_SMTP_SSL_ENABLE:false}
+            trust: ${AI_ASSISTANT_ALERT_SMTP_SSL_TRUST:}
+          starttls:
+            enable: ${AI_ASSISTANT_ALERT_SMTP_STARTTLS:true}
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${AI_ASSISTANT_DB_HOST}:${AI_ASSISTANT_DB_PORT:3306}/${AI_ASSISTANT_DB_NAME:ai_assistant}?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=${AI_ASSISTANT_DB_USE_SSL:false}&serverTimezone=${AI_ASSISTANT_DB_TIMEZONE:GMT%2B8}
+    username: ${AI_ASSISTANT_DB_USERNAME:root}
+    password: ${AI_ASSISTANT_DB_PASSWORD}
+    type: com.alibaba.druid.pool.DruidDataSource
+    druid:
+      initial-size: 2
+      max-active: ${AI_ASSISTANT_DB_POOL_MAX_ACTIVE:12}
+      max-wait: 60000
+      min-idle: 1
+      validation-query: select 1
+      test-while-idle: true
+      test-on-borrow: true
+      test-on-return: false
+      keep-alive: true
+      time-between-eviction-runs-millis: 30000
+      min-evictable-idle-time-millis: 60000
+      max-evictable-idle-time-millis: 300000
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 200MB
+      max-request-size: 200MB
+      file-size-threshold: 0
+  data:
+    redis:
+      host: ${AI_ASSISTANT_REDIS_HOST}
+      port: ${AI_ASSISTANT_REDIS_PORT:6379}
+      password: ${AI_ASSISTANT_REDIS_PASSWORD}
+      timeout: 60000
+      lettuce:
+        pool:
+          max-active: ${AI_ASSISTANT_REDIS_POOL_MAX_ACTIVE:8}
+          max-idle: 3
+          min-idle: 1
+  ai:
+    vectorstore:
+      qdrant:
+        collection-name: ${AI_ASSISTANT_QDRANT_COLLECTION:assistant_knowledge_lib}
+        host: ${AI_ASSISTANT_QDRANT_HOST}
+        port: ${AI_ASSISTANT_QDRANT_PORT:6334}
+        initialize-schema: ${SPRING_AI_VECTORSTORE_QDRANT_INITIALIZE_SCHEMA:false}
+    dashscope:
+      api-key: ${AI_ASSISTANT_DASHSCOPE_API_KEY:dummy-dashscope-key}
+      chat:
+        options:
+          model: qwen-plus
+      embedding:
+        options:
+          model: text-embedding-v4
+          dimensions: 1536
+      rerank:
+        options:
+          model: gte-rerank
+
+ai-assistant:
+  chat:
+    provider: ${AI_ASSISTANT_CHAT_PROVIDER:openai}
+    model: ${AI_ASSISTANT_CHAT_MODEL:MiniMax-M2.7-highspeed}
+    temperature: ${AI_ASSISTANT_CHAT_TEMPERATURE:0.7}
+  embedding:
+    provider: ${AI_ASSISTANT_EMBEDDING_PROVIDER:openai}
+    model: ${AI_ASSISTANT_EMBEDDING_MODEL:BAAI/bge-small-zh-v1.5}
+    base-url: ${AI_ASSISTANT_EMBEDDING_BASE_URL}
+    api-key: ${AI_ASSISTANT_EMBEDDING_API_KEY}
+    dimensions: ${AI_ASSISTANT_EMBEDDING_DIMENSIONS:512}
+    embeddings-path: ${AI_ASSISTANT_EMBEDDING_PATH:/v1/embeddings}
+  rerank:
+    enabled: ${AI_ASSISTANT_RERANK_ENABLED:false}
+    provider: ${AI_ASSISTANT_RERANK_PROVIDER:local}
+    model: ${AI_ASSISTANT_RERANK_MODEL:BAAI/bge-reranker-base}
+    base-url: ${AI_ASSISTANT_RERANK_BASE_URL:http://127.0.0.1:17997}
+    api-key: ${AI_ASSISTANT_RERANK_API_KEY:local-rerank}
+    path: ${AI_ASSISTANT_RERANK_PATH:/rerank}
+  openai:
+    enabled: ${AI_ASSISTANT_OPENAI_ENABLED:true}
+    base-url: ${AI_ASSISTANT_OPENAI_BASE_URL}
+    api-key: ${AI_ASSISTANT_OPENAI_API_KEY}
+    completions-path: ${AI_ASSISTANT_OPENAI_COMPLETIONS_PATH:/v1/chat/completions}
+  qdrant:
+    probe:
+      enabled: ${AI_ASSISTANT_QDRANT_PROBE_ENABLED:true}
+      warn-after-seconds: ${AI_ASSISTANT_QDRANT_PROBE_WARN_AFTER_SECONDS:10}
+      check-timeout-seconds: ${AI_ASSISTANT_QDRANT_PROBE_CHECK_TIMEOUT_SECONDS:10}
+      retry-interval-seconds: ${AI_ASSISTANT_QDRANT_PROBE_RETRY_INTERVAL_SECONDS:10}
+  alert:
+    enabled: ${AI_ASSISTANT_ALERT_ENABLED:false}
+    subject-prefix: ${AI_ASSISTANT_ALERT_SUBJECT_PREFIX:[OSH QA Assistant]}
+    from: ${AI_ASSISTANT_ALERT_FROM:}
+    recipients: ${AI_ASSISTANT_ALERT_RECIPIENTS:}
+    dedupe-minutes: ${AI_ASSISTANT_ALERT_DEDUPE_MINUTES:30}
+    recovery-enabled: ${AI_ASSISTANT_ALERT_RECOVERY_ENABLED:true}
+    self-check-enabled: ${AI_ASSISTANT_ALERT_SELF_CHECK_ENABLED:false}
+    self-check-allowed-users: ${AI_ASSISTANT_ALERT_SELF_CHECK_ALLOWED_USERS:}
+  db:
+    probe:
+      enabled: ${AI_ASSISTANT_DB_PROBE_ENABLED:true}
+      warn-after-seconds: ${AI_ASSISTANT_DB_PROBE_WARN_AFTER_SECONDS:10}
+      retry-interval-seconds: ${AI_ASSISTANT_DB_PROBE_RETRY_INTERVAL_SECONDS:10}
+      check-timeout-seconds: ${AI_ASSISTANT_DB_PROBE_CHECK_TIMEOUT_SECONDS:5}
+
+mybatis-plus:
+  mapper-locations: classpath*:/mybatis/mapper/*Mapper.xml
+  configuration:
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+    call-setters-on-nulls: true
+
+auth:
+  whiteList:
+    - /
+    - /error
+    - /favicon.ico
+    - /auth/getCode
+    - /auth/login
+    - /manager/manager/getCode
+    - /manager/manager/login
+    - /consumer/user/getCode
+    - /consumer/user/login
+    - /consumer/user/register
+    - /consumer/api/chat
+    - /consumer/public/app/detail
+    - /consumer/public/app/verifyPassword
+    - /consumer/public/app/chat
+    - /consumer/sse/**
+    - /manager/resources/**
+    - /consumer/resources/**
+    - /resources/**
+
+upload:
+  storage-type: ${AI_ASSISTANT_UPLOAD_STORAGE_TYPE:local}
+  static-dir: ${AI_ASSISTANT_CONTAINER_UPLOAD_DIR:/opt/qa-assistant/upload}
+  oss:
+    access-key: ${AI_ASSISTANT_OSS_ACCESS_KEY:${x-file-storage.cloudflare-r2.access-key:}}
+    secret-key: ${AI_ASSISTANT_OSS_SECRET_KEY:${x-file-storage.cloudflare-r2.secret-key:}}
+    endpoint: ${AI_ASSISTANT_OSS_ENDPOINT:${x-file-storage.cloudflare-r2.endpoint:}}
+    bucket-name: ${AI_ASSISTANT_OSS_BUCKET_NAME:${x-file-storage.cloudflare-r2.bucket-name:}}
+    public-domain: ${AI_ASSISTANT_OSS_PUBLIC_DOMAIN:${x-file-storage.cloudflare-r2.public-domain:}}
+    base-path: ${AI_ASSISTANT_OSS_BASE_PATH:${x-file-storage.cloudflare-r2.base-path:}}
+    path-style-access: ${AI_ASSISTANT_OSS_PATH_STYLE_ACCESS:true}

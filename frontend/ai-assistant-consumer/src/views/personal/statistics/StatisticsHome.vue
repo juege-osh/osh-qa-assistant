@@ -77,7 +77,7 @@ onMounted(() => {
 }
 
 .summary-title {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -89,10 +89,10 @@ onMounted(() => {
 
 .summary-item {
   padding: 16px 18px;
-  border: 1px solid rgba(52, 211, 153, 0.14);
+  border: 1px solid var(--space-border);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(234, 246, 255, 0.84);
+  background: #fafafa;
+  color: var(--space-muted);
   line-height: 1.8;
 }
 </style>

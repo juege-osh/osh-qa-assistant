@@ -53,6 +53,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
     private InvokeManager invokeManager;
     @Resource
     private AiChatService aiChatService;
+    // 一个会话对应一个 SSE 推送通道，聊天任务启动后会按 chatId 找到对应 emitter 持续回推内容。
     private final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
 
     @Override
@@ -71,17 +72,21 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
         requireOwnedChat(chatId);
         // 0L 表示永不超时
         SseEmitter emitter = new SseEmitter(0L);
-        emitters.put(chatId, emitter);
+        SseEmitter previous = emitters.put(chatId, emitter);
         try {
             emitter.send(SseEmitter.event().name("connected").data("ok"));
         } catch (IOException e) {
-            emitters.remove(chatId);
+            emitters.remove(chatId, emitter);
             throw new BizEx("会话连接失败");
         }
+        if (previous != null) {
+            // 同一会话只保留最新连接，避免前端重连后旧连接继续占用资源。
+            previous.complete();
+        }
         // 连接完成或出错时清理
-        emitter.onCompletion(() -> emitters.remove(chatId));
-        emitter.onTimeout(() -> emitters.remove(chatId));
-        emitter.onError(e -> emitters.remove(chatId));
+        emitter.onCompletion(() -> emitters.remove(chatId, emitter));
+        emitter.onTimeout(() -> emitters.remove(chatId, emitter));
+        emitter.onError(e -> emitters.remove(chatId, emitter));
         return emitter;
     }
 
@@ -100,8 +105,9 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, ChatDO> implements 
         InvokeRecordBuilder builder = invokeManager.initInvokeRecordBuild(chatDTO,crtUser,app);
         // 保存用户输入的聊天信息
         chatMessageService.addUserMessage(chatReq);
+        // 模型调用和知识库检索都可能比较慢，异步执行后，结果再通过前面建立的 SSE 通道返回。
         executorService.execute(() -> {
-            String assistantMessage = aiChatService.doChat(sseEmitter,app,builder);
+            String assistantMessage = aiChatService.doChat(sseEmitter,app,builder,false);
             // 保存ai响应的完整结果
             chatMessageService.addAssistantMessage(chatReq.getChatId(),assistantMessage);
         });

@@ -195,7 +195,7 @@ onMounted(() => {
 <style scoped>
 .title {
   font-weight: 900;
-  color: #fff;
+  color: var(--space-text);
   letter-spacing: .03em;
 }
 
@@ -210,22 +210,21 @@ onMounted(() => {
 
 :deep(.el-card__footer) {
   padding: 12px 16px;
-  background: rgba(5, 12, 32, 0.45) !important;
+  background: #fafafa !important;
 }
 
 .app-card {
   position: relative;
   min-height: 250px;
   border: 1px solid var(--space-border) !important;
-  background:
-    radial-gradient(circle at 90% 8%, rgba(52, 211, 153, 0.16), transparent 28%),
-    linear-gradient(145deg, rgba(13, 23, 54, 0.88), rgba(18, 13, 49, 0.78)) !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   transition: transform .2s ease, box-shadow .2s ease;
 }
 
 .app-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.5), 0 0 36px rgba(52, 211, 153, 0.18) !important;
+  transform: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
 }
 
 .card-wrapper {
@@ -267,7 +266,7 @@ onMounted(() => {
   text-overflow: ellipsis;
   line-height: 2em;
   min-height: 6em;
-  color: rgba(234, 246, 255, 0.84) !important;
+  color: var(--space-muted) !important;
 }
 
 .bind-unbind-link {

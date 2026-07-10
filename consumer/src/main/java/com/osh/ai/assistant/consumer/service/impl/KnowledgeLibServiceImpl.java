@@ -73,8 +73,12 @@ public class KnowledgeLibServiceImpl extends ServiceImpl<KnowledgeLibMapper, Kno
 
     @Override
     public KnowledgeLibVO queryById(Long id) {
-        KnowledgeLibDO entity = requireOwnedEntity(id);
-        return ConvertUtil.convert(entity,KnowledgeLibVO.class);
+        requireOwnedEntity(id);
+        KnowledgeLibVO detail = getBaseMapper().queryDetail(id, UserContext.getUserId());
+        if (detail == null) {
+            throw new BizEx("知识库不存在或无权限访问");
+        }
+        return detail;
     }
 
     @Override

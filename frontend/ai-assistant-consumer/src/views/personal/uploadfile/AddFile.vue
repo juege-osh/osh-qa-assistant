@@ -39,7 +39,7 @@ import FileUpload from '@/components/FileUpload.vue';
 import type { AnyObjsDefine } from '@/types/common';
 import { addUploadFileApi } from '@/api/uploadFileApi';
 import { ElMessage } from 'element-plus';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 let formData = reactive({
   libId: '',
   storePath: '',
@@ -50,8 +50,13 @@ let rules = reactive({
 })
 let addForm = ref()
 let route = useRoute()
+let router = useRouter()
 let fileUploadRef = ref()
 function onSubmit() {
+  if (!formData.libId) {
+    ElMessage.warning('请先从知识库列表进入文件管理，再添加文件')
+    return
+  }
   addForm.value.validate((valid: boolean) => {
     if (!valid) return
     addUploadFileApi(formData).then(result => {
@@ -77,6 +82,9 @@ function handleLibId() {
   const libIdFromQs = route.query.libId
   if(libIdFromQs) {
     formData.libId = libIdFromQs as string
+  } else {
+    ElMessage.warning('缺少知识库信息，请先从知识库列表进入文件管理')
+    router.replace('/personal/knowledgeLib/manage')
   }
 }
 onMounted(() => {

@@ -59,18 +59,32 @@
             and invokeRecord.end_time <= #{endTime}
         ]]>
       </if>
+      <if test="appName != null and appName != ''">
+        and app.app_name like concat('%', #{appName}, '%')
+      </if>
+      <if test="userInputKeyword != null and userInputKeyword != ''">
+        and exists (
+          select 1
+          from invoke_record_detail detail_keyword
+          where detail_keyword.invoke_record_id = invokeRecord.id
+            and detail_keyword.user_input like concat('%', #{userInputKeyword}, '%')
+        )
+      </if>
     </where>
   </sql>
 
   <select id="queryCount" resultType="java.lang.Long">
     select count(*)
     from invoke_record invokeRecord
+    join app app on invokeRecord.app_id = app.id
     <include refid="pageWhere"/>
   </select>
   <select id="queryList" resultMap="invokeRecordMap">
     <include refid="pageColumn"/>
     from (
-      select invokeRecord.* from invoke_record invokeRecord
+      select invokeRecord.*
+      from invoke_record invokeRecord
+      join app app on invokeRecord.app_id = app.id
       <include refid="pageWhere"></include>
       order by invokeRecord.id desc
       limit #{start},#{pageSize}

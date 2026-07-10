@@ -1,28 +1,73 @@
 <template>
   <div>
-    <el-dialog title="更新" :model-value="updateDialogVisible" @open="handleOpen" width="30%"
-      :before-close="handleCancel">
-      <el-form ref="updateForm" :model="formData" :rules="rules" label-width="120px">
-        <el-form-item label="名称:" prop="libName">
-          <el-input v-model="formData.libName"></el-input>
-        </el-form-item>
-        <el-form-item label="描述:" prop="libDesc">
-          <el-input :rows="6" type="textarea" v-model="formData.libDesc"></el-input>
-        </el-form-item>
-        <el-form-item label="图标:" prop="iconPath">
-          <FileUpload :file-list="uploadInfo.fileList" @file-list-change="handleFileListChange" ref="fileUploadRef">
-          </FileUpload>
-        </el-form-item>
-      </el-form>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="handleCancel">取消</el-button>
-        <el-button type="primary" @click="onSubmit">确定</el-button>
+    <el-dialog
+      class="workspace-form-dialog"
+      title="更新知识库"
+      :model-value="updateDialogVisible"
+      @open="handleOpen"
+      width="640px"
+      :before-close="handleCancel"
+    >
+      <div class="dialog-intro">
+        名称、描述和图标会同步影响绑定应用后的识别效果。
       </div>
+      <section class="workspace-info-card workspace-dialog-summary-card">
+        <div class="workspace-info-grid workspace-info-grid--compact">
+          <div class="workspace-info-item">
+            <div class="workspace-info-label">知识库 ID</div>
+            <div class="workspace-info-value workspace-info-value--mono">{{ formData.id || props.idToUpdate || '--' }}</div>
+          </div>
+          <div class="workspace-info-item">
+            <div class="workspace-info-label">当前图标状态</div>
+            <div class="workspace-info-value">{{ formData.iconPath ? '已配置图标' : '暂未配置图标' }}</div>
+          </div>
+          <div class="workspace-info-item workspace-info-item--full">
+            <div class="workspace-info-label">当前维护重点</div>
+            <div class="workspace-info-value workspace-note-strong">{{ updateKnowledgeSummary }}</div>
+          </div>
+        </div>
+      </section>
+      <section class="workspace-dialog-tip-panel">
+        更新知识库信息时，建议优先改那些会影响识别和协作的内容，比如名称、描述和图标。真正影响回答效果的，后续还是要结合文档内容和检索调试继续验证。
+      </section>
+      <section class="workspace-info-card workspace-dialog-summary-card">
+        <div class="workspace-tip-grid">
+          <article v-for="item in updateKnowledgeFocusCards" :key="item.title" class="workspace-tip-card">
+            <div class="workspace-tip-card__title">{{ item.title }}</div>
+            <div class="workspace-tip-card__desc">{{ item.desc }}</div>
+          </article>
+        </div>
+      </section>
+      <el-form ref="updateForm" :model="formData" :rules="rules" label-position="top">
+        <div class="workspace-form-grid workspace-form-grid--single">
+          <el-form-item label="知识库名称" prop="libName">
+            <el-input v-model="formData.libName" maxlength="40" show-word-limit placeholder="例如：产品知识库"></el-input>
+            <div class="field-help">建议保持名称清晰稳定，避免应用绑定后出现识别歧义。</div>
+          </el-form-item>
+          <el-form-item label="知识库描述" prop="libDesc">
+            <el-input :rows="5" type="textarea" resize="none" v-model="formData.libDesc" placeholder="说明这个知识库覆盖哪些资料、给谁使用。"></el-input>
+            <div class="field-help">建议补齐内容边界、适用对象和典型问题，便于后续维护与调试。</div>
+          </el-form-item>
+          <el-form-item label="知识库图标" prop="iconPath" class="upload-card-field">
+            <div class="workspace-upload-panel">
+              <FileUpload :file-list="uploadInfo.fileList" @file-list-change="handleFileListChange" ref="fileUploadRef">
+              </FileUpload>
+              <div class="field-help">建议使用清晰的方形图标，方便在应用绑定和列表页识别。</div>
+            </div>
+          </el-form-item>
+        </div>
+      </el-form>
+      <template #footer>
+        <div class="workspace-dialog-footer">
+          <el-button class="workspace-btn workspace-btn--ghost" @click="handleCancel">取消</el-button>
+          <el-button type="primary" class="workspace-btn workspace-btn--primary" @click="onSubmit">保存更新</el-button>
+        </div>
+      </template>
     </el-dialog>
   </div>
 </template>
 <script setup name='UpdateKnowledgeLib' lang='ts'>
-import { nextTick, reactive, ref } from "vue"
+import { computed, reactive, ref } from "vue"
 import { queryKnowledgeLibByIdApi, modifyKnowledgeLibByIdApi } from "@/api/workspace/knowledgeLibApi"
 import { ElMessage, type UploadUserFile } from "element-plus";
 import type { AnyObjsDefine } from "@/types/common";
@@ -35,6 +80,33 @@ let formData = reactive({
   libDesc: '',
   iconPath: '',
 })
+const updateKnowledgeSummary = computed(() => {
+  if (!String(formData.libDesc || '').trim()) {
+    return '当前更适合先补齐知识范围和使用边界，避免后续绑定应用时出现识别歧义。'
+  }
+  if (!String(formData.iconPath || '').trim()) {
+    return '当前描述已经有了，但仍建议补图标，方便在绑定应用和资产列表里快速识别。'
+  }
+  return '基础识别信息已经比较完整，后续可以更多把精力放到文档质量和检索效果上。'
+})
+const updateKnowledgeFocusCards = computed(() => [
+  {
+    title: String(formData.libDesc || '').trim() ? '描述信息已经具备基础识别力' : '建议优先补齐描述信息',
+    desc: String(formData.libDesc || '').trim()
+      ? '后续绑定应用和团队协作时，更容易快速理解这套知识的覆盖范围和适用边界。'
+      : '如果描述仍为空，后续维护、绑定和调试都会更难判断这套知识库究竟该解决什么问题。'
+  },
+  {
+    title: String(formData.iconPath || '').trim() ? '图标已配置，可继续保持一致识别' : '当前仍然缺少图标',
+    desc: String(formData.iconPath || '').trim()
+      ? '统一的图标识别能减少列表场景里的辨认成本，尤其在知识库数量多的时候更明显。'
+      : '图标虽然不影响召回，但会明显影响应用绑定和后台巡检时的识别效率。'
+  },
+  {
+    title: '修改后建议继续回看文档与召回效果',
+    desc: '名称、描述和图标主要解决识别问题；真正影响回答质量的，仍然要回到文档管理和检索调试里继续验证。'
+  }
+])
 let rules = reactive({
   libName: [{ required: true, message: "请输入知识库名称", trigger: "blur" }],
   libDesc: [{ required: true, message: "请输入知识库描述", trigger: "blur" }],
@@ -98,8 +170,4 @@ function handleOpen() {
   queryAppById()
 }
 </script>
-<style scoped>
-.el-tag {
-  margin-right: 1rem;
-}
-</style>
+<style scoped></style>

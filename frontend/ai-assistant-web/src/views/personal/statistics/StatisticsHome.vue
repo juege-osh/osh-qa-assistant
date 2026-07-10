@@ -1,68 +1,114 @@
 <template>
-  <div class="page-shell">
-    <section class="hero-panel">
-      <div class="hero-title">使用统计</div>
-      <div class="hero-subtitle">
-        查看你的 API 调用情况、成功率和使用趋势，帮助你了解知识库的使用效果。
+  <div class="page-shell statistics-home-page">
+    <section class="workspace-context-strip">
+      <div class="workspace-context-copy">
+        <span class="workspace-status-pill workspace-status-pill--active">应用统计</span>
+        <span class="workspace-context-note">统一查看调用规模、稳定性和耗时，优先判断当前应用需要优化哪一段链路。</span>
+      </div>
+      <div class="workspace-context-actions">
+        <span class="workspace-inline-tag workspace-inline-tag--soft">总调用 {{ totalCallsDisplay }}</span>
+        <span class="workspace-inline-tag workspace-inline-tag--soft">成功率 {{ successRateDisplay }}</span>
+        <span class="workspace-inline-tag workspace-inline-tag--soft">平均耗时 {{ avgCostTimeDisplay }}</span>
       </div>
     </section>
 
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">总调用次数</div>
-        <div class="stat-value">{{ stats.totalCalls || 0 }}</div>
-        <div class="stat-help">累计触发 AI 调用的总次数，用于观察整体使用规模。</div>
+    <section class="workspace-section-card stats-overview-panel workspace-dashboard-panel">
+      <div class="stats-overview-head workspace-overview-head workspace-dashboard-head">
+        <div>
+          <div class="panel-title panel-title--md">统计工作区</div>
+          <div class="panel-desc workspace-panel-desc">从调用量、成功率和响应速度快速判断当前应用处于什么状态。</div>
+        </div>
+        <div class="workspace-inline-tags">
+          <span class="workspace-inline-tag workspace-inline-tag--soft">今日调用 {{ todayCallsDisplay }}</span>
+          <span :class="['workspace-inline-tag', healthToneClass]">{{ healthLabel }}</span>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">成功次数</div>
-        <div class="stat-value" style="color: var(--space-success)">{{ stats.successCalls || 0 }}</div>
-        <div class="stat-help">模型成功返回结果的次数，越高说明链路越稳定。</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">失败次数</div>
-        <div class="stat-value" style="color: #f87171">{{ stats.failCalls || 0 }}</div>
-        <div class="stat-help">检索、重排、模型或网络异常都会体现在这里。</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">成功率</div>
-        <div class="stat-value">{{ stats.successRate || 0 }}%</div>
-        <div class="stat-help">成功次数 / 总调用次数，可作为体验健康度的直观指标。</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">今日调用</div>
-        <div class="stat-value" style="color: var(--space-secondary)">{{ stats.todayCalls || 0 }}</div>
-        <div class="stat-help">观察当日活跃度，方便课程演示和运营复盘。</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">累计 Token</div>
-        <div class="stat-value">{{ stats.totalCostToken || 0 }}</div>
-        <div class="stat-help">累计消耗的 token 总量，能帮助讲清模型成本和调用规模。</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">平均耗时</div>
-        <div class="stat-value">{{ stats.avgCostTime || 0 }}ms</div>
-        <div class="stat-help">调用链路平均响应时长，适合演示性能优化和排障思路。</div>
-      </div>
-    </div>
 
-    <section class="glass-panel summary-panel">
-      <div class="summary-title">解读建议</div>
-      <div class="summary-list">
-        <div class="summary-item">如果失败数增加，优先检查知识库文件状态、向量检索和模型密钥。</div>
-        <div class="summary-item">如果总调用增长但成功率下降，说明访问量上来了，但链路稳定性需要跟进。</div>
-        <div class="summary-item">如果今日调用高但总调用不高，多半是近期正在集中联调或演示。</div>
-        <div class="summary-item">如果平均耗时偏高，优先检查向量检索、重排模型和大模型接口延迟。</div>
-        <div class="summary-item">如果 token 增长过快，说明上下文过长或提问轮次过多，适合进一步优化提示词和召回策略。</div>
+      <div class="stats-grid metrics-grid workspace-metrics-grid">
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--total">
+          <div class="stat-label">总调用次数</div>
+          <div class="stat-value">{{ totalCallsDisplay }}</div>
+          <div class="stat-help">累计所有调用次数，反映整体使用规模。</div>
+        </article>
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--success">
+          <div class="stat-label">成功次数</div>
+          <div class="stat-value workspace-stat-value--success">{{ successCallsDisplay }}</div>
+          <div class="stat-help">成功返回结果的次数，越高说明链路越稳定。</div>
+        </article>
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--danger">
+          <div class="stat-label">失败次数</div>
+          <div class="stat-value workspace-stat-value--danger">{{ failCallsDisplay }}</div>
+          <div class="stat-help">失败突然上升时，建议优先检查模型、配置和知识库状态。</div>
+        </article>
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--success">
+          <div class="stat-label">成功率</div>
+          <div class="stat-value">{{ successRateDisplay }}</div>
+          <div class="stat-help">成功率越高，用户实际体验通常越稳定。</div>
+        </article>
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--token">
+          <div class="stat-label">今日调用</div>
+          <div class="stat-value workspace-stat-value--warning">{{ todayCallsDisplay }}</div>
+          <div class="stat-help">快速判断今天的活跃程度和近期波动。</div>
+        </article>
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--token">
+          <div class="stat-label">累计 Token</div>
+          <div class="stat-value">{{ totalCostTokenDisplay }}</div>
+          <div class="stat-help">用于感知整体使用量，也能辅助判断成本趋势。</div>
+        </article>
+        <article class="stat-card workspace-stat-card--framed workspace-stat-card--time">
+          <div class="stat-label">平均耗时</div>
+          <div class="stat-value">{{ avgCostTimeDisplay }}</div>
+          <div class="stat-help">耗时偏高时，优先排查检索、重排和模型响应时间。</div>
+        </article>
       </div>
     </section>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { getOverviewApi } from '@/api/workspace/statisticsApi'
 
 const stats = ref<any>({})
+
+function normalizeNumber(value: unknown) {
+  const num = Number(value || 0)
+  return Number.isFinite(num) ? num : 0
+}
+
+function formatCount(value: unknown) {
+  return normalizeNumber(value).toLocaleString('zh-CN')
+}
+
+const totalCallsDisplay = computed(() => formatCount(stats.value.totalCalls))
+const successCallsDisplay = computed(() => formatCount(stats.value.successCalls))
+const failCallsDisplay = computed(() => formatCount(stats.value.failCalls))
+const todayCallsDisplay = computed(() => formatCount(stats.value.todayCalls))
+const totalCostTokenDisplay = computed(() => formatCount(stats.value.totalCostToken))
+const avgCostTimeDisplay = computed(() => `${formatCount(stats.value.avgCostTime)}ms`)
+const successRateValue = computed(() => normalizeNumber(stats.value.successRate))
+const successRateDisplay = computed(() => `${successRateValue.value}%`)
+
+const healthLabel = computed(() => {
+  if (successRateValue.value >= 95) {
+    return '状态稳定'
+  }
+  if (successRateValue.value >= 80) {
+    return '需要关注'
+  }
+  return '优先排查'
+})
+
+const healthToneClass = computed(() => {
+  if (successRateValue.value >= 95) {
+    return 'workspace-inline-tag--success'
+  }
+  if (successRateValue.value >= 80) {
+    return 'workspace-inline-tag--warning'
+  }
+  return 'workspace-inline-tag--danger'
+})
 
 onMounted(() => {
   getOverviewApi().then((res: any) => {
@@ -72,27 +118,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.summary-panel {
-  padding: 22px;
-}
-
-.summary-title {
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.summary-list {
-  display: grid;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.summary-item {
-  padding: 16px 18px;
-  border: 1px solid rgba(52, 211, 153, 0.14);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(234, 246, 255, 0.84);
-  line-height: 1.8;
+.statistics-home-page {
+  gap: 16px;
 }
 </style>

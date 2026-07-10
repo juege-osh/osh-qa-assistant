@@ -39,12 +39,12 @@
 <style scoped>
 .el-header {
   height: 64px;
-  padding: 0 22px 0 0;
+  padding: 0 14px 0 0;
   color: var(--space-text);
-  background: rgba(5, 12, 32, 0.72);
-  border-bottom: 1px solid var(--space-border);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.26);
+  background: rgba(255, 255, 255, 0.88);
+  border-bottom: 1px solid rgba(227, 232, 241, 0.8);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 28px rgba(37, 48, 71, 0.05);
 }
 
 .layout,
@@ -57,41 +57,32 @@
   overflow: hidden;
 }
 
-.layout::before {
-  content: "";
-  position: absolute;
-  width: 420px;
-  height: 420px;
-  right: -120px;
-  top: 72px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95), rgba(52, 211, 153, 0.34) 20%, rgba(245, 158, 11, 0.16) 48%, transparent 70%);
-  filter: blur(1px);
-  opacity: 0.36;
-  pointer-events: none;
-}
-
 .el-aside {
-  background: rgba(6, 13, 35, 0.82);
-  border-right: 1px solid var(--space-border);
-  backdrop-filter: blur(18px);
-  box-shadow: 18px 0 50px rgba(0, 0, 0, 0.22);
+  background: rgba(255, 255, 255, 0.54);
+  border-right: 1px solid rgba(227, 232, 241, 0.72);
+  backdrop-filter: blur(10px);
 }
 
 .el-main {
   position: relative;
-  padding: 22px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
   overflow: auto;
 }
 
 .page-content {
   flex: 1;
+  padding: 10px;
+  border: 1px solid rgba(227, 232, 241, 0.76);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 20px 48px rgba(37, 48, 71, 0.08);
 }
 
 :deep(.page-content > *) {
-  min-height: calc(100vh - 126px);
+  min-height: calc(100vh - 110px);
 }
 </style>

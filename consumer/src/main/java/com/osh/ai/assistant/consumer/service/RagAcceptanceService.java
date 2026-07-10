@@ -1,0 +1,20 @@
+package com.osh.ai.assistant.consumer.service;
+
+import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceBatchSaveReq;
+import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceRunBatchReq;
+import com.osh.ai.assistant.consumer.bean.req.invokerecord.RagAcceptanceRunDefaultBatchReq;
+import com.osh.ai.assistant.consumer.bean.vo.RagAcceptanceBatchVO;
+
+import java.util.List;
+
+public interface RagAcceptanceService {
+    Long saveBatch(RagAcceptanceBatchSaveReq req);
+
+    Long runDefaultBatch(RagAcceptanceRunDefaultBatchReq req);
+
+    Long runBatch(RagAcceptanceRunBatchReq req);
+
+    List<RagAcceptanceBatchVO> listMine();
+
+    RagAcceptanceBatchVO detail(Long id);
+}

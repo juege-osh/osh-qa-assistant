@@ -10,6 +10,8 @@ export interface UserRouteMetaDefine {
   showInMenu?:boolean,
   // element plus图标的名字,如  Plus
   icon?:string,
+  // 当前路由在侧栏中应高亮的一级入口
+  activeMenuPath?:string,
 }
 /**
  * 用户路由信息
@@ -63,6 +65,10 @@ export type TabArrayDefine = Array<TabDefine>
 export interface UserInfoDefine {
   // id
   id: string,
+  // 用户名
+  username: string,
+  // 图片地址
+  avatarPath:string,
   // 用户的动态路由
   userRoutes:UserRoutesDefine
 }

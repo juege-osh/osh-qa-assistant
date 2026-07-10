@@ -156,6 +156,8 @@ public class BizConfig {
             return chatClientBuilder;
         }
 
+        // 这里的 openai 不是“只能连 OpenAI 官方”，而是按 OpenAI 兼容协议去组装请求。
+        // 只要上游服务提供兼容的 /v1/chat/completions 接口，这套调用链就可以复用。
         OpenAiApi openAiApi = OpenAiApi.builder()
             .baseUrl(openAiBaseUrl)
             .apiKey(openAiApiKey)
@@ -221,6 +223,7 @@ public class BizConfig {
                 restClientBuilderProvider, retryTemplate, responseErrorHandler, observationRegistry, observationConvention);
         }
 
+        // Embedding 也复用了 OpenAI-compatible 协议，只是请求路径换成了 embeddings 接口。
         OpenAiApi openAiApi = OpenAiApi.builder()
             .baseUrl(embeddingBaseUrl)
             .apiKey(embeddingApiKey)

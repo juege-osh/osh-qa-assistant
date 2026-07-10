@@ -7,6 +7,7 @@ import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFilePageReq;
 import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFileUpdateStatusReq;
 import com.osh.ai.assistant.consumer.bean.vo.UploadFileVO;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.osh.ai.assistant.consumer.elt.RagSplitRuntimeConfig;
 
 import java.util.List;
 
@@ -44,12 +45,23 @@ public interface UploadFileService extends IService<UploadFileDO> {
     List<UploadFileDO> selectByLibId(Long libId);
 
     /**
-     * 对召回次数+1
-     * @param docIds
-     */
+      * 对召回次数+1
+      * @param docIds
+      */
     void incrRecallCount(List<String> docIds);
+
+    /**
+     * 根据命中的文档 id 反查关联来源文件
+     */
+    List<UploadFileDO> selectByDocIds(List<String> docIds);
 
     void updateStatus(UploadFileUpdateStatusReq req);
 
     void deleteByLibId(Long libId);
+
+    void rebuildById(Long id);
+
+    int rebuildByLibId(Long libId);
+
+    int rebuildByLibId(Long libId, RagSplitRuntimeConfig config);
 }

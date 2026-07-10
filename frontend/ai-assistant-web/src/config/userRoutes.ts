@@ -18,7 +18,7 @@ export const adminRoutes: UserRoutesDefine = [
       {
         path: 'invokeRecord/manage',
         componentPath: 'admin/invokerecord/InvokeRecordManage',
-        meta: { authorityName: '调用记录管理', showInMenu: true, icon: 'Link' }
+        meta: { authorityName: '调用记录', showInMenu: true, icon: 'Link' }
       },
       {
         path: 'app/manage',
@@ -46,8 +46,8 @@ export const workspaceRoutes: UserRoutesDefine = [
     children: [
       {
         path: 'chat',
-        componentPath: 'personal/chat/Chat',
-        meta: { authorityName: '智能聊天助手', showInMenu: true, icon: 'ChatDotRound' }
+        componentPath: 'personal/chat/ChatList',
+        meta: { authorityName: '智能聊天助手', activeMenuPath: '/workspace/app/manage' }
       },
       {
         path: 'app/manage',
@@ -62,12 +62,12 @@ export const workspaceRoutes: UserRoutesDefine = [
       {
         path: 'uploadFile/manage',
         componentPath: 'personal/uploadfile/UploadFileManage',
-        meta: { authorityName: '文档管理', showInMenu: true, icon: 'Document' }
+        meta: { authorityName: '文档管理', activeMenuPath: '/workspace/knowledgeLib/manage' }
       },
       {
         path: 'invokeRecord/manage',
         componentPath: 'personal/invokerecord/InvokeRecordManage',
-        meta: { authorityName: '调用记录管理', showInMenu: true, icon: 'Link' }
+        meta: { authorityName: '调用记录', showInMenu: true, icon: 'Link' }
       },
       {
         path: 'statistics',

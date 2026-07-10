@@ -1,5 +1,5 @@
 <template>
-  <div ref="tabs">
+  <div ref="tabs" class="workspace-tabs-shell">
     <!-- model-value:表示的是要激活name为activeTabName的tab-pane-->
     <el-tabs :model-value="activeTabName" @tab-click="tabClick" @contextmenu.prevent.native="openContextMenu"
       @tab-remove="closeTab">
@@ -9,22 +9,22 @@
     </el-tabs>
 
     <ul v-show="contextMenuVisible" :style="{ left: left + 'px', top: top + 'px' }" class="context-menu">
-      <li @click="refreshTab"><el-icon>
+      <li class="context-menu__item" @click="refreshTab"><el-icon>
           <Refresh />
         </el-icon> 刷新页面</li>
-      <li @click="closeCurrent()"><el-icon>
+      <li class="context-menu__item" @click="closeCurrent()"><el-icon>
           <Close />
         </el-icon> 关闭当前</li>
-      <li v-show="otherVisible" @click="closeOthers"><el-icon>
+      <li v-show="otherVisible" class="context-menu__item" @click="closeOthers"><el-icon>
           <CircleClose />
         </el-icon> 关闭其他</li>
-      <li v-show="leftVisible" @click="closeLeft"><el-icon>
+      <li v-show="leftVisible" class="context-menu__item" @click="closeLeft"><el-icon>
           <DArrowLeft />
         </el-icon> 关闭左侧</li>
-      <li v-show="rightVisible" @click="closeRight"><el-icon>
+      <li v-show="rightVisible" class="context-menu__item" @click="closeRight"><el-icon>
           <DArrowRight />
         </el-icon> 关闭右侧</li>
-      <li @click="closeAll()"><el-icon>
+      <li class="context-menu__item context-menu__item--danger" @click="closeAll()"><el-icon>
           <CircleClose />
         </el-icon> 全部关闭</li>
     </ul>
@@ -91,7 +91,7 @@ function openContextMenu(e:PointerEvent) {
     if (tabIndex === -1) {
         return
     }
-    const contextMenuMinWidth = 105
+    const contextMenuMinWidth = 184
     // 获取当前组件最外层元素的宽度
     const offsetWidth = tabs.value.offsetWidth
     // 距离左边的最大距离,超过这个距离上下文菜单将被遮盖
@@ -205,25 +205,132 @@ function closeAll(){
   z-index: 3000;
   position: absolute;
   list-style-type: none;
-  padding: 6px;
-  border: 1px solid var(--space-border);
-  border-radius: 14px;
+  width: 184px;
+  padding: 8px;
+  border: 1px solid rgba(223, 230, 241, 0.96);
+  border-radius: 16px;
   font-size: 12px;
   font-weight: 400;
   color: var(--space-text);
-  background: rgba(7, 14, 36, 0.94);
-  box-shadow: var(--space-shadow);
-  backdrop-filter: blur(18px);
+  background:
+    radial-gradient(circle at top left, rgba(99, 91, 255, 0.06), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 251, 255, 0.96));
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.09);
+  backdrop-filter: blur(8px);
 }
 
-.context-menu li {
+.workspace-tabs-shell {
+  position: relative;
+}
+
+.context-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
-  padding: 8px 16px;
+  min-height: 38px;
+  padding: 0 12px;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: 12px;
+  color: var(--space-text-soft);
+  font-weight: 600;
 }
 
-.context-menu li:hover {
-  background: rgba(52, 211, 153, 0.16);
+.context-menu__item + .context-menu__item {
+  margin-top: 4px;
+}
+
+.context-menu__item:hover {
+  background: rgba(99, 91, 255, 0.08);
+  color: var(--space-primary);
+}
+
+.context-menu__item--danger:hover {
+  background: rgba(254, 242, 242, 0.96);
+  color: #dc2626;
+}
+
+.context-menu__item :deep(.el-icon) {
+  color: currentColor;
+}
+
+:deep(.el-tabs) {
+  padding: 8px 8px 6px;
+  border: 1px solid var(--space-border);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top left, rgba(99, 91, 255, 0.04), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 251, 255, 0.94));
+  box-shadow: var(--space-card-shadow);
+}
+
+:deep(.el-tabs__header) {
+  margin: 0;
+  padding: 4px 8px 2px;
+}
+
+:deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+:deep(.el-tabs__nav) {
+  gap: 6px;
+}
+
+:deep(.el-tabs__nav-next),
+:deep(.el-tabs__nav-prev) {
+  width: 28px;
+  height: 28px;
+  margin-top: 3px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--space-text-soft);
+}
+
+:deep(.el-tabs__nav-next:hover),
+:deep(.el-tabs__nav-prev:hover) {
+  color: var(--space-primary);
+  border-color: rgba(223, 230, 241, 0.96);
+  background: rgba(248, 251, 255, 0.96);
+}
+
+:deep(.el-tabs__active-bar) {
+  display: none;
+}
+
+:deep(.el-tabs__item) {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--space-text-soft);
+  font-weight: 600;
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+:deep(.el-tabs__item:hover) {
+  color: var(--space-text);
+  border-color: rgba(223, 230, 241, 0.96);
+  background: rgba(248, 251, 255, 0.92);
+}
+
+:deep(.el-tabs__item.is-active) {
+  color: var(--space-primary);
+  border-color: rgba(99, 91, 255, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(239, 241, 255, 0.94));
+  box-shadow: 0 8px 18px rgba(99, 91, 255, 0.08);
+}
+
+:deep(.el-tabs__item .is-icon-close) {
+  width: 18px;
+  height: 18px;
+  margin-left: 8px;
+  border-radius: 999px;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+:deep(.el-tabs__item .is-icon-close:hover) {
+  background: rgba(99, 91, 255, 0.12);
+  color: var(--space-primary);
 }
 </style>

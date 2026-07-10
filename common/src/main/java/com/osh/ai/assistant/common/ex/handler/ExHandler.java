@@ -3,10 +3,14 @@ package com.osh.ai.assistant.common.ex.handler;
 import com.osh.ai.assistant.common.bean.res.Result;
 import com.osh.ai.assistant.common.enums.CodeEnum;
 import com.osh.ai.assistant.common.ex.BizEx;
+import com.osh.ai.assistant.common.ex.RateLimitEx;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.BindingResult;
@@ -17,7 +21,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -96,6 +102,21 @@ public class ExHandler {
     public Result<String> handleEx(DuplicateKeyException e) {
         log.error("唯一性约束校验失败",e);
         return Result.buildFailure(CodeEnum.DUPLICATE_KEY_ERR);
+    }
+
+    @ExceptionHandler(RateLimitEx.class)
+    public ResponseEntity<Result<String>> handleEx(RateLimitEx e) {
+        log.warn("请求触发限流", e);
+        Result<String> result = Result.buildFailure(e.getCode(), e.getMessage());
+        Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("errorType", "RATE_LIMIT");
+        extra.put("retryable", Boolean.TRUE);
+        extra.put("retryAfterSeconds", e.getRetryAfterSeconds());
+        extra.put("suggestion", "请在 " + e.getRetryAfterSeconds() + " 秒后重试，或降低请求频率");
+        result.setExtra(extra);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+            .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
+            .body(result);
     }
 
     @ExceptionHandler(BizEx.class)

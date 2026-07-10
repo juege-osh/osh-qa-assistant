@@ -1,6 +1,7 @@
 package com.osh.ai.assistant.consumer.elt;
 
 import com.osh.ai.assistant.consumer.bean.dto.StoreResultDTO;
+import com.osh.ai.assistant.consumer.elt.RagSplitRuntimeConfig;
 
 /**
  * 存储接口
@@ -12,6 +13,11 @@ public interface Storage {
      * @param libId 所属知识库id
      */
     StoreResultDTO store(String storePath,Long libId);
+
+    /**
+     * 按指定切分配置存储文件
+     */
+    StoreResultDTO store(String storePath, Long libId, RagSplitRuntimeConfig config);
 
     /**
      * 从向量数据库中删除

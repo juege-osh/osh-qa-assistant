@@ -15,6 +15,13 @@ spring:
       max-wait: 60000
       min-idle: 1
       validation-query: select 1
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      keep-alive: true
+      time-between-eviction-runs-millis: 30000
+      min-evictable-idle-time-millis: 60000
+      max-evictable-idle-time-millis: 300000
   application:
     name: manager
   servlet:
@@ -54,7 +61,18 @@ auth:
 
 # 上传目录配置
 upload:
+  # 默认 local 兼容原本地上传；配置为 oss 后走 S3 兼容对象存储。
+  storage-type: ${AI_ASSISTANT_UPLOAD_STORAGE_TYPE:local}
   static-dir: ${AI_ASSISTANT_UPLOAD_DIR:/Users/rengang/chuangye/osh-projects/osh-rag/osh-qa-assistant/文档/upload}
+  # 优先使用 AI_ASSISTANT_OSS_*，同时兼容原 osh-backend 的 x-file-storage.cloudflare-r2.* 配置前缀。
+  oss:
+    access-key: ${AI_ASSISTANT_OSS_ACCESS_KEY:${x-file-storage.cloudflare-r2.access-key:}}
+    secret-key: ${AI_ASSISTANT_OSS_SECRET_KEY:${x-file-storage.cloudflare-r2.secret-key:}}
+    endpoint: ${AI_ASSISTANT_OSS_ENDPOINT:${x-file-storage.cloudflare-r2.endpoint:}}
+    bucket-name: ${AI_ASSISTANT_OSS_BUCKET_NAME:${x-file-storage.cloudflare-r2.bucket-name:}}
+    public-domain: ${AI_ASSISTANT_OSS_PUBLIC_DOMAIN:${x-file-storage.cloudflare-r2.public-domain:}}
+    base-path: ${AI_ASSISTANT_OSS_BASE_PATH:${x-file-storage.cloudflare-r2.base-path:}}
+    path-style-access: ${AI_ASSISTANT_OSS_PATH_STYLE_ACCESS:true}
 # 资源环境配置
 env:
   base-resource-url: http://localhost:8000/manager/

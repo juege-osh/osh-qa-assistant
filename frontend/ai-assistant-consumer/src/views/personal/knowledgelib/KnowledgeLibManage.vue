@@ -42,10 +42,10 @@
             <!-- 中间描述 -->
             <div class="content">
               <div class="one-row">
-                <div class="left">
+                <div class="left workspace-media">
                   <el-avatar v-if="row.iconPath" :src="toAddressable(row.iconPath)">
                   </el-avatar>
-                  <el-icon v-else color="#409eff" :size="40">
+                  <el-icon v-else color="#409eff" class="space-icon--xl">
                     <Folder />
                   </el-icon>
                 </div>
@@ -152,16 +152,7 @@ onMounted(() => {
 </script>
 <style scoped>
 .left {
-  background: rgba(52, 211, 153, 0.08);
-  border: 1px solid rgba(52, 211, 153, 0.32);
-  padding: 3px;
   margin-right: 10px;
-  border-radius: 8px;
-  width: 60px;
-  height: 60px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 .right {
@@ -172,7 +163,7 @@ onMounted(() => {
 
 .title {
   font-weight: 800;
-  color: #fff;
+  color: var(--space-text);
 }
 .middle-row {
   display: flex;
@@ -217,6 +208,6 @@ onMounted(() => {
   text-overflow: ellipsis;
   line-height: 2em;
   min-height: 6em;
-  color: rgba(234, 246, 255, 0.84) !important;
+  color: var(--space-muted) !important;
 }
 </style>

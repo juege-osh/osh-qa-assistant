@@ -1,11 +1,7 @@
 <template>
-    <div>
-        <router-view></router-view>
-    </div>
+  <div class="route-host-shell">
+    <router-view />
+  </div>
 </template>
-<script setup name='KnowledgeLibHome' lang='ts'>
 
-</script>
-<style scoped>
-
-</style>
+<script setup name="KnowledgeLibHome" lang="ts"></script>

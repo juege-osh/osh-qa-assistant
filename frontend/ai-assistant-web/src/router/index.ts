@@ -13,13 +13,13 @@ const staticRoutes = [
       {
         path: 'login',
         name: 'Login',
-        component: () => import('@/views/Login.vue'),
+        component: () => import('@/features/auth').then((module) => module.LoginPage),
         meta: { authorityName: '登录' }
       },
       {
         path: 'register',
         name: 'Register',
-        component: () => import('@/views/Register.vue'),
+        component: () => import('@/features/auth').then((module) => module.RegisterPage),
         meta: { authorityName: '注册', role: 'GUEST' }
       },
       {
@@ -27,6 +27,12 @@ const staticRoutes = [
         name: 'Doc',
         component: () => import('@/views/doc/Doc.vue'),
         meta: { authorityName: '接口文档' }
+      },
+      {
+        path: 'public/app/:slug',
+        name: 'PublicAppChat',
+        component: () => import('@/features/public-app').then((module) => module.PublicAppPage),
+        meta: { authorityName: '公开应用' }
       },
       {
         path: 'admin',
@@ -50,7 +56,7 @@ const staticRoutes = [
           {
             path: 'invokeRecord/manage',
             component: () => import('@/views/admin/invokerecord/InvokeRecordManage.vue'),
-            meta: { authorityName: '调用记录管理', role: 'ADMIN' }
+            meta: { authorityName: '调用记录', role: 'ADMIN' }
           },
           {
             path: 'app/manage',
@@ -76,7 +82,7 @@ const staticRoutes = [
         children: [
           {
             path: '',
-            redirect: '/workspace/chat'
+            redirect: '/workspace/app/manage'
           },
           {
             path: 'userCenter',
@@ -86,7 +92,7 @@ const staticRoutes = [
           {
             path: 'invokeRecord/manage',
             component: () => import('@/views/personal/invokerecord/InvokeRecordManage.vue'),
-            meta: { authorityName: '调用记录管理', role: 'USER' }
+            meta: { authorityName: '调用记录', role: 'USER' }
           },
           {
             path: 'app/manage',
@@ -106,17 +112,22 @@ const staticRoutes = [
           {
             path: 'uploadFile/manage',
             component: () => import('@/views/personal/uploadfile/UploadFileManage.vue'),
-            meta: { authorityName: '文档管理', role: 'USER' }
+            meta: { authorityName: '文档管理', role: 'USER', activeMenuPath: '/workspace/knowledgeLib/manage' }
           },
           {
             path: 'uploadFile/toAdd',
             component: () => import('@/views/personal/uploadfile/AddFile.vue'),
-            meta: { authorityName: '添加文档', role: 'USER' }
+            meta: { authorityName: '添加文档', role: 'USER', activeMenuPath: '/workspace/knowledgeLib/manage' }
           },
           {
             path: 'chat',
-            component: () => import('@/views/personal/chat/Chat.vue'),
-            meta: { authorityName: '智能聊天助手', role: 'USER' }
+            component: () => import('@/features/workspace-chat').then((module) => module.WorkspaceChatListPage),
+            meta: { authorityName: '智能聊天助手', role: 'USER', activeMenuPath: '/workspace/app/manage' }
+          },
+          {
+            path: 'chat/:chatId',
+            component: () => import('@/features/workspace-chat').then((module) => module.WorkspaceChatConversationPage),
+            meta: { authorityName: '对话详情', role: 'USER', activeMenuPath: '/workspace/app/manage' }
           }
         ]
       },

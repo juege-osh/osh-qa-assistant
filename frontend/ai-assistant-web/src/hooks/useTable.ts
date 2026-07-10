@@ -41,8 +41,8 @@ export function useTable(opts:UseTableOptDefine) {
 
     // 按id删除
     function deleteById(id:string) {
-        ElMessageBox.confirm('确认要删除吗?', '提示', {
-            confirmButtonText: '确定',
+        ElMessageBox.confirm('删除后将无法恢复，确认继续吗？', '删除确认', {
+            confirmButtonText: '删除',
             cancelButtonText: '取消',
             type: 'warning'
         }).then(() => {
@@ -50,7 +50,7 @@ export function useTable(opts:UseTableOptDefine) {
                 .then(result => {
                     ElMessage({
                         type: "success",
-                        message: result.msg
+                        message: result.msg || '已删除'
                     })
                     loadTable()
                 })
