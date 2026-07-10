@@ -142,6 +142,8 @@ auth:
     - /consumer/auth/getCode
     - /consumer/user/login
     - /consumer/user/register
+    - /consumer/auth/login
+    - /consumer/auth/register
     - /consumer/api/chat
     - /consumer/public/app/detail
     - /consumer/public/app/verifyPassword

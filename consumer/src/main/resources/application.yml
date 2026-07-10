@@ -85,6 +85,8 @@ auth:
     - /auth/getCode
     - /user/login
     - /user/register
+    - /auth/login
+    - /auth/register
     - /api/chat
     - /public/app/detail
     - /public/app/verifyPassword
