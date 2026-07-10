@@ -12,42 +12,6 @@
       </div>
     </section>
 
-    <section class="workspace-section-card file-overview-panel workspace-dashboard-panel">
-      <div class="file-overview-head workspace-overview-head workspace-dashboard-head">
-        <div>
-          <div class="panel-title">文档工作区</div>
-          <div class="panel-desc workspace-panel-desc">先确认当前知识库、文件状态和召回规模，再决定是继续上传新资料、预览切分，还是直接重建索引。</div>
-        </div>
-        <div class="workspace-inline-tags">
-          <span class="workspace-inline-tag workspace-inline-tag--active">知识库 {{ currentLibDisplay }}</span>
-          <span class="workspace-inline-tag workspace-inline-tag--soft">启用 {{ enabledFileCountDisplay }}</span>
-          <span class="workspace-inline-tag workspace-inline-tag--soft">停用 {{ disabledFileCountDisplay }}</span>
-        </div>
-      </div>
-      <section class="stats-grid workspace-metrics-grid">
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--total">
-          <div class="stat-label">当前文件</div>
-          <div class="stat-value">{{ totalFileCountDisplay }}</div>
-          <div class="stat-help">当前页内已经进入管理视图、可继续处理的文件数量。</div>
-        </article>
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--success">
-          <div class="stat-label">启用中文档</div>
-          <div class="stat-value workspace-stat-value--success">{{ enabledFileCountDisplay }}</div>
-          <div class="stat-help">已经参与检索的文件，更适合继续看召回和切分效果。</div>
-        </article>
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--time">
-          <div class="stat-label">停用中文档</div>
-          <div class="stat-value workspace-stat-value--warning">{{ disabledFileCountDisplay }}</div>
-          <div class="stat-help">暂未参与检索，适合先确认是否需要重新启用或重建。</div>
-        </article>
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--token">
-          <div class="stat-label">当前页召回</div>
-          <div class="stat-value">{{ currentPageRecallDisplay }}</div>
-          <div class="stat-help">结合文件状态一起看，更容易判断哪些资料在真正被命中。</div>
-        </article>
-      </section>
-    </section>
-
     <section class="toolbar-panel workspace-section-card workspace-toolbar-panel">
       <div class="toolbar-copy workspace-toolbar-copy">
         <div class="workspace-toolbar-kicker">文档资产</div>
@@ -358,12 +322,6 @@ const totalFileCountDisplay = computed(() => formatCount(tableData.total))
 const currentLibDisplay = computed(() => {
   const currentLibName = String(tableData.rows[0]?.libName || '').trim()
   return currentLibName || String(searchData.libId || '').trim() || '--'
-})
-const enabledFileCountDisplay = computed(() => {
-  return formatCount(tableData.rows.filter((row: { status?: number }) => Number(row.status) === 1).length)
-})
-const disabledFileCountDisplay = computed(() => {
-  return formatCount(tableData.rows.filter((row: { status?: number }) => Number(row.status) !== 1).length)
 })
 const currentPageRecallDisplay = computed(() => {
   const total = tableData.rows.reduce((sum: number, row: { recallCount?: number | string }) => sum + Number(row.recallCount || 0), 0)
