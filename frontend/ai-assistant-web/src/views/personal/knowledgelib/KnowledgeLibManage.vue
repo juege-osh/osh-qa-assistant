@@ -3,7 +3,6 @@
     <section class="workspace-context-strip">
       <div class="workspace-context-copy">
         <span class="workspace-status-pill workspace-status-pill--active">我的知识库</span>
-        <span class="workspace-context-note">统一查看资料规模、应用挂载和检索准备情况，优先判断下一步是补资料还是直接做命中验证。</span>
       </div>
       <div class="workspace-context-actions">
         <span class="workspace-inline-tag workspace-inline-tag--soft">知识库 {{ currentResultCountDisplay }}</span>
@@ -17,9 +16,6 @@
       <div class="toolbar-copy workspace-toolbar-copy">
         <div class="workspace-toolbar-kicker">我的知识库</div>
         <div class="toolbar-title">知识库列表</div>
-        <div class="toolbar-desc">
-          先按名称缩小范围，再回看文档规模、应用挂载和检索调试入口。
-        </div>
       </div>
       <div class="toolbar-actions workspace-toolbar-actions knowledge-toolbar-actions">
         <el-form :model="searchData" :inline="true" class="workspace-toolbar-form knowledge-toolbar-form">

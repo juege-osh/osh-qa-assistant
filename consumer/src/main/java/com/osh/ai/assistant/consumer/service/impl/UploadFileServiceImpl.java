@@ -37,6 +37,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -56,6 +57,26 @@ public class UploadFileServiceImpl extends ServiceImpl<UploadFileMapper, UploadF
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void add(UploadFileAddReq addReq) {
+        addBatch(List.of(addReq));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void addBatch(List<UploadFileAddReq> addReqs) {
+        if (CollUtil.isEmpty(addReqs)) {
+            throw new BizEx("请上传至少一个文件");
+        }
+        Long libId = addReqs.get(0).getLibId();
+        if (addReqs.stream().anyMatch(addReq -> !Objects.equals(libId, addReq.getLibId()))) {
+            throw new BizEx("批量上传文件必须属于同一个知识库");
+        }
+        assertLibOwned(libId);
+        for (UploadFileAddReq addReq : addReqs) {
+            addOne(addReq);
+        }
+    }
+
+    private void addOne(UploadFileAddReq addReq) {
         UploadFileDO entity = ConvertUtil.convert(addReq,UploadFileDO.class);
         entity.setFileName(addReq.getOriginalFileName());
         entity.setStatus(UploadFileStatusEnum.ENABLED.getCode());

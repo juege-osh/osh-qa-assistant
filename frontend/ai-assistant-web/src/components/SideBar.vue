@@ -3,13 +3,13 @@
     <div class="side-content">
       <div class="side-head">
         <div class="side-copy" v-if="!collapsed">
-          <div class="side-title">助手工作台</div>
-          <div class="side-desc">统一管理账号、应用、知识库与问答记录。</div>
+          <div class="side-title">{{ title }}</div>
+          <div class="side-desc">{{ description }}</div>
         </div>
         <button
           class="collapse-toggle"
           type="button"
-          :aria-label="collapsed ? '展开工作台导航' : '折叠工作台导航'"
+          :aria-label="collapsed ? `展开${title}导航` : `折叠${title}导航`"
           @click="emit('update:collapsed', !collapsed)"
         >
           <el-icon>
@@ -20,7 +20,7 @@
       <!-- 菜单列表 -->
       <el-scrollbar class="menu-scroll workspace-menu-scroll">
         <!-- collapse:是否水平折叠收起菜单 -->
-        <el-menu @select="handleSelect" :default-active="defaultActivePath" :collapse="collapsed"
+        <el-menu :key="defaultActivePath" @select="handleSelect" :default-active="defaultActivePath" :collapse="collapsed"
           :collapse-transition="false" active-text-color="#635bff">
           <template v-for="menu in menuList" :key="menu.path">
             <MenuItem :item="menu">
@@ -109,9 +109,14 @@ import { useResource } from '@/hooks/useResource';
 import UserAccountDialogs from '@/components/UserAccountDialogs.vue'
 import type { UserAccountDialogsExpose } from '@/components/UserAccountDialogs.vue'
 
-defineProps<{
+withDefaults(defineProps<{
   collapsed: boolean
-}>()
+  title?: string
+  description?: string
+}>(), {
+  title: '助手工作台',
+  description: '统一管理账号、应用、知识库与问答记录。'
+})
 
 const emit = defineEmits<{
   'update:collapsed': [collapsed: boolean]

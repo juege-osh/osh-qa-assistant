@@ -8,32 +8,32 @@ export const adminRoutes: UserRoutesDefine = [
       {
         path: 'manager/manage',
         componentPath: 'admin/manager/ManagerManage',
-        meta: { authorityName: '管理员管理', showInMenu: true, icon: 'User' }
+        meta: { authorityName: '管理员账号', showInMenu: true, icon: 'User' }
       },
       {
         path: 'user/manage',
         componentPath: 'admin/user/UserManage',
-        meta: { authorityName: '用户管理', showInMenu: true, icon: 'Avatar' }
+        meta: { authorityName: '用户审计', showInMenu: true, icon: 'Avatar' }
       },
       {
         path: 'invokeRecord/manage',
         componentPath: 'admin/invokerecord/InvokeRecordManage',
-        meta: { authorityName: '调用记录', showInMenu: true, icon: 'Link' }
+        meta: { authorityName: '调用审计', showInMenu: true, icon: 'Link' }
       },
       {
         path: 'app/manage',
         componentPath: 'admin/app/AppManage',
-        meta: { authorityName: '应用管理', showInMenu: true, icon: 'Operation' }
+        meta: { authorityName: '应用审计', showInMenu: true, icon: 'Operation' }
       },
       {
         path: 'knowledgeLib/manage',
         componentPath: 'admin/knowledgelib/KnowledgeLibManage',
-        meta: { authorityName: '知识库管理', showInMenu: true, icon: 'Notebook' }
+        meta: { authorityName: '知识库审计', showInMenu: true, icon: 'Notebook' }
       },
       {
         path: 'uploadFile/manage',
         componentPath: 'admin/uploadfile/UploadFileManage',
-        meta: { authorityName: '文件管理', showInMenu: true, icon: 'Document' }
+        meta: { authorityName: '文件审计', showInMenu: true, icon: 'Document' }
       }
     ]
   }

@@ -3,7 +3,6 @@
     <section class="workspace-context-strip">
       <div class="workspace-context-copy">
         <span class="workspace-status-pill workspace-status-pill--active">我的应用</span>
-        <span class="workspace-context-note">统一查看应用绑定、模型配置和公开访问准备情况，优先判断下一步是补配置还是直接验证对话。</span>
       </div>
       <div class="workspace-context-actions">
         <span class="workspace-inline-tag workspace-inline-tag--soft">结果 {{ currentResultCountDisplay }}</span>
@@ -16,9 +15,6 @@
       <div class="toolbar-copy workspace-toolbar-copy">
         <div class="workspace-toolbar-kicker">我的应用</div>
         <div class="toolbar-title">应用列表</div>
-        <div class="toolbar-desc">
-          先按名称缩小范围，再回看知识库绑定、模型配置和公开访问准备情况。
-        </div>
       </div>
       <div class="toolbar-actions workspace-toolbar-actions app-toolbar-actions">
         <el-form :model="searchData" :inline="true" class="workspace-toolbar-form app-toolbar-form">

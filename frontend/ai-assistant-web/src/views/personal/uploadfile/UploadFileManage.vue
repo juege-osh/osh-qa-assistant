@@ -3,7 +3,6 @@
     <section class="workspace-context-strip">
       <div class="workspace-context-copy">
         <el-button text class="workspace-btn workspace-btn--text" @click="$router.push('/workspace/knowledgeLib/manage')">返回知识库</el-button>
-        <span class="workspace-context-note">当前文档按知识库独立管理，可继续上传、预览切分或重建索引。</span>
       </div>
       <div class="workspace-context-actions">
         <span class="workspace-inline-tag workspace-inline-tag--soft">知识库 {{ currentLibDisplay }}</span>
@@ -16,9 +15,6 @@
       <div class="toolbar-copy workspace-toolbar-copy">
         <div class="workspace-toolbar-kicker">文档资产</div>
         <div class="toolbar-title">文件列表</div>
-        <div class="toolbar-desc">
-          先筛文件，再决定是预览内容、调整状态，还是重建索引。
-        </div>
       </div>
       <div class="toolbar-actions workspace-toolbar-actions">
         <el-form :model="searchData" :inline="true" class="workspace-toolbar-form">
@@ -103,12 +99,6 @@
     </section>
 
     <el-dialog v-model="previewDialogVisible" title="文件预览" width="920px" class="workspace-form-dialog workspace-preview-dialog">
-      <div class="dialog-intro">
-        先确认文件原文、切分规则和 chunk 预览是否自然，再决定要不要调整规则或重建索引。
-      </div>
-      <section class="workspace-dialog-tip-panel preview-dialog-tip">
-        如果当前回答不稳定，优先看 chunk 是否过粗、过碎或语义断裂；如果切分正常，再考虑回到资料内容本身做补充或清理。
-      </section>
       <section class="workspace-preview-shell">
         <section class="workspace-info-card workspace-info-card--flush preview-info-card">
           <div class="workspace-info-grid">
@@ -481,10 +471,6 @@ onMounted(() => {
 <style scoped>
 .uploadfile-manage-page {
   gap: 16px;
-}
-
-.preview-dialog-tip {
-  margin-bottom: 12px;
 }
 
 .preview-summary-panel {

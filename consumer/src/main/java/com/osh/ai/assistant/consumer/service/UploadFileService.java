@@ -22,6 +22,8 @@ public interface UploadFileService extends IService<UploadFileDO> {
     */
     void add(UploadFileAddReq addReq);
 
+    void addBatch(List<UploadFileAddReq> addReqs);
+
     /**
     * 分页查询
     */

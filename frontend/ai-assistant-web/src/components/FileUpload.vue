@@ -152,6 +152,14 @@ function doClearFileList() {
   uploadData.files = []
 }
 
+function hasPendingUploads() {
+  return uploadData.files.some(file => file.status === 'ready' || file.status === 'uploading')
+}
+
+function hasFailedUploads() {
+  return uploadData.files.some(file => file.status === 'fail')
+}
+
 /**
  * @param files 超出的文件列表,每个file元素都是js原生File对象,举例如:
  * {"uid": 1719572224307,lastModified:1719458418674,name: "2.png"
@@ -201,26 +209,13 @@ function extractUploadResult() {
  * }
  */
 function handleHttpRequest(options: UploadRequestOptions) {
-  let file = options.file as UploadRawFile
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", options.file as UploadRawFile);
   formData.append("module", props.module);
-  uploadFileApi(formData).then((res) => {
-    processResultDefine(res,file)
-  })
-}
-// 处理服务端返回的上传结果
-function processResultDefine(resultDefine: ResultDefine,file:UploadRawFile) {
-  for (let index = 0; index < uploadData.files.length; index++) {
-    const element = uploadData.files[index];
-    // 回显的没有raw
-    if (element.raw && element.raw.uid === file.uid) {
-      element.response = resultDefine
-    }
-  }
+  return uploadFileApi(formData)
 }
 // 暴露给父组件使用
-defineExpose({ doClearFileList })
+defineExpose({ doClearFileList, hasPendingUploads, hasFailedUploads })
 </script>
 <style scoped>
 .workspace-file-upload {

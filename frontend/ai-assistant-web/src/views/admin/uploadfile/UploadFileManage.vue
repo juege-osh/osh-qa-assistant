@@ -3,7 +3,6 @@
     <section class="workspace-context-strip">
       <div class="workspace-context-copy">
         <span class="workspace-status-pill workspace-status-pill--active">平台巡检</span>
-        <span class="workspace-context-note">统一查看各用户与应用上传的文件，优先关注高字符量、低命中的资料。</span>
       </div>
       <div class="workspace-context-actions">
         <span class="workspace-inline-tag workspace-inline-tag--soft">结果 {{ totalFileCountDisplay }}</span>
@@ -16,7 +15,6 @@
       <div class="file-overview-head workspace-overview-head workspace-dashboard-head">
         <div>
           <div class="panel-title">平台文件工作区</div>
-          <div class="panel-desc workspace-panel-desc">先看当前巡检范围内的启用状态、召回热度和整体规模，再决定要继续排查具体用户、应用还是知识库。</div>
         </div>
         <div class="workspace-inline-tags">
           <span class="workspace-inline-tag workspace-inline-tag--active">当前结果 {{ totalFileCountDisplay }}</span>
@@ -49,44 +47,10 @@
       </section>
     </section>
 
-    <section class="workspace-section-card admin-upload-summary-panel">
-      <div class="panel-title">巡检建议</div>
-      <div class="summary-list">
-        <div class="summary-item">{{ workflowSummary }}</div>
-        <div class="summary-item">高字符数但低召回的文档，通常适合优先复查标题命名、切分规则和所属知识库结构。</div>
-        <div class="summary-item">如果启用文件很多但召回热度仍然偏低，建议继续下钻到知识库和调用记录页确认命中链路是否正常。</div>
-      </div>
-    </section>
-
-    <section class="workspace-section-card admin-upload-focus-panel">
-      <div class="workspace-overview-head">
-        <div>
-          <div class="panel-title panel-title--md">当前关注点</div>
-          <div class="workspace-panel-desc">把当前结果翻译成更直接的巡检动作，方便决定先看启用状态、字符规模还是召回热度。</div>
-        </div>
-      </div>
-      <div class="workspace-tip-grid admin-upload-tip-grid">
-        <article
-          v-for="item in uploadFocusCards"
-          :key="item.title"
-          :class="['workspace-tip-card', 'admin-upload-tip-card', `admin-upload-tip-card--${item.tone}`]"
-        >
-          <div class="admin-upload-tip-card__head">
-            <span :class="['admin-upload-tip-card__dot', `admin-upload-tip-card__dot--${item.tone}`]"></span>
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-          </div>
-          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-        </article>
-      </div>
-    </section>
-
     <section class="toolbar-panel workspace-section-card workspace-toolbar-panel">
       <div class="toolbar-copy workspace-toolbar-copy">
         <div class="workspace-toolbar-kicker">文件巡检</div>
         <div class="toolbar-title">文件列表</div>
-        <div class="toolbar-desc">
-          先按用户、应用和知识库缩小范围，再回看高字符量、低召回的文件。
-        </div>
       </div>
       <div class="toolbar-actions workspace-toolbar-actions">
         <el-form :model="searchData" :inline="true" class="workspace-toolbar-form">
@@ -184,40 +148,6 @@ const currentPageCharCountDisplay = computed(() => {
   const total = tableData.rows.reduce((sum: number, row: { charCount?: number | string }) => sum + Number(row.charCount || 0), 0)
   return formatCount(total)
 })
-const workflowSummary = computed(() => {
-  if (!tableData.rows.length) {
-    return '当前筛选范围内还没有文件记录，可以调整筛选条件，或者回到平台其他模块继续查看知识库与应用情况。'
-  }
-  if (!tableData.rows.some((row: { status?: number }) => Number(row.status) === 1)) {
-    return '当前页还没有启用中的文件，这一批资料暂时无法稳定参与检索，建议先确认是否存在误停用或归档过早的情况。'
-  }
-  return '当前平台已经有启用中的文件资源，适合继续关注召回热度偏低的文档，并排查归属应用和知识库结构是否合理。'
-})
-
-const uploadFocusCards = computed(() => [
-  {
-    title: enabledFileCountDisplay.value === '0' ? '优先确认文件是否误停用' : '启用中的文件适合继续看命中热度',
-    desc: enabledFileCountDisplay.value === '0'
-      ? '当前结果里还没有启用中的文件，这批资料暂时无法稳定参与检索，建议先确认状态是否正确。'
-      : `当前已有 ${enabledFileCountDisplay.value} 个启用中的文件，适合继续判断是否真正参与了知识命中。`,
-    tone: enabledFileCountDisplay.value === '0' ? 'warning' : 'success'
-  },
-  {
-    title: currentPageRecallDisplay.value === '0' ? '低召回文件值得优先复查' : '可以继续结合召回热度做巡检',
-    desc: currentPageRecallDisplay.value === '0'
-      ? '当前结果里的文件召回热度很低，适合优先看标题命名、切分规则和知识库归属。'
-      : `当前结果累计召回 ${currentPageRecallDisplay.value} 次，可以继续判断哪些文件高频命中、哪些长期沉默。`,
-    tone: currentPageRecallDisplay.value === '0' ? 'warning' : 'success'
-  },
-  {
-    title: tableData.rows.length ? '高字符量文件适合回看切分策略' : '等待更多筛选结果后再判断',
-    desc: tableData.rows.length
-      ? `当前结果累计字符量 ${currentPageCharCountDisplay.value}，如果命中效果不理想，建议优先回看内容结构与 chunk 切分。`
-      : '当前结果为空，建议先调整筛选条件，拿到更多文件样本后再继续巡检。',
-    tone: tableData.rows.length ? 'warning' : 'success'
-  }
-] as const)
-
 function getStatusTagClass(status: number) {
   return Number(status) === 1 ? 'workspace-inline-tag--success' : 'workspace-inline-tag--warning'
 }
