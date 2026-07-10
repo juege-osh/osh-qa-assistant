@@ -139,6 +139,7 @@ auth:
     - /manager/manager/getCode
     - /manager/manager/login
     - /consumer/user/getCode
+    - /consumer/auth/getCode
     - /consumer/user/login
     - /consumer/user/register
     - /consumer/api/chat

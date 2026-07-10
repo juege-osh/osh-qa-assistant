@@ -82,10 +82,10 @@ auth:
     # 静态资源
     - /resources/**
     - /user/getCode
+    - /auth/getCode
     - /user/login
     - /user/register
     - /api/chat
-    - /chat/connect
     - /public/app/detail
     - /public/app/verifyPassword
     - /public/app/chat

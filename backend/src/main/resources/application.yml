@@ -98,6 +98,12 @@ ai-assistant:
         permits: 20
         window-seconds: 60
         message: 验证码请求过于频繁，请稍后再试
+      - name: consumer-auth-captcha
+        path-pattern: /consumer/auth/getCode
+        method: GET
+        permits: 20
+        window-seconds: 60
+        message: 验证码请求过于频繁，请稍后再试
       - name: consumer-login
         path-pattern: /consumer/user/login
         method: POST
@@ -180,6 +186,7 @@ auth:
     - /manager/manager/getCode
     - /manager/manager/login
     - /consumer/user/getCode
+    - /consumer/auth/getCode
     - /consumer/user/login
     - /consumer/user/register
     - /consumer/api/chat
