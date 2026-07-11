@@ -98,14 +98,32 @@ ai-assistant:
         permits: 20
         window-seconds: 60
         message: 验证码请求过于频繁，请稍后再试
+      - name: consumer-auth-captcha
+        path-pattern: /consumer/auth/getCode
+        method: GET
+        permits: 20
+        window-seconds: 60
+        message: 验证码请求过于频繁，请稍后再试
       - name: consumer-login
         path-pattern: /consumer/user/login
         method: POST
         permits: 12
         window-seconds: 60
         message: 登录请求过于频繁，请稍后再试
+      - name: consumer-auth-login
+        path-pattern: /consumer/auth/login
+        method: POST
+        permits: 12
+        window-seconds: 60
+        message: 登录请求过于频繁，请稍后再试
       - name: consumer-register
         path-pattern: /consumer/user/register
+        method: POST
+        permits: 5
+        window-seconds: 300
+        message: 注册请求过于频繁，请稍后再试
+      - name: consumer-auth-register
+        path-pattern: /consumer/auth/register
         method: POST
         permits: 5
         window-seconds: 300
@@ -180,8 +198,11 @@ auth:
     - /manager/manager/getCode
     - /manager/manager/login
     - /consumer/user/getCode
+    - /consumer/auth/getCode
     - /consumer/user/login
     - /consumer/user/register
+    - /consumer/auth/login
+    - /consumer/auth/register
     - /consumer/api/chat
     - /consumer/public/app/detail
     - /consumer/public/app/verifyPassword

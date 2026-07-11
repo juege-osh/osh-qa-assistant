@@ -3,7 +3,6 @@
     <section class="workspace-context-strip">
       <div class="workspace-context-copy">
         <span class="workspace-status-pill workspace-status-pill--active">平台巡检</span>
-        <span class="workspace-context-note">统一查看账号凭证、头像和注册信息，优先核查接入身份是否完整。</span>
       </div>
       <div class="workspace-context-actions">
         <span class="workspace-inline-tag workspace-inline-tag--soft">结果 {{ currentResultCountDisplay }}</span>
@@ -16,7 +15,6 @@
       <div class="workspace-overview-head workspace-dashboard-head">
         <div>
           <div class="panel-title">用户工作区</div>
-          <div class="workspace-panel-desc">先看账号凭证和头像配置是否完整，再决定要继续排查接入身份、账号归属还是发放状态。</div>
         </div>
         <div class="workspace-inline-tags">
           <span class="workspace-inline-tag workspace-inline-tag--active">当前结果 {{ currentResultCountDisplay }}</span>
@@ -49,44 +47,10 @@
       </section>
     </section>
 
-    <section class="workspace-section-card summary-panel admin-user-summary-panel">
-      <div class="panel-title">巡检建议</div>
-      <div class="summary-list">
-        <div class="summary-item">{{ userInspectionSummary }}</div>
-        <div class="summary-item">如果应用侧接入异常，先确认 appKey 是否已经分配，再结合调用记录排查失败原因。</div>
-        <div class="summary-item">头像和用户名都不清晰的账号，后续做权限核查和问题定位时辨识成本会更高，适合优先补齐。</div>
-      </div>
-    </section>
-
-    <section class="workspace-section-card admin-user-focus-panel">
-      <div class="workspace-overview-head">
-        <div>
-          <div class="panel-title panel-title--md">当前关注点</div>
-          <div class="workspace-panel-desc">把当前筛选结果翻译成更直接的巡检动作，方便决定先核对凭证、资料还是接入状态。</div>
-        </div>
-      </div>
-      <div class="workspace-tip-grid admin-user-tip-grid">
-        <article
-          v-for="item in userFocusCards"
-          :key="item.title"
-          :class="['workspace-tip-card', 'admin-user-tip-card', `admin-user-tip-card--${item.tone}`]"
-        >
-          <div class="admin-user-tip-card__head">
-            <span :class="['admin-user-tip-card__dot', `admin-user-tip-card__dot--${item.tone}`]"></span>
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-          </div>
-          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-        </article>
-      </div>
-    </section>
-
     <section class="toolbar-panel workspace-section-card workspace-toolbar-panel">
       <div class="toolbar-copy workspace-toolbar-copy">
         <div class="workspace-toolbar-kicker">账号巡检</div>
         <div class="toolbar-title">用户列表</div>
-        <div class="toolbar-desc">
-          先按用户名缩小范围，再核对头像、注册时间和 appKey 是否一致。
-        </div>
       </div>
       <div class="toolbar-actions workspace-toolbar-actions">
         <el-form :model="searchData" :inline="true" class="workspace-toolbar-form">
@@ -187,43 +151,6 @@ const assignedKeyCountDisplay = computed(() => formatCount(assignedKeyCount.valu
 const missingKeyCountDisplay = computed(() => formatCount(missingKeyCount.value))
 const avatarConfiguredCountDisplay = computed(() => formatCount(avatarConfiguredCount.value))
 const missingAvatarCountDisplay = computed(() => formatCount(missingAvatarCount.value))
-const userInspectionSummary = computed(() => {
-  if (!tableData.rows.length) {
-    return '当前筛选条件下还没有用户记录，可以调整用户名条件，或者回到其他平台页继续巡检。'
-  }
-  if (!tableData.rows.some((row: { appKey?: string }) => String(row.appKey || '').trim())) {
-    return '当前结果里还没有分配 appKey 的账号，这批用户暂时无法直接完成应用接入，建议优先确认发放流程是否遗漏。'
-  }
-  if (tableData.rows.some((row: { avatarPath?: string }) => !String(row.avatarPath || '').trim())) {
-    return '当前结果中仍有缺少头像的账号，虽然不影响接入，但会增加后台巡检和账号识别成本。'
-  }
-  return '当前结果里的用户凭证和头像配置整体较完整，适合继续结合调用记录和应用页核查实际接入效果。'
-})
-
-const userFocusCards = computed(() => [
-  {
-    title: missingKeyCount.value > 0 ? '先核查未分配 appKey 的账号' : '当前结果里的凭证整体完整',
-    desc: missingKeyCount.value > 0
-      ? `当前仍有 ${missingKeyCountDisplay.value} 个账号未分配 appKey，这批用户暂时无法直接完成应用接入。`
-      : '可以把更多精力放在真实接入效果和调用异常排查上，而不是先补发凭证。',
-    tone: missingKeyCount.value > 0 ? 'warning' : 'success'
-  },
-  {
-    title: missingAvatarCount.value > 0 ? '补齐头像能降低巡检辨识成本' : '账号资料辨识度较好',
-    desc: missingAvatarCount.value > 0
-      ? `当前有 ${missingAvatarCountDisplay.value} 个账号缺少头像，适合优先补齐，方便后续协作和值班识别。`
-      : '用户名和头像信息相对完整，后续做权限核查和问题定位会更顺手。',
-    tone: missingAvatarCount.value > 0 ? 'warning' : 'success'
-  },
-  {
-    title: tableData.rows.length ? '应用接入异常先回看调用记录' : '等待更多筛选结果后再判断',
-    desc: tableData.rows.length
-      ? '如果应用侧反馈异常，建议先确认账号身份和 appKey，再到调用记录里看失败原因与请求内容。'
-      : '当前结果为空，建议先放宽筛选条件，拿到更多样本后再继续判断问题分布。',
-    tone: tableData.rows.length ? 'warning' : 'success'
-  }
-] as const)
-
 function convertAvatarPath(avatarPath: string) {
   if (avatarPath) {
     return toAddressable(avatarPath)

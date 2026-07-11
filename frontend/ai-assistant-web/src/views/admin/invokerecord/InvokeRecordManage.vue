@@ -3,7 +3,6 @@
     <section class="workspace-context-strip">
       <div class="workspace-context-copy">
         <span class="workspace-status-pill workspace-status-pill--active">平台巡检</span>
-        <span class="workspace-context-note">从平台视角查看所有用户和应用的调用行为，先按范围缩小样本，再继续下钻失败原因和模型明细。</span>
       </div>
       <div class="workspace-context-actions">
         <span class="workspace-inline-tag workspace-inline-tag--soft">总调用 {{ totalCountDisplay }}</span>
@@ -16,7 +15,6 @@
       <div class="overview-head workspace-overview-head workspace-dashboard-head">
         <div>
           <div class="panel-title panel-title--md">调用工作区</div>
-          <div class="panel-desc workspace-panel-desc">先判断平台稳定性和当前记录规模，再按用户、时间和失败原因逐步缩小排查范围。</div>
         </div>
         <div class="workspace-inline-tags">
           <span :class="['workspace-inline-tag', healthToneClass]">{{ healthLabel }}</span>
@@ -49,43 +47,10 @@
       </section>
     </section>
 
-    <section class="workspace-section-card summary-panel admin-invoke-summary-panel">
-      <div class="panel-title panel-title--md">排查建议</div>
-      <div class="summary-list">
-        <div class="summary-item">{{ healthSummary }}</div>
-        <div v-for="item in watchList" :key="item" class="summary-item">{{ item }}</div>
-      </div>
-    </section>
-
-    <section class="workspace-section-card admin-invoke-focus-panel">
-      <div class="workspace-overview-head">
-        <div>
-          <div class="panel-title panel-title--md">当前关注点</div>
-          <div class="workspace-panel-desc">把平台调用状态翻译成更直接的排查动作，方便决定先盯失败率、耗时，还是先看资源消耗。</div>
-        </div>
-      </div>
-      <div class="workspace-tip-grid admin-invoke-tip-grid">
-        <article
-          v-for="item in recordFocusCards"
-          :key="item.title"
-          :class="['workspace-tip-card', 'admin-invoke-tip-card', `admin-invoke-tip-card--${item.tone}`]"
-        >
-          <div class="admin-invoke-tip-card__head">
-            <span :class="['admin-invoke-tip-card__dot', `admin-invoke-tip-card__dot--${item.tone}`]"></span>
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-          </div>
-          <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-        </article>
-      </div>
-    </section>
-
     <section class="toolbar-panel workspace-section-card workspace-toolbar-panel">
       <div class="toolbar-copy workspace-toolbar-copy">
         <div class="workspace-toolbar-kicker">调用巡检</div>
         <div class="toolbar-title">筛选记录</div>
-        <div class="toolbar-desc">
-          结合失败原因、时间范围和用户名筛选，可以快速定位是单个用户问题、某个应用问题，还是平台级异常。
-        </div>
       </div>
       <div class="toolbar-actions workspace-toolbar-actions">
           <el-form :model="searchData" :inline="true" class="workspace-toolbar-form">
@@ -118,7 +83,6 @@
       <div class="records-head workspace-overview-head workspace-dashboard-head">
         <div>
           <div class="panel-title panel-title--md">记录明细</div>
-          <div class="panel-desc workspace-panel-desc">展开单条记录可以继续查看模型明细、失败原因、耗时、查询词和响应结果。</div>
         </div>
         <div class="workspace-inline-tags">
           <span class="workspace-inline-tag workspace-inline-tag--soft">成功 {{ successCountDisplay }}</span>
@@ -306,69 +270,6 @@ const healthToneClass = computed(() => {
     return 'workspace-inline-tag--warning'
   }
   return 'workspace-inline-tag--danger'
-})
-
-const healthSummary = computed(() => {
-  if (successRateValue.value >= 95) {
-    return '当前平台整体较稳定，建议继续观察高耗时请求和异常 Token 增长，优先做体验与成本优化。'
-  }
-  if (successRateValue.value >= 80) {
-    return '当前平台基本可用，但已经出现需要关注的失败或慢请求，建议优先缩小到具体用户、时间段和失败原因。'
-  }
-  return '当前平台成功率偏低，建议优先检查模型配置、知识库链路和 SSE 返回过程中的异常。'
-})
-
-const watchList = computed(() => {
-  const items: string[] = []
-  const failCount = normalizeNumber(overview.failCount)
-  const avgCostTime = normalizeNumber(overview.avgCostTime)
-  const totalCostToken = normalizeNumber(overview.totalCostToken)
-
-  if (failCount > 0) {
-    items.push(`当前累计失败 ${formatCount(failCount)} 次，建议先在表格中按失败状态筛选，再聚焦真实报错与中断点。`)
-  } else {
-    items.push('当前未发现失败记录，可以重点关注响应耗时和业务回答质量是否持续稳定。')
-  }
-
-  if (avgCostTime >= 5000) {
-    items.push(`平均耗时已达到 ${formatCount(avgCostTime)}ms，建议优先排查检索链路、重排耗时和模型响应速度。`)
-  } else {
-    items.push(`平均耗时约 ${formatCount(avgCostTime)}ms，当前速度相对平稳，可以更多关注命中效果与输出质量。`)
-  }
-
-  items.push(`累计 Token 已到 ${formatCount(totalCostToken)}，如果增长异常，建议检查上下文长度、重复调用和高频访问来源。`)
-  return items
-})
-const recordFocusCards = computed(() => {
-  const failCount = normalizeNumber(overview.failCount)
-  const avgCostTime = normalizeNumber(overview.avgCostTime)
-  const totalCostToken = normalizeNumber(overview.totalCostToken)
-
-  return [
-    {
-      title: successRateValue.value >= 95 ? '平台成功率处于稳定区间' : successRateValue.value >= 80 ? '失败率已经需要重点关注' : '优先排查失败链路',
-      desc: successRateValue.value >= 95
-        ? `当前成功率保持在 ${successRate.value}，更适合继续盯高耗时请求和局部异常峰值。`
-        : successRateValue.value >= 80
-          ? `当前成功率为 ${successRate.value}，建议先按失败状态缩小到异常时间段、用户和应用。`
-          : `当前成功率仅为 ${successRate.value}，建议优先检查模型配置、知识链路和流式返回过程是否异常。`,
-      tone: successRateValue.value >= 95 ? 'success' : successRateValue.value >= 80 ? 'warning' : 'danger'
-    },
-    {
-      title: avgCostTime >= 5000 ? '慢请求适合优先下钻明细' : '耗时整体相对平稳',
-      desc: avgCostTime >= 5000
-        ? `当前平均耗时约 ${formatCount(avgCostTime)}ms，建议优先看检索、重排和模型响应三个阶段的耗时分布。`
-        : `当前平均耗时约 ${formatCount(avgCostTime)}ms，下一步可以更多关注回答质量和异常个案。`,
-      tone: avgCostTime >= 5000 ? 'warning' : 'success'
-    },
-    {
-      title: totalCostToken > 0 ? 'Token 消耗适合继续联动峰值排查' : '当前仍需积累更多消耗样本',
-      desc: totalCostToken > 0
-        ? `当前累计 Token 已到 ${formatCount(totalCostToken)}，如果增长异常，建议继续检查上下文长度、重复调用和高频来源。`
-        : '当前还没有明显的 Token 消耗样本，更适合先观察请求规模和基础稳定性。',
-      tone: totalCostToken > 0 ? 'success' : 'warning'
-    }
-  ] as const
 })
 
 function getStatusTagClass(status: number) {

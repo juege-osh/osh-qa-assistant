@@ -46,32 +46,32 @@ const staticRoutes = [
           {
             path: 'manager/manage',
             component: () => import('@/views/admin/manager/ManagerManage.vue'),
-            meta: { authorityName: '管理员管理', role: 'ADMIN' }
+            meta: { authorityName: '管理员账号', role: 'ADMIN' }
           },
           {
             path: 'user/manage',
             component: () => import('@/views/admin/user/UserManage.vue'),
-            meta: { authorityName: '用户管理', role: 'ADMIN' }
+            meta: { authorityName: '用户审计', role: 'ADMIN' }
           },
           {
             path: 'invokeRecord/manage',
             component: () => import('@/views/admin/invokerecord/InvokeRecordManage.vue'),
-            meta: { authorityName: '调用记录', role: 'ADMIN' }
+            meta: { authorityName: '调用审计', role: 'ADMIN' }
           },
           {
             path: 'app/manage',
             component: () => import('@/views/admin/app/AppManage.vue'),
-            meta: { authorityName: '应用管理', role: 'ADMIN' }
+            meta: { authorityName: '应用审计', role: 'ADMIN' }
           },
           {
             path: 'knowledgeLib/manage',
             component: () => import('@/views/admin/knowledgelib/KnowledgeLibManage.vue'),
-            meta: { authorityName: '知识库管理', role: 'ADMIN' }
+            meta: { authorityName: '知识库审计', role: 'ADMIN' }
           },
           {
             path: 'uploadFile/manage',
             component: () => import('@/views/admin/uploadfile/UploadFileManage.vue'),
-            meta: { authorityName: '文件管理', role: 'ADMIN' }
+            meta: { authorityName: '文件审计', role: 'ADMIN' }
           }
         ]
       },

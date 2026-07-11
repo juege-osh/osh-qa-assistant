@@ -8,9 +8,6 @@
       width="680px"
       :before-close="handleCancel"
     >
-      <div class="dialog-intro">
-        修改后会直接影响这个应用的回答表现和公开展示。
-      </div>
       <section class="workspace-info-card workspace-dialog-summary-card">
         <div class="workspace-info-grid workspace-info-grid--compact">
           <div class="workspace-info-item">
@@ -29,17 +26,6 @@
             <div class="workspace-info-label">图标状态</div>
             <div class="workspace-info-value">{{ formData.iconPath ? '已配置图标' : '暂未配置图标' }}</div>
           </div>
-        </div>
-      </section>
-      <section class="workspace-dialog-tip-panel">
-        更新应用时，建议一次只聚焦一类变化。比如先改描述和提示词，再去聊天页验证；如果同时改模型、提示词和知识库，更难判断效果变化来自哪里。
-      </section>
-      <section class="workspace-info-card workspace-dialog-summary-card">
-        <div class="workspace-tip-grid">
-          <article v-for="item in updateAppFocusCards" :key="item.title" class="workspace-tip-card">
-            <div class="workspace-tip-card__title">{{ item.title }}</div>
-            <div class="workspace-tip-card__desc">{{ item.desc }}</div>
-          </article>
         </div>
       </section>
       <el-form
@@ -132,24 +118,6 @@ let pageData = reactive({
   knowledgeLibs: [] as AnyObjsDefine
 })
 const currentModelStrategy = computed(() => String(formData.chatModel || '').trim() ? '已指定专用模型' : '使用系统默认模型')
-const updateAppFocusCards = computed(() => [
-  {
-    title: '建议先改最核心的一项配置',
-    desc: '如果同时调整模型、提示词和对外回答策略，后续很难快速判断效果变化到底来自哪一部分。'
-  },
-  {
-    title: Number(formData.outLibEnable) === 1 ? '当前允许知识库外扩展回答' : '当前仍然优先依据知识库回答',
-    desc: Number(formData.outLibEnable) === 1
-      ? '更适合对开放问题容忍度更高的场景，但也要继续观察回答边界是否会变松。'
-      : '更适合强调依据可靠性的知识问答场景，后续可以继续关注命中和检索效果。'
-  },
-  {
-    title: String(formData.chatModel || '').trim() ? '专用模型值得继续做效果对比' : '当前仍可先用默认模型验证链路',
-    desc: String(formData.chatModel || '').trim()
-      ? '更新后建议继续和默认模型对比回答速度、风格和稳定性，避免只凭主观感觉判断。'
-      : '如果默认模型已经能满足当前场景，优先把更多精力放在知识组织和提示词结构上。'
-  }
-])
 // 上传文件fileList
 let uploadInfo = reactive<{
   fileList: UploadUserFile[]

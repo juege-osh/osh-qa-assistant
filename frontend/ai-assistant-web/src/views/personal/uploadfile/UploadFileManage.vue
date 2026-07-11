@@ -3,7 +3,6 @@
     <section class="workspace-context-strip">
       <div class="workspace-context-copy">
         <el-button text class="workspace-btn workspace-btn--text" @click="$router.push('/workspace/knowledgeLib/manage')">返回知识库</el-button>
-        <span class="workspace-context-note">当前文档按知识库独立管理，可继续上传、预览切分或重建索引。</span>
       </div>
       <div class="workspace-context-actions">
         <span class="workspace-inline-tag workspace-inline-tag--soft">知识库 {{ currentLibDisplay }}</span>
@@ -12,49 +11,10 @@
       </div>
     </section>
 
-    <section class="workspace-section-card file-overview-panel workspace-dashboard-panel">
-      <div class="file-overview-head workspace-overview-head workspace-dashboard-head">
-        <div>
-          <div class="panel-title">文档工作区</div>
-          <div class="panel-desc workspace-panel-desc">先确认当前知识库、文件状态和召回规模，再决定是继续上传新资料、预览切分，还是直接重建索引。</div>
-        </div>
-        <div class="workspace-inline-tags">
-          <span class="workspace-inline-tag workspace-inline-tag--active">知识库 {{ currentLibDisplay }}</span>
-          <span class="workspace-inline-tag workspace-inline-tag--soft">启用 {{ enabledFileCountDisplay }}</span>
-          <span class="workspace-inline-tag workspace-inline-tag--soft">停用 {{ disabledFileCountDisplay }}</span>
-        </div>
-      </div>
-      <section class="stats-grid workspace-metrics-grid">
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--total">
-          <div class="stat-label">当前文件</div>
-          <div class="stat-value">{{ totalFileCountDisplay }}</div>
-          <div class="stat-help">当前页内已经进入管理视图、可继续处理的文件数量。</div>
-        </article>
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--success">
-          <div class="stat-label">启用中文档</div>
-          <div class="stat-value workspace-stat-value--success">{{ enabledFileCountDisplay }}</div>
-          <div class="stat-help">已经参与检索的文件，更适合继续看召回和切分效果。</div>
-        </article>
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--time">
-          <div class="stat-label">停用中文档</div>
-          <div class="stat-value workspace-stat-value--warning">{{ disabledFileCountDisplay }}</div>
-          <div class="stat-help">暂未参与检索，适合先确认是否需要重新启用或重建。</div>
-        </article>
-        <article class="stat-card workspace-stat-card--framed workspace-stat-card--token">
-          <div class="stat-label">当前页召回</div>
-          <div class="stat-value">{{ currentPageRecallDisplay }}</div>
-          <div class="stat-help">结合文件状态一起看，更容易判断哪些资料在真正被命中。</div>
-        </article>
-      </section>
-    </section>
-
     <section class="toolbar-panel workspace-section-card workspace-toolbar-panel">
       <div class="toolbar-copy workspace-toolbar-copy">
         <div class="workspace-toolbar-kicker">文档资产</div>
         <div class="toolbar-title">文件列表</div>
-        <div class="toolbar-desc">
-          先筛文件，再决定是预览内容、调整状态，还是重建索引。
-        </div>
       </div>
       <div class="toolbar-actions workspace-toolbar-actions">
         <el-form :model="searchData" :inline="true" class="workspace-toolbar-form">
@@ -139,12 +99,6 @@
     </section>
 
     <el-dialog v-model="previewDialogVisible" title="文件预览" width="920px" class="workspace-form-dialog workspace-preview-dialog">
-      <div class="dialog-intro">
-        先确认文件原文、切分规则和 chunk 预览是否自然，再决定要不要调整规则或重建索引。
-      </div>
-      <section class="workspace-dialog-tip-panel preview-dialog-tip">
-        如果当前回答不稳定，优先看 chunk 是否过粗、过碎或语义断裂；如果切分正常，再考虑回到资料内容本身做补充或清理。
-      </section>
       <section class="workspace-preview-shell">
         <section class="workspace-info-card workspace-info-card--flush preview-info-card">
           <div class="workspace-info-grid">
@@ -359,12 +313,6 @@ const currentLibDisplay = computed(() => {
   const currentLibName = String(tableData.rows[0]?.libName || '').trim()
   return currentLibName || String(searchData.libId || '').trim() || '--'
 })
-const enabledFileCountDisplay = computed(() => {
-  return formatCount(tableData.rows.filter((row: { status?: number }) => Number(row.status) === 1).length)
-})
-const disabledFileCountDisplay = computed(() => {
-  return formatCount(tableData.rows.filter((row: { status?: number }) => Number(row.status) !== 1).length)
-})
 const currentPageRecallDisplay = computed(() => {
   const total = tableData.rows.reduce((sum: number, row: { recallCount?: number | string }) => sum + Number(row.recallCount || 0), 0)
   return formatCount(total)
@@ -523,10 +471,6 @@ onMounted(() => {
 <style scoped>
 .uploadfile-manage-page {
   gap: 16px;
-}
-
-.preview-dialog-tip {
-  margin-bottom: 12px;
 }
 
 .preview-summary-panel {

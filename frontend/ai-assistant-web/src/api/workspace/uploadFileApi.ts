@@ -8,6 +8,17 @@ export function addUploadFileApi(data:object) {
       data: data
   })
 }
+
+/**
+ * 批量新增文件，单次最多 10 个。
+ */
+export function addUploadFilesBatchApi(data:object) {
+  return appJsonPost({
+      url: "/consumer/uploadFile/addBatch",
+      data: data
+  })
+}
+
 /**
  * 分页查询
  */

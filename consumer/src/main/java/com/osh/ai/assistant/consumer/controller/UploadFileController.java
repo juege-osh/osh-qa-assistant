@@ -2,6 +2,7 @@ package com.osh.ai.assistant.consumer.controller;
 
 import com.osh.ai.assistant.common.bean.res.Result;
 import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFileAddReq;
+import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFileBatchAddReq;
 import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFilePageReq;
 import com.osh.ai.assistant.consumer.bean.req.uploadfile.UploadFileUpdateStatusReq;
 import com.osh.ai.assistant.consumer.bean.vo.UploadFileVO;
@@ -34,6 +35,15 @@ public class UploadFileController {
     public Result<Void> add(@RequestBody @Validated UploadFileAddReq addReq) {
         uploadFileService.add(addReq);
         return Result.buildSuccessMsg("添加成功");
+    }
+
+    /**
+     * 批量新增文件，单次最多 10 个
+     */
+    @PostMapping("/addBatch")
+    public Result<Void> addBatch(@RequestBody @Validated UploadFileBatchAddReq addReq) {
+        uploadFileService.addBatch(addReq.getFiles());
+        return Result.buildSuccessMsg("已添加 " + addReq.getFiles().size() + " 个文件");
     }
 
     /**
